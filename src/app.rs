@@ -14,7 +14,7 @@ pub struct App {
     pub channels: StatefulList<Channel>,
     pub videos: StatefulList<Video>,
     pub selected: Selected,
-    channel_ids: Vec<String>,
+    pub channel_ids: Vec<String>,
     pub conn: Connection,
     instance: Instance,
     hide_watched: bool,
@@ -73,29 +73,17 @@ impl App {
         self.channels.items.push(channel);
     }
 
-    fn add_videos(&self, videos_json: Value, channel_id: &str) {
+    pub fn add_videos(&self, videos_json: Value, channel_id: &str) {
         let videos: Vec<Video> = Video::vec_from_json(videos_json);
         database::add_videos(&self.conn, channel_id, &videos);
     }
 
-    pub fn refresh_current_channel(&mut self) {
-        let channel_id = &self.get_current_channel().unwrap().channel_id;
-        let videos_json = self.instance.get_videos_of_channel(channel_id);
-        self.add_videos(videos_json, channel_id);
-        self.on_change_channel();
-    }
-
-    pub fn refresh_all_channels(&mut self) {
-        let mut videos_json;
-        for channel_id in &self.channel_ids {
-            videos_json = self.instance.get_videos_of_channel(channel_id);
-            self.add_videos(videos_json, channel_id);
-        }
-        self.on_change_channel();
-    }
-
     pub fn load_videos(&mut self) {
         self.channels = database::get_channels(&self.conn).into();
+    }
+
+    pub fn instance(&self) -> Instance {
+        self.instance.clone()
     }
 
     pub fn get_current_channel(&self) -> Option<&Channel> {
@@ -165,7 +153,7 @@ impl App {
         .unwrap();
     }
 
-    fn on_change_channel(&mut self) {
+    pub fn on_change_channel(&mut self) {
         let channel_id = &self.get_current_channel().unwrap().channel_id.clone();
         let videos = database::get_videos(&self.conn, channel_id);
         self.videos.items = if self.hide_watched {
@@ -174,6 +162,16 @@ impl App {
             videos
         };
         self.videos.reset_state();
+    }
+
+    pub fn on_refresh_channel(&mut self) {
+        let channel_id = &self.get_current_channel().unwrap().channel_id.clone();
+        let videos = database::get_videos(&self.conn, channel_id);
+        self.videos.items = if self.hide_watched {
+            videos.into_iter().filter(|video| !video.watched).collect()
+        } else {
+            videos
+        };
     }
 
     pub fn on_down(&mut self) {
@@ -233,6 +231,7 @@ impl App {
     }
 }
 
+#[derive(Clone)]
 pub struct Instance {
     pub domain: String,
     agent: Agent,

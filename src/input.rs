@@ -9,8 +9,6 @@ pub fn handle_key(key: KeyEvent, app: &mut App) {
         KeyCode::Char('l') => app.on_right(),
         KeyCode::Char('g') => app.select_first(),
         KeyCode::Char('f') => app.select_last(),
-        KeyCode::Char('u') => app.refresh_current_channel(),
-        KeyCode::Char('r') => app.refresh_all_channels(),
         KeyCode::Char('n') => app.toggle_hide(),
         KeyCode::Char('o') => {
             app.mark_as_watched();
