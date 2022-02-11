@@ -113,10 +113,8 @@ pub fn get_channels(conn: &Connection) -> Vec<Channel> {
 
     stmt.query_map([], |row| {
         let channel_id: String = row.get(0).unwrap();
-        Ok(Channel {
-            channel_id,
-            channel_name: row.get(1).unwrap(),
-        })
+        let channel_name: String = row.get(1).unwrap();
+        Ok(Channel::new(channel_id, channel_name))
     })
     .unwrap()
     .map(|res| res.unwrap())
