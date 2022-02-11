@@ -83,13 +83,19 @@ async fn refresh_channels(app: &Arc<Mutex<App>>, channel_ids: Vec<String>) {
     let instance = app.lock().unwrap().instance();
     let streams = futures_util::stream::iter(channel_ids).map(|channel_id| {
         let instance = instance.clone();
+        app.lock().unwrap().start_refreshing_channel(&channel_id);
         let app = app.clone();
 
         tokio::task::spawn_blocking(move || {
             let videos_json = instance.get_videos_of_channel(&channel_id);
-            app.lock().unwrap().add_videos(videos_json, &channel_id)
+            app.lock().unwrap().add_videos(videos_json, &channel_id);
+            channel_id
         })
     });
     let mut buffered = streams.buffer_unordered(num_cpus::get());
-    while buffered.next().await.is_some() {}
+    while let Some(channel_id) = buffered.next().await {
+        app.lock()
+            .unwrap()
+            .complete_refreshing_channel(&channel_id.unwrap());
+    }
 }

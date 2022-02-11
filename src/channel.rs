@@ -3,6 +3,8 @@ use serde_json::Value;
 pub struct Channel {
     pub channel_id: String,
     pub channel_name: String,
+    pub currently_refreshing: bool,
+    pub new_video: bool,
 }
 
 impl Channel {
@@ -10,6 +12,8 @@ impl Channel {
         Self {
             channel_id,
             channel_name,
+            currently_refreshing: false,
+            new_video: false,
         }
     }
 }

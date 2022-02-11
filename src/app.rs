@@ -73,9 +73,10 @@ impl App {
         self.channels.items.push(channel);
     }
 
-    pub fn add_videos(&self, videos_json: Value, channel_id: &str) {
+    pub fn add_videos(&mut self, videos_json: Value, channel_id: &str) {
         let videos: Vec<Video> = Video::vec_from_json(videos_json);
-        database::add_videos(&self.conn, channel_id, &videos);
+        let any_new_videos = database::add_videos(&self.conn, channel_id, &videos);
+        self.get_channel_by_id(channel_id).unwrap().new_video = any_new_videos;
     }
 
     pub fn load_videos(&mut self) {
@@ -84,6 +85,27 @@ impl App {
 
     pub fn instance(&self) -> Instance {
         self.instance.clone()
+    }
+
+    fn get_channel_by_id(&mut self, channel_id: &str) -> Option<&mut Channel> {
+        for channel in &mut self.channels.items {
+            if channel.channel_id == channel_id {
+                return Some(channel);
+            }
+        }
+        None
+    }
+
+    pub fn start_refreshing_channel(&mut self, channel_id: &str) {
+        self.get_channel_by_id(channel_id)
+            .unwrap()
+            .currently_refreshing = true;
+    }
+
+    pub fn complete_refreshing_channel(&mut self, channel_id: &str) {
+        self.get_channel_by_id(channel_id)
+            .unwrap()
+            .currently_refreshing = false;
     }
 
     pub fn get_current_channel(&self) -> Option<&Channel> {

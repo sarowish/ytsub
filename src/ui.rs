@@ -20,7 +20,16 @@ fn draw_channels<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
         .channels
         .items
         .iter()
-        .map(|ch| ch.channel_name.clone())
+        .map(|ch| {
+            let refresh_indicator = if ch.currently_refreshing { "■ " } else { "" };
+            let new_video_indicator = if ch.new_video { " [N]" } else { "" };
+            format!(
+                "{}{}{}",
+                refresh_indicator,
+                ch.channel_name.clone(),
+                new_video_indicator
+            )
+        })
         .map(Span::raw)
         .map(ListItem::new)
         .collect::<Vec<ListItem>>();

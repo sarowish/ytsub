@@ -38,7 +38,7 @@ pub fn create_channel(conn: &Connection, channel: &Channel) {
     .unwrap();
 }
 
-pub fn add_videos(conn: &Connection, channel_id: &str, videos: &[Video]) {
+pub fn add_videos(conn: &Connection, channel_id: &str, videos: &[Video]) -> bool {
     let columns = [
         "video_id",
         "channel_id",
@@ -83,7 +83,8 @@ pub fn add_videos(conn: &Connection, channel_id: &str, videos: &[Video]) {
         VALUES {}",
         columns_str, values_string
     );
-    conn.execute(&query, videos_values.as_slice()).unwrap();
+    let new_video_count = conn.execute(&query, videos_values.as_slice()).unwrap();
+    new_video_count > 0
 }
 
 pub fn get_channel_ids(conn: &Connection) -> Vec<String> {
