@@ -187,13 +187,14 @@ impl App {
     }
 
     pub fn on_refresh_channel(&mut self) {
-        let channel_id = &self.get_current_channel().unwrap().channel_id.clone();
-        let videos = database::get_videos(&self.conn, channel_id);
-        self.videos.items = if self.hide_watched {
-            videos.into_iter().filter(|video| !video.watched).collect()
-        } else {
-            videos
-        };
+        if let Some(channel) = self.get_current_channel() {
+            let videos = database::get_videos(&self.conn, &channel.channel_id);
+            self.videos.items = if self.hide_watched {
+                videos.into_iter().filter(|video| !video.watched).collect()
+            } else {
+                videos
+            };
+        }
     }
 
     pub fn on_down(&mut self) {
