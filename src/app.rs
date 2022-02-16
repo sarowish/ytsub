@@ -69,8 +69,8 @@ impl App {
             .to_string();
         let channel = Channel::new(channel_id.clone(), channel_name);
         database::create_channel(&self.conn, &channel);
-        self.add_videos(videos_json, &channel_id);
         self.channels.items.push(channel);
+        self.add_videos(videos_json, &channel_id);
     }
 
     pub fn add_videos(&mut self, videos_json: Value, channel_id: &str) {
