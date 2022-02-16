@@ -17,7 +17,7 @@ pub fn handle_key(key: KeyEvent, app: &mut App) {
         KeyCode::Char('p') => {
             app.mark_as_watched();
             app.play_video();
-        },
+        }
         KeyCode::Char('m') => app.toggle_watched(),
         _ => {}
     }
