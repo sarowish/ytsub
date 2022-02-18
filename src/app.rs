@@ -1,4 +1,4 @@
-use crate::channel::{Channel, Video};
+use crate::channel::{Channel, RefreshState, Video};
 use crate::database;
 use rand::prelude::*;
 use rusqlite::Connection;
@@ -97,15 +97,11 @@ impl App {
     }
 
     pub fn start_refreshing_channel(&mut self, channel_id: &str) {
-        self.get_channel_by_id(channel_id)
-            .unwrap()
-            .currently_refreshing = true;
+        self.get_channel_by_id(channel_id).unwrap().refresh_state = RefreshState::Refreshing;
     }
 
     pub fn complete_refreshing_channel(&mut self, channel_id: &str) {
-        self.get_channel_by_id(channel_id)
-            .unwrap()
-            .currently_refreshing = false;
+        self.get_channel_by_id(channel_id).unwrap().refresh_state = RefreshState::Completed;
     }
 
     pub fn get_current_channel(&self) -> Option<&Channel> {

@@ -55,15 +55,14 @@ fn main() {
                     let cloned_app = app.clone();
                     std::thread::spawn(move || {
                         let rt = Runtime::new().unwrap();
-                        rt.block_on(refresh_channels(&cloned_app, vec![current_channel_id]));
+                        rt.block_on(refresh_channel(&cloned_app, current_channel_id));
                         cloned_app.lock().unwrap().on_refresh_channel();
                     });
                 } else if let KeyCode::Char('r') = key.code {
-                    let channel_ids = app.lock().unwrap().channel_ids.clone();
                     let cloned_app = app.clone();
                     std::thread::spawn(move || {
                         let rt = Runtime::new().unwrap();
-                        rt.block_on(refresh_channels(&cloned_app, channel_ids));
+                        rt.block_on(refresh_channels(&cloned_app));
                         cloned_app.lock().unwrap().on_refresh_channel();
                     });
                 } else {
@@ -79,7 +78,25 @@ fn main() {
     execute!(terminal.backend_mut(), LeaveAlternateScreen).unwrap();
 }
 
-async fn refresh_channels(app: &Arc<Mutex<App>>, channel_ids: Vec<String>) {
+async fn refresh_channel(app: &Arc<Mutex<App>>, channel_id: String) {
+    let instance = app.lock().unwrap().instance();
+    app.lock().unwrap().start_refreshing_channel(&channel_id);
+    let app = app.clone();
+    tokio::task::spawn_blocking(move || {
+        let videos_json = instance.get_videos_of_channel(&channel_id);
+        app.lock().unwrap().add_videos(videos_json, &channel_id);
+        app.lock().unwrap().complete_refreshing_channel(&channel_id);
+    });
+}
+
+async fn refresh_channels(app: &Arc<Mutex<App>>) {
+    app.lock()
+        .unwrap()
+        .channels
+        .items
+        .iter_mut()
+        .for_each(|channel| channel.set_to_be_refreshed());
+    let channel_ids = app.lock().unwrap().channel_ids.clone();
     let instance = app.lock().unwrap().instance();
     let streams = futures_util::stream::iter(channel_ids).map(|channel_id| {
         let instance = instance.clone();
@@ -89,13 +106,9 @@ async fn refresh_channels(app: &Arc<Mutex<App>>, channel_ids: Vec<String>) {
         tokio::task::spawn_blocking(move || {
             let videos_json = instance.get_videos_of_channel(&channel_id);
             app.lock().unwrap().add_videos(videos_json, &channel_id);
-            channel_id
+            app.lock().unwrap().complete_refreshing_channel(&channel_id);
         })
     });
     let mut buffered = streams.buffer_unordered(num_cpus::get());
-    while let Some(channel_id) = buffered.next().await {
-        app.lock()
-            .unwrap()
-            .complete_refreshing_channel(&channel_id.unwrap());
-    }
+    while buffered.next().await.is_some() {}
 }

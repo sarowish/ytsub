@@ -1,4 +1,5 @@
 use crate::app::{App, Selected};
+use crate::channel::RefreshState;
 use tui::backend::Backend;
 use tui::layout::{Constraint, Direction, Layout, Rect};
 use tui::style::{Color, Modifier, Style};
@@ -21,7 +22,11 @@ fn draw_channels<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
         .items
         .iter()
         .map(|ch| {
-            let refresh_indicator = if ch.currently_refreshing { "■ " } else { "" };
+            let refresh_indicator = match ch.refresh_state {
+                RefreshState::ToBeRefreshed => "□ ",
+                RefreshState::Refreshing => "■ ",
+                RefreshState::Completed => "",
+            };
             let new_video_indicator = if ch.new_video { " [N]" } else { "" };
             format!(
                 "{}{}{}",

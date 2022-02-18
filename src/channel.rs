@@ -1,9 +1,15 @@
 use serde_json::Value;
 
+pub enum RefreshState {
+    ToBeRefreshed,
+    Refreshing,
+    Completed,
+}
+
 pub struct Channel {
     pub channel_id: String,
     pub channel_name: String,
-    pub currently_refreshing: bool,
+    pub refresh_state: RefreshState,
     pub new_video: bool,
 }
 
@@ -12,9 +18,13 @@ impl Channel {
         Self {
             channel_id,
             channel_name,
-            currently_refreshing: false,
+            refresh_state: RefreshState::Completed,
             new_video: false,
         }
+    }
+
+    pub fn set_to_be_refreshed(&mut self) {
+        self.refresh_state = RefreshState::ToBeRefreshed;
     }
 }
 
