@@ -79,7 +79,7 @@ impl App {
         self.get_channel_by_id(channel_id).unwrap().new_video = any_new_videos;
     }
 
-    pub fn load_videos(&mut self) {
+    pub fn load_channels(&mut self) {
         self.channels = database::get_channels(&self.conn).into();
     }
 

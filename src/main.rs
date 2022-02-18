@@ -30,7 +30,7 @@ fn main() {
     let mut terminal = Terminal::new(backend).unwrap();
     database::initialize_db(&app.lock().unwrap().conn);
     app.lock().unwrap().add_new_channels();
-    app.lock().unwrap().load_videos();
+    app.lock().unwrap().load_channels();
     let tick_rate = Duration::from_millis(200);
     let mut last_tick = Instant::now();
     loop {
