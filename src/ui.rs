@@ -4,7 +4,7 @@ use tui::backend::Backend;
 use tui::layout::{Constraint, Direction, Layout, Rect};
 use tui::style::{Color, Modifier, Style};
 use tui::text::Span;
-use tui::widgets::{Block, Borders, List, ListItem};
+use tui::widgets::{Block, BorderType, Borders, List, ListItem};
 use tui::Frame;
 
 pub fn draw<B: Backend>(f: &mut Frame<B>, app: &mut App) {
@@ -54,14 +54,12 @@ fn draw_channels<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
         .map(ListItem::new)
         .collect::<Vec<ListItem>>();
     let channels = List::new(channels)
-        .block(
-            Block::default().borders(Borders::ALL).title(Span::styled(
-                "Channels",
-                Style::default()
-                    .fg(Color::Cyan)
-                    .add_modifier(Modifier::BOLD),
-            )),
-        )
+        .block(Block::default().borders(Borders::ALL).title(gen_title(
+            app,
+            "Channels".into(),
+            Selected::Channels,
+            area.width as usize,
+        )))
         .highlight_style(match app.selected {
             Selected::Channels => Style::default()
                 .fg(Color::Magenta)
@@ -88,33 +86,74 @@ fn draw_videos<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
         })
         .map(ListItem::new)
         .collect::<Vec<ListItem>>();
-    let videos = List::new(videos)
-        .block(
-            Block::default().borders(Borders::ALL).title(Span::styled(
+    let videos =
+        List::new(videos)
+            .block(Block::default().borders(Borders::ALL).title(
                 if let Mode::LatestVideos = app.mode {
-                    "Latest Videos".to_string()
+                    gen_title(
+                        app,
+                        "Latest Videos".into(),
+                        Selected::Videos,
+                        area.width.into(),
+                    )
                 } else if let Some(channel) = app.get_current_channel() {
-                    channel.channel_name.clone()
+                    gen_title(
+                        app,
+                        channel.channel_name.clone(),
+                        Selected::Videos,
+                        area.width.into(),
+                    )
                 } else {
                     Default::default()
                 },
-                Style::default()
-                    .fg(Color::Cyan)
-                    .add_modifier(Modifier::BOLD),
-            )),
-        )
-        .highlight_style({
-            let mut style = Style::default();
-            style = match app.selected {
-                Selected::Channels => style.fg(Color::Blue),
-                Selected::Videos => style.fg(Color::Magenta),
-            };
-            if let Some(video) = app.get_current_video() {
-                if !video.watched {
-                    style = style.add_modifier(Modifier::BOLD)
+            ))
+            .highlight_style({
+                let mut style = Style::default();
+                style = match app.selected {
+                    Selected::Channels => style.fg(Color::Blue),
+                    Selected::Videos => style.fg(Color::Magenta),
+                };
+                if let Some(video) = app.get_current_video() {
+                    if !video.watched {
+                        style = style.add_modifier(Modifier::BOLD)
+                    }
                 }
-            }
-            style
-        });
+                style
+            });
     f.render_stateful_widget(videos, area, &mut app.videos.state);
+}
+
+fn gen_title<'a>(app: &App, title: String, selected: Selected, area_width: usize) -> Vec<Span<'a>> {
+    let style = Style::default()
+        .fg(Color::Cyan)
+        .add_modifier(Modifier::BOLD);
+
+    let title = Span::styled(title, style);
+
+    let (current_pos, len) = match selected {
+        Selected::Channels => (
+            if let Some(index) = app.channels.state.selected() {
+                index + 1
+            } else {
+                0
+            },
+            app.channels.items.len(),
+        ),
+        Selected::Videos => (
+            if let Some(index) = app.videos.state.selected() {
+                index + 1
+            } else {
+                0
+            },
+            app.videos.items.len(),
+        ),
+    };
+    let position = Span::styled(format!("{}/{}", current_pos, len), style);
+
+    let border_symbol = BorderType::line_symbols(BorderType::Plain).horizontal;
+    let fill = Span::raw(
+        border_symbol.repeat(area_width as usize - (title.width() + position.width() + 2)),
+    );
+
+    vec![title, fill, position]
 }
