@@ -26,11 +26,21 @@ fn main() {
     let mut stdout = stdout();
     execute!(stdout, EnterAlternateScreen).unwrap();
     let backend = CrosstermBackend::new(stdout);
-    let app = Arc::new(Mutex::new(App::new()));
     let mut terminal = Terminal::new(backend).unwrap();
-    database::initialize_db(&app.lock().unwrap().conn);
-    app.lock().unwrap().add_new_channels();
-    app.lock().unwrap().set_mode_subs();
+    let app = Arc::new(Mutex::new(App::new()));
+    {
+        let mut app = app.lock().unwrap();
+        database::initialize_db(&app.conn);
+        app.set_mode_subs();
+        app.load_channels();
+        app.select_first();
+    }
+    let cloned_app = app.clone();
+    std::thread::spawn(move || {
+        let rt = Runtime::new().unwrap();
+        rt.block_on(add_new_channels(&cloned_app));
+        cloned_app.lock().unwrap().load_videos();
+    });
     let tick_rate = Duration::from_millis(200);
     let mut last_tick = Instant::now();
     loop {
@@ -76,6 +86,22 @@ fn main() {
     }
     disable_raw_mode().unwrap();
     execute!(terminal.backend_mut(), LeaveAlternateScreen).unwrap();
+}
+
+async fn add_new_channels(app: &Arc<Mutex<App>>) {
+    let channel_ids = app.lock().unwrap().get_new_channel_ids();
+    let instance = app.lock().unwrap().instance();
+    let streams = futures_util::stream::iter(channel_ids).map(|channel_id| {
+        let instance = instance.clone();
+        let app = app.clone();
+
+        tokio::task::spawn_blocking(move || {
+            let videos_json = instance.get_videos_of_channel(&channel_id);
+            app.lock().unwrap().add_channel(videos_json);
+        })
+    });
+    let mut buffered = streams.buffer_unordered(num_cpus::get());
+    while buffered.next().await.is_some() {}
 }
 
 async fn refresh_channel(app: &Arc<Mutex<App>>, channel_id: String) {

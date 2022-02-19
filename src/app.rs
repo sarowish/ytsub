@@ -43,16 +43,17 @@ impl App {
             .collect()
     }
 
-    pub fn add_new_channels(&mut self) {
+    pub fn get_new_channel_ids(&mut self) -> Vec<String> {
         let channels_in_database = database::get_channel_ids(&self.conn);
         let channels_in_database = channels_in_database.into_iter().collect::<HashSet<_>>();
         let current_channels = self.channel_ids.iter().cloned().collect::<HashSet<_>>();
-        let difference = current_channels.difference(&channels_in_database);
-        difference.for_each(|channel_id| self.add_channel(channel_id))
+        current_channels
+            .difference(&channels_in_database)
+            .cloned()
+            .collect()
     }
 
-    fn add_channel(&mut self, channel_id: &str) {
-        let videos_json = self.instance.get_videos_of_channel(channel_id);
+    pub fn add_channel(&mut self, videos_json: Value) {
         let channel_id: String = videos_json
             .get(0)
             .unwrap()
