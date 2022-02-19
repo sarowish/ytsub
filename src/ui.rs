@@ -1,4 +1,4 @@
-use crate::app::{App, Selected};
+use crate::app::{App, Mode, Selected};
 use crate::channel::RefreshState;
 use tui::backend::Backend;
 use tui::layout::{Constraint, Direction, Layout, Rect};
@@ -8,12 +8,27 @@ use tui::widgets::{Block, Borders, List, ListItem};
 use tui::Frame;
 
 pub fn draw<B: Backend>(f: &mut Frame<B>, app: &mut App) {
+    match app.mode {
+        Mode::Subscriptions => draw_subscriptions(f, app),
+        Mode::LatestVideos => draw_latest_videos(f, app),
+    }
+}
+
+fn draw_subscriptions<B: Backend>(f: &mut Frame<B>, app: &mut App) {
     let chunks = Layout::default()
         .constraints([Constraint::Percentage(40), Constraint::Percentage(60)].as_ref())
         .direction(Direction::Horizontal)
         .split(f.size());
     draw_channels(f, app, chunks[0]);
     draw_videos(f, app, chunks[1]);
+}
+
+fn draw_latest_videos<B: Backend>(f: &mut Frame<B>, app: &mut App) {
+    let chunks = Layout::default()
+        .constraints([Constraint::Percentage(100)].as_ref())
+        .direction(Direction::Horizontal)
+        .split(f.size());
+    draw_videos(f, app, chunks[0]);
 }
 
 fn draw_channels<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
@@ -76,7 +91,9 @@ fn draw_videos<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
     let videos = List::new(videos)
         .block(
             Block::default().borders(Borders::ALL).title(Span::styled(
-                if let Some(channel) = app.get_current_channel() {
+                if let Mode::LatestVideos = app.mode {
+                    "Latest Videos".to_string()
+                } else if let Some(channel) = app.get_current_channel() {
                     channel.channel_name.clone()
                 } else {
                     Default::default()

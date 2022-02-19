@@ -147,6 +147,31 @@ pub fn get_videos(conn: &Connection, channel_id: &str) -> Vec<Video> {
     .collect()
 }
 
+pub fn get_latest_videos(conn: &Connection) -> Vec<Video> {
+    let mut stmt = conn
+        .prepare(
+            "SELECT video_id, title, published, length, watched
+            FROM videos
+            ORDER BY published DESC
+            LIMIT 100
+            ",
+        )
+        .unwrap();
+    stmt.query_map([], |row| {
+        Ok(Video {
+            video_id: row.get(0).unwrap(),
+            title: row.get(1).unwrap(),
+            published: row.get(2).unwrap(),
+            length: row.get(3).unwrap(),
+            watched: row.get(4).unwrap(),
+            new: false,
+        })
+    })
+    .unwrap()
+    .map(|res| res.unwrap())
+    .collect()
+}
+
 pub fn set_watched_field(conn: &Connection, video_id: &str, watched: bool) {
     let mut stmt = conn
         .prepare("UPDATE videos SET watched=?1 WHERE video_id=?2")

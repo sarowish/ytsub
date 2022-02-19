@@ -30,7 +30,7 @@ fn main() {
     let mut terminal = Terminal::new(backend).unwrap();
     database::initialize_db(&app.lock().unwrap().conn);
     app.lock().unwrap().add_new_channels();
-    app.lock().unwrap().load_channels();
+    app.lock().unwrap().set_mode_subs();
     let tick_rate = Duration::from_millis(200);
     let mut last_tick = Instant::now();
     loop {
@@ -56,14 +56,14 @@ fn main() {
                     std::thread::spawn(move || {
                         let rt = Runtime::new().unwrap();
                         rt.block_on(refresh_channel(&cloned_app, current_channel_id));
-                        cloned_app.lock().unwrap().on_refresh_channel();
+                        cloned_app.lock().unwrap().load_videos();
                     });
                 } else if let KeyCode::Char('r') = key.code {
                     let cloned_app = app.clone();
                     std::thread::spawn(move || {
                         let rt = Runtime::new().unwrap();
                         rt.block_on(refresh_channels(&cloned_app));
-                        cloned_app.lock().unwrap().on_refresh_channel();
+                        cloned_app.lock().unwrap().load_videos();
                     });
                 } else {
                     input::handle_key(key, &mut app.lock().unwrap());

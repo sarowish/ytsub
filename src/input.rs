@@ -3,6 +3,8 @@ use crossterm::event::{KeyCode, KeyEvent};
 
 pub fn handle_key(key: KeyEvent, app: &mut App) {
     match key.code {
+        KeyCode::Char('1') => app.set_mode_subs(),
+        KeyCode::Char('2') => app.set_mode_latest_videos(),
         KeyCode::Char('j') => app.on_down(),
         KeyCode::Char('k') => app.on_up(),
         KeyCode::Char('h') => app.on_left(),

@@ -14,6 +14,7 @@ pub struct App {
     pub channels: StatefulList<Channel>,
     pub videos: StatefulList<Video>,
     pub selected: Selected,
+    pub mode: Mode,
     pub channel_ids: Vec<String>,
     pub conn: Connection,
     instance: Instance,
@@ -26,6 +27,7 @@ impl App {
             channels: StatefulList::with_items(Default::default()),
             videos: StatefulList::with_items(Default::default()),
             selected: Selected::Channels,
+            mode: Mode::Subscriptions,
             channel_ids: App::channel_ids_from_file("subs"),
             conn: Connection::open("./videos.db").unwrap(),
             instance: Instance::new(),
@@ -81,6 +83,20 @@ impl App {
 
     pub fn load_channels(&mut self) {
         self.channels = database::get_channels(&self.conn).into();
+    }
+
+    pub fn set_mode_subs(&mut self) {
+        self.mode = Mode::Subscriptions;
+        self.selected = Selected::Channels;
+        self.load_channels();
+        self.select_first();
+    }
+
+    pub fn set_mode_latest_videos(&mut self) {
+        self.mode = Mode::LatestVideos;
+        self.selected = Selected::Videos;
+        self.load_videos();
+        self.select_first();
     }
 
     pub fn instance(&self) -> Instance {
@@ -171,26 +187,33 @@ impl App {
         .unwrap();
     }
 
-    pub fn on_change_channel(&mut self) {
-        let channel_id = &self.get_current_channel().unwrap().channel_id.clone();
-        let videos = database::get_videos(&self.conn, channel_id);
+    fn get_videos_of_current_channel(&self) -> Vec<Video> {
+        if let Some(channel) = self.get_current_channel() {
+            database::get_videos(&self.conn, &channel.channel_id)
+        } else {
+            Vec::new()
+        }
+    }
+
+    fn get_latest_videos(&self) -> Vec<Video> {
+        database::get_latest_videos(&self.conn)
+    }
+
+    pub fn load_videos(&mut self) {
+        let videos = match self.mode {
+            Mode::Subscriptions => self.get_videos_of_current_channel(),
+            Mode::LatestVideos => self.get_latest_videos(),
+        };
         self.videos.items = if self.hide_watched {
             videos.into_iter().filter(|video| !video.watched).collect()
         } else {
             videos
         };
-        self.videos.reset_state();
     }
 
-    pub fn on_refresh_channel(&mut self) {
-        if let Some(channel) = self.get_current_channel() {
-            let videos = database::get_videos(&self.conn, &channel.channel_id);
-            self.videos.items = if self.hide_watched {
-                videos.into_iter().filter(|video| !video.watched).collect()
-            } else {
-                videos
-            };
-        }
+    pub fn on_change_channel(&mut self) {
+        self.load_videos();
+        self.videos.reset_state();
     }
 
     pub fn on_down(&mut self) {
@@ -214,13 +237,13 @@ impl App {
     }
 
     pub fn on_left(&mut self) {
-        if let Selected::Videos = self.selected {
+        if matches!(self.selected, Selected::Videos) && matches!(self.mode, Mode::Subscriptions) {
             self.selected = Selected::Channels;
         }
     }
 
     pub fn on_right(&mut self) {
-        if let Selected::Channels = self.selected {
+        if matches!(self.selected, Selected::Channels) && matches!(self.mode, Mode::Subscriptions) {
             self.selected = Selected::Videos;
         }
     }
@@ -362,4 +385,10 @@ impl<T> From<Vec<T>> for StatefulList<T> {
 pub enum Selected {
     Channels,
     Videos,
+}
+
+#[derive(Clone)]
+pub enum Mode {
+    Subscriptions,
+    LatestVideos,
 }
