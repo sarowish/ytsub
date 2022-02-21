@@ -155,5 +155,13 @@ fn gen_title<'a>(app: &App, title: String, selected: Selected, area_width: usize
         border_symbol.repeat(area_width as usize - (title.width() + position.width() + 2)),
     );
 
-    vec![title, fill, position]
+    let border_symbol = BorderType::line_symbols(BorderType::Plain).horizontal;
+    const MIN_GAP: usize = 2;
+    let required_space = title.width() + position.width() + 2 + MIN_GAP;
+    if let Some(p_gap_width) = area_width.checked_sub(required_space) {
+        let fill = Span::raw(border_symbol.repeat(p_gap_width + MIN_GAP));
+        vec![title, fill, position]
+    } else {
+        vec![title]
+    }
 }
