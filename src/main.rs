@@ -54,7 +54,7 @@ fn main() {
             if let Event::Key(key) = event::read().unwrap() {
                 if let KeyCode::Char('q') = key.code {
                     break;
-                } else if let KeyCode::Char('u') = key.code {
+                } else if let KeyCode::Char('r') = key.code {
                     let current_channel_id = app
                         .lock()
                         .unwrap()
@@ -68,7 +68,7 @@ fn main() {
                         rt.block_on(refresh_channel(&cloned_app, current_channel_id));
                         cloned_app.lock().unwrap().load_videos();
                     });
-                } else if let KeyCode::Char('r') = key.code {
+                } else if let KeyCode::Char('R') = key.code {
                     let cloned_app = app.clone();
                     std::thread::spawn(move || {
                         let rt = Runtime::new().unwrap();

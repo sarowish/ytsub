@@ -10,8 +10,8 @@ pub fn handle_key(key: KeyEvent, app: &mut App) {
         KeyCode::Char('h') => app.on_left(),
         KeyCode::Char('l') => app.on_right(),
         KeyCode::Char('g') => app.select_first(),
-        KeyCode::Char('f') => app.select_last(),
-        KeyCode::Char('n') => app.toggle_hide(),
+        KeyCode::Char('G') => app.select_last(),
+        KeyCode::Char('t') => app.toggle_hide(),
         KeyCode::Char('o') => {
             app.mark_as_watched();
             app.open_video_in_browser();
