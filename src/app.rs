@@ -17,6 +17,7 @@ pub struct App {
     pub mode: Mode,
     pub channel_ids: Vec<String>,
     pub conn: Connection,
+    pub footer_text: String,
     instance: Instance,
     hide_watched: bool,
 }
@@ -30,6 +31,7 @@ impl App {
             mode: Mode::Subscriptions,
             channel_ids: App::channel_ids_from_file("subs"),
             conn: Connection::open("./videos.db").unwrap(),
+            footer_text: Default::default(),
             instance: Instance::new(),
             hide_watched: false,
         }

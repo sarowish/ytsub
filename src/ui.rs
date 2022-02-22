@@ -4,30 +4,42 @@ use tui::backend::Backend;
 use tui::layout::{Constraint, Direction, Layout, Rect};
 use tui::style::{Color, Modifier, Style};
 use tui::text::Span;
-use tui::widgets::{Block, BorderType, Borders, List, ListItem};
+use tui::widgets::{Block, BorderType, Borders, List, ListItem, Paragraph};
 use tui::Frame;
 
 pub fn draw<B: Backend>(f: &mut Frame<B>, app: &mut App) {
+    let (main_layout, footer) = if app.footer_text.is_empty() {
+        (f.size(), None)
+    } else {
+        let chunks = Layout::default()
+            .constraints([Constraint::Min(1), Constraint::Length(1)].as_ref())
+            .direction(Direction::Vertical)
+            .split(f.size());
+        (chunks[0], Some(chunks[1]))
+    };
     match app.mode {
-        Mode::Subscriptions => draw_subscriptions(f, app),
-        Mode::LatestVideos => draw_latest_videos(f, app),
+        Mode::Subscriptions => draw_subscriptions(f, app, main_layout),
+        Mode::LatestVideos => draw_latest_videos(f, app, main_layout),
+    }
+    if let Some(footer) = footer {
+        draw_footer(f, app, footer);
     }
 }
 
-fn draw_subscriptions<B: Backend>(f: &mut Frame<B>, app: &mut App) {
+fn draw_subscriptions<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
     let chunks = Layout::default()
         .constraints([Constraint::Percentage(40), Constraint::Percentage(60)].as_ref())
         .direction(Direction::Horizontal)
-        .split(f.size());
+        .split(area);
     draw_channels(f, app, chunks[0]);
     draw_videos(f, app, chunks[1]);
 }
 
-fn draw_latest_videos<B: Backend>(f: &mut Frame<B>, app: &mut App) {
+fn draw_latest_videos<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
     let chunks = Layout::default()
         .constraints([Constraint::Percentage(100)].as_ref())
         .direction(Direction::Horizontal)
-        .split(f.size());
+        .split(area);
     draw_videos(f, app, chunks[0]);
 }
 
@@ -110,6 +122,11 @@ fn draw_videos<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
                 style
             });
     f.render_stateful_widget(videos, area, &mut app.videos.state);
+}
+
+fn draw_footer<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
+    let text = Paragraph::new(Span::raw(app.footer_text.clone()));
+    f.render_widget(text, area);
 }
 
 fn gen_title<'a, T>(title: String, list: &StatefulList<T>, area_width: usize) -> Vec<Span<'a>> {
