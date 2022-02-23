@@ -2,6 +2,7 @@ mod app;
 mod channel;
 mod database;
 mod input;
+mod search;
 mod ui;
 
 use app::App;
@@ -12,6 +13,7 @@ use crossterm::terminal::{
     disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
 };
 use futures_util::StreamExt;
+use input::InputMode;
 use std::io::stdout;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -52,31 +54,39 @@ fn main() {
             .unwrap_or_else(|| Duration::from_secs(0));
         if crossterm::event::poll(timeout).unwrap() {
             if let Event::Key(key) = event::read().unwrap() {
-                if let KeyCode::Char('q') = key.code {
-                    break;
-                } else if let KeyCode::Char('r') = key.code {
-                    let current_channel_id = app
-                        .lock()
-                        .unwrap()
-                        .get_current_channel()
-                        .unwrap()
-                        .channel_id
-                        .clone();
-                    let cloned_app = app.clone();
-                    std::thread::spawn(move || {
-                        let rt = Runtime::new().unwrap();
-                        rt.block_on(refresh_channel(&cloned_app, current_channel_id));
-                        cloned_app.lock().unwrap().load_videos();
-                    });
-                } else if let KeyCode::Char('R') = key.code {
-                    let cloned_app = app.clone();
-                    std::thread::spawn(move || {
-                        let rt = Runtime::new().unwrap();
-                        rt.block_on(refresh_channels(&cloned_app));
-                        cloned_app.lock().unwrap().load_videos();
-                    });
-                } else {
-                    input::handle_key(key, &mut app.lock().unwrap());
+                let input_mode = app.lock().unwrap().input_mode.clone();
+                match input_mode {
+                    InputMode::Normal => {
+                        if let KeyCode::Char('q') = key.code {
+                            break;
+                        } else if let KeyCode::Char('r') = key.code {
+                            let current_channel_id = app
+                                .lock()
+                                .unwrap()
+                                .get_current_channel()
+                                .unwrap()
+                                .channel_id
+                                .clone();
+                            let cloned_app = app.clone();
+                            std::thread::spawn(move || {
+                                let rt = Runtime::new().unwrap();
+                                rt.block_on(refresh_channel(&cloned_app, current_channel_id));
+                                cloned_app.lock().unwrap().load_videos();
+                            });
+                        } else if let KeyCode::Char('R') = key.code {
+                            let cloned_app = app.clone();
+                            std::thread::spawn(move || {
+                                let rt = Runtime::new().unwrap();
+                                rt.block_on(refresh_channels(&cloned_app));
+                                cloned_app.lock().unwrap().load_videos();
+                            });
+                        } else {
+                            input::handle_key_normal_mode(key, &mut app.lock().unwrap());
+                        }
+                    }
+                    InputMode::Editing => {
+                        input::handle_key_input_mode(key, &mut app.lock().unwrap())
+                    }
                 }
             }
         }

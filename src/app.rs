@@ -1,5 +1,7 @@
 use crate::channel::{Channel, RefreshState, Video};
 use crate::database;
+use crate::input::InputMode;
+use crate::search::{Search, SearchDirection, SearchState};
 use rand::prelude::*;
 use rusqlite::Connection;
 use serde_json::Value;
@@ -17,7 +19,9 @@ pub struct App {
     pub mode: Mode,
     pub channel_ids: Vec<String>,
     pub conn: Connection,
-    pub footer_text: String,
+    pub input: String,
+    pub input_mode: InputMode,
+    search: Search,
     instance: Instance,
     hide_watched: bool,
 }
@@ -31,7 +35,9 @@ impl App {
             mode: Mode::Subscriptions,
             channel_ids: App::channel_ids_from_file("subs"),
             conn: Connection::open("./videos.db").unwrap(),
-            footer_text: Default::default(),
+            input: Default::default(),
+            input_mode: InputMode::Normal,
+            search: Default::default(),
             instance: Instance::new(),
             hide_watched: false,
         }
@@ -86,6 +92,14 @@ impl App {
 
     pub fn load_channels(&mut self) {
         self.channels = database::get_channels(&self.conn).into();
+    }
+
+    pub fn set_mode(&mut self, mode: Mode) {
+        self.reset_search();
+        match mode {
+            Mode::Subscriptions => self.set_mode_subs(),
+            Mode::LatestVideos => self.set_mode_latest_videos(),
+        }
     }
 
     pub fn set_mode_subs(&mut self) {
@@ -245,12 +259,14 @@ impl App {
     pub fn on_left(&mut self) {
         if matches!(self.selected, Selected::Videos) && matches!(self.mode, Mode::Subscriptions) {
             self.selected = Selected::Channels;
+            self.reset_search();
         }
     }
 
     pub fn on_right(&mut self) {
         if matches!(self.selected, Selected::Channels) && matches!(self.mode, Mode::Subscriptions) {
             self.selected = Selected::Videos;
+            self.reset_search();
         }
     }
 
@@ -276,6 +292,103 @@ impl App {
                 self.videos.select_last();
             }
         }
+    }
+
+    pub fn is_footer_active(&self) -> bool {
+        matches!(self.input_mode, InputMode::Editing)
+    }
+
+    fn start_searching(&mut self) {
+        self.input_mode = InputMode::Editing;
+        self.search.previous_matches = self.search.matches.drain(..).collect();
+    }
+
+    pub fn search_forward(&mut self) {
+        self.start_searching();
+        self.search.direction = SearchDirection::Forward;
+    }
+
+    pub fn search_backward(&mut self) {
+        self.start_searching();
+        self.search.direction = SearchDirection::Backward;
+    }
+
+    pub fn search_direction(&self) -> &SearchDirection {
+        &self.search.direction
+    }
+
+    pub fn search_in_block(&mut self) {
+        match self.selected {
+            Selected::Channels => {
+                self.search.search(&mut self.channels, &self.input);
+                self.on_change_channel()
+            }
+            Selected::Videos => self.search.search(&mut self.videos, &self.input),
+        }
+    }
+
+    pub fn next_match(&mut self) {
+        match self.selected {
+            Selected::Channels => {
+                self.search.next_match(&mut self.channels);
+                self.on_change_channel()
+            }
+            Selected::Videos => self.search.next_match(&mut self.videos),
+        }
+    }
+
+    pub fn prev_match(&mut self) {
+        match self.selected {
+            Selected::Channels => {
+                self.search.prev_match(&mut self.channels);
+                self.on_change_channel()
+            }
+            Selected::Videos => self.search.prev_match(&mut self.videos),
+        }
+    }
+
+    pub fn push_key(&mut self, c: char) {
+        self.input.push(c);
+        self.search_in_block();
+    }
+
+    pub fn pop_key(&mut self) {
+        self.input.pop();
+        self.search.state = SearchState::PoppedKey;
+        self.search_in_block();
+    }
+
+    pub fn any_matches(&self) -> bool {
+        self.search.any_matches()
+    }
+
+    pub fn complete_search(&mut self) {
+        self.finalize_search(false);
+    }
+
+    pub fn finalize_search(&mut self, abort: bool) {
+        self.input_mode = InputMode::Normal;
+        self.input.clear();
+        self.search.complete_search(abort);
+    }
+
+    fn recover_item(&mut self) {
+        match self.selected {
+            Selected::Channels => {
+                self.search.recover_item(&mut self.channels);
+                self.on_change_channel()
+            }
+            Selected::Videos => self.search.recover_item(&mut self.videos),
+        }
+    }
+
+    pub fn abort_search(&mut self) {
+        self.recover_item();
+        self.finalize_search(true);
+    }
+
+    fn reset_search(&mut self) {
+        self.search.matches.clear();
     }
 }
 

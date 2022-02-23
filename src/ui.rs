@@ -1,21 +1,21 @@
 use crate::app::{App, Mode, Selected, StatefulList};
-use crate::channel::RefreshState;
+use crate::search::SearchDirection;
 use tui::backend::Backend;
 use tui::layout::{Constraint, Direction, Layout, Rect};
 use tui::style::{Color, Modifier, Style};
-use tui::text::Span;
+use tui::text::{Span, Spans};
 use tui::widgets::{Block, BorderType, Borders, List, ListItem, Paragraph};
 use tui::Frame;
 
 pub fn draw<B: Backend>(f: &mut Frame<B>, app: &mut App) {
-    let (main_layout, footer) = if app.footer_text.is_empty() {
-        (f.size(), None)
-    } else {
+    let (main_layout, footer) = if app.is_footer_active() {
         let chunks = Layout::default()
             .constraints([Constraint::Min(1), Constraint::Length(1)].as_ref())
             .direction(Direction::Vertical)
             .split(f.size());
         (chunks[0], Some(chunks[1]))
+    } else {
+        (f.size(), None)
     };
     match app.mode {
         Mode::Subscriptions => draw_subscriptions(f, app, main_layout),
@@ -48,20 +48,7 @@ fn draw_channels<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
         .channels
         .items
         .iter()
-        .map(|ch| {
-            let refresh_indicator = match ch.refresh_state {
-                RefreshState::ToBeRefreshed => "□ ",
-                RefreshState::Refreshing => "■ ",
-                RefreshState::Completed => "",
-            };
-            let new_video_indicator = if ch.new_video { " [N]" } else { "" };
-            format!(
-                "{}{}{}",
-                refresh_indicator,
-                ch.channel_name.clone(),
-                new_video_indicator
-            )
-        })
+        .map(|ch| ch.to_string())
         .map(Span::raw)
         .map(ListItem::new)
         .collect::<Vec<ListItem>>();
@@ -88,11 +75,10 @@ fn draw_videos<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
         .items
         .iter()
         .map(|video| {
-            let title = video.title.clone();
             if video.watched {
-                Span::styled(title, Style::default().fg(Color::DarkGray))
+                Span::styled(video.to_string(), Style::default().fg(Color::DarkGray))
             } else {
-                Span::raw(title)
+                Span::raw(video.to_string())
             }
         })
         .map(ListItem::new)
@@ -125,7 +111,20 @@ fn draw_videos<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
 }
 
 fn draw_footer<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
-    let text = Paragraph::new(Span::raw(app.footer_text.clone()));
+    let text = Paragraph::new(Spans::from(vec![
+        Span::raw(match app.search_direction() {
+            SearchDirection::Forward => "/",
+            SearchDirection::Backward => "?",
+        }),
+        Span::styled(
+            app.input.clone(),
+            if app.any_matches() {
+                Style::default()
+            } else {
+                Style::default().fg(Color::Red)
+            },
+        ),
+    ]));
     f.render_widget(text, area);
 }
 

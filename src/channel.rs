@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use serde_json::Value;
 
 pub enum RefreshState {
@@ -25,6 +27,24 @@ impl Channel {
 
     pub fn set_to_be_refreshed(&mut self) {
         self.refresh_state = RefreshState::ToBeRefreshed;
+    }
+}
+
+impl Display for Channel {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let refresh_indicator = match self.refresh_state {
+            RefreshState::ToBeRefreshed => "□ ",
+            RefreshState::Refreshing => "■ ",
+            RefreshState::Completed => "",
+        };
+        let new_video_indicator = if self.new_video { " [N]" } else { "" };
+        write!(
+            f,
+            "{}{}{}",
+            refresh_indicator,
+            self.channel_name.clone(),
+            new_video_indicator
+        )
     }
 }
 
@@ -66,5 +86,11 @@ impl Video {
             .iter()
             .map(Video::from_json)
             .collect()
+    }
+}
+
+impl Display for Video {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.title.clone())
     }
 }
