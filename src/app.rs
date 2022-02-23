@@ -89,17 +89,20 @@ impl App {
     }
 
     pub fn set_mode_subs(&mut self) {
-        self.mode = Mode::Subscriptions;
-        self.selected = Selected::Channels;
-        self.load_channels();
-        self.select_first();
+        if !matches!(self.mode, Mode::Subscriptions) {
+            self.mode = Mode::Subscriptions;
+            self.selected = Selected::Channels;
+            self.select_first();
+        }
     }
 
     pub fn set_mode_latest_videos(&mut self) {
-        self.mode = Mode::LatestVideos;
-        self.selected = Selected::Videos;
-        self.load_videos();
-        self.select_first();
+        if !matches!(self.mode, Mode::LatestVideos) {
+            self.mode = Mode::LatestVideos;
+            self.selected = Selected::Videos;
+            self.load_videos();
+            self.select_first();
+        }
     }
 
     pub fn instance(&self) -> Instance {
