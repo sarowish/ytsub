@@ -153,12 +153,14 @@ impl App {
     }
 
     fn set_watched(&mut self, is_watched: bool) {
-        self.get_mut_current_video().unwrap().watched = is_watched;
-        database::set_watched_field(
-            &self.conn,
-            &self.get_current_video().unwrap().video_id,
-            is_watched,
-        );
+        if let Some(current_video) = self.get_mut_current_video() {
+            current_video.watched = is_watched;
+            database::set_watched_field(
+                &self.conn,
+                &self.get_current_video().unwrap().video_id,
+                is_watched,
+            );
+        }
     }
 
     pub fn mark_as_watched(&mut self) {
@@ -170,10 +172,12 @@ impl App {
     }
 
     pub fn toggle_watched(&mut self) {
-        if self.get_current_video().unwrap().watched {
-            self.mark_as_unwatched();
-        } else {
-            self.mark_as_watched();
+        if let Some(video) = self.get_current_video() {
+            if video.watched {
+                self.mark_as_unwatched();
+            } else {
+                self.mark_as_watched();
+            }
         }
     }
 
@@ -183,28 +187,32 @@ impl App {
     }
 
     pub fn play_video(&mut self) {
-        std::process::Command::new("setsid")
-            .arg("--fork")
-            .arg("mpv")
-            .arg("--no-terminal")
-            .arg(format!(
-                "{}/watch?v={}",
-                self.instance.domain.clone(),
-                self.get_current_video().unwrap().video_id
-            ))
-            .spawn()
-            .unwrap();
+        if let Some(current_video) = self.get_current_video() {
+            std::process::Command::new("setsid")
+                .arg("--fork")
+                .arg("mpv")
+                .arg("--no-terminal")
+                .arg(format!(
+                    "{}/watch?v={}",
+                    self.instance.domain.clone(),
+                    current_video.video_id
+                ))
+                .spawn()
+                .unwrap();
+        }
     }
 
     pub fn open_video_in_browser(&mut self) {
-        webbrowser::open_browser_with_options(
-            webbrowser::BrowserOptions::create_with_suppressed_output(&format!(
-                "{}/watch?v={}",
-                self.instance.domain.clone(),
-                self.get_current_video().unwrap().video_id
-            )),
-        )
-        .unwrap();
+        if let Some(current_video) = self.get_current_video() {
+            webbrowser::open_browser_with_options(
+                webbrowser::BrowserOptions::create_with_suppressed_output(&format!(
+                    "{}/watch?v={}",
+                    self.instance.domain.clone(),
+                    current_video.video_id
+                )),
+            )
+            .unwrap();
+        }
     }
 
     fn get_videos_of_current_channel(&self) -> Vec<Video> {
