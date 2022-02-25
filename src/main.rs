@@ -1,11 +1,15 @@
 mod app;
 mod channel;
+mod cli;
 mod database;
 mod input;
 mod search;
 mod ui;
+mod utils;
 
 use app::App;
+use clap::Parser;
+use cli::Options;
 use crossterm::event;
 use crossterm::event::{Event, KeyCode};
 use crossterm::execute;
@@ -24,12 +28,13 @@ use tui::Terminal;
 use ui::draw;
 
 fn main() {
+    let options = Options::parse();
     enable_raw_mode().unwrap();
     let mut stdout = stdout();
     execute!(stdout, EnterAlternateScreen).unwrap();
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend).unwrap();
-    let app = Arc::new(Mutex::new(App::new()));
+    let app = Arc::new(Mutex::new(App::new(options)));
     {
         let mut app = app.lock().unwrap();
         database::initialize_db(&app.conn);

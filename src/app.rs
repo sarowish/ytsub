@@ -1,13 +1,12 @@
 use crate::channel::{Channel, RefreshState, Video};
-use crate::database;
 use crate::input::InputMode;
 use crate::search::{Search, SearchDirection, SearchState};
+use crate::utils;
+use crate::{database, Options};
 use rand::prelude::*;
 use rusqlite::Connection;
 use serde_json::Value;
 use std::collections::HashSet;
-use std::fs::File;
-use std::io::{self, BufRead};
 use std::time::Duration;
 use tui::widgets::ListState;
 use ureq::{Agent, AgentBuilder};
@@ -27,28 +26,25 @@ pub struct App {
 }
 
 impl App {
-    pub fn new() -> Self {
+    pub fn new(options: Options) -> Self {
         Self {
             channels: StatefulList::with_items(Default::default()),
             videos: StatefulList::with_items(Default::default()),
             selected: Selected::Channels,
             mode: Mode::Subscriptions,
-            channel_ids: App::channel_ids_from_file("subs"),
-            conn: Connection::open("./videos.db").unwrap(),
+            channel_ids: utils::read_subscriptions(options.subs_path),
+            conn: Connection::open(
+                options
+                    .database_path
+                    .unwrap_or_else(utils::get_database_file),
+            )
+            .unwrap(),
             input: Default::default(),
             input_mode: InputMode::Normal,
             search: Default::default(),
             instance: Instance::new(),
             hide_watched: false,
         }
-    }
-
-    fn channel_ids_from_file(file_name: &str) -> Vec<String> {
-        let file = File::open(file_name).unwrap();
-        io::BufReader::new(file)
-            .lines()
-            .map(|id| id.unwrap())
-            .collect()
     }
 
     pub fn get_new_channel_ids(&mut self) -> Vec<String> {
