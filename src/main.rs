@@ -29,6 +29,9 @@ use ui::draw;
 
 fn main() {
     let options = Options::parse();
+    if options.gen_instance_list {
+        utils::generate_instances_file();
+    }
     enable_raw_mode().unwrap();
     let mut stdout = stdout();
     execute!(stdout, EnterAlternateScreen).unwrap();

@@ -404,20 +404,9 @@ pub struct Instance {
 
 impl Instance {
     pub fn new() -> Self {
-        const INVIDIOUS_INSTANCES: [&str; 10] = [
-            "https://invidious.snopyta.org",
-            "https://vid.puffyan.us",
-            "https://invidio.xamh.de",
-            "https://inv.riverside.rocks",
-            "https://invidious.osi.kr",
-            "https://tube.cthd.icu",
-            "https://invidious.flokinet.to",
-            "https://invidious.privacy.gd",
-            "https://invidious.namazso.eu",
-            "https://yt.artemislena.eu",
-        ];
+        let invidious_instances = utils::read_instances();
         let mut rng = thread_rng();
-        let domain = INVIDIOUS_INSTANCES[rng.gen_range(0..INVIDIOUS_INSTANCES.len())].to_string();
+        let domain = invidious_instances[rng.gen_range(0..invidious_instances.len())].to_string();
         let agent = AgentBuilder::new().timeout(Duration::from_secs(5)).build();
         Self { domain, agent }
     }

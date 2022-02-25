@@ -10,4 +10,7 @@ pub struct Options {
     /// path to subscriptions file
     #[clap(short, long, parse(from_os_str), value_name = "FILE")]
     pub subs_path: Option<PathBuf>,
+    /// generate invidious instances file
+    #[clap(short, long)]
+    pub gen_instance_list: bool,
 }
