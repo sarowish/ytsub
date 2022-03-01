@@ -48,10 +48,17 @@ impl Display for Channel {
     }
 }
 
+pub enum VideoType {
+    Subscriptions,
+    LatestVideos(String),
+}
+
 pub struct Video {
+    pub video_type: Option<VideoType>,
     pub video_id: String,
     pub title: String,
     pub published: u32,
+    pub published_text: String,
     pub length: u32,
     pub watched: bool,
     pub new: bool,
@@ -60,6 +67,7 @@ pub struct Video {
 impl Video {
     pub fn from_json(video_json: &Value) -> Self {
         Video {
+            video_type: Default::default(),
             video_id: video_json
                 .get("videoId")
                 .unwrap()
@@ -73,6 +81,7 @@ impl Video {
                 .unwrap()
                 .to_string(),
             published: video_json.get("published").unwrap().as_u64().unwrap() as u32,
+            published_text: Default::default(),
             length: video_json.get("lengthSeconds").unwrap().as_u64().unwrap() as u32,
             watched: false,
             new: true,

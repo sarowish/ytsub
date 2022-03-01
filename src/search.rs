@@ -1,4 +1,4 @@
-use crate::app::StatefulList;
+use crate::app::{State, StatefulList};
 use std::fmt::Display;
 
 pub enum SearchState {
@@ -36,7 +36,7 @@ pub struct Search {
 }
 
 impl Search {
-    pub fn search<T: Display>(&mut self, list: &mut StatefulList<T>, pattern: &str) {
+    pub fn search<T: Display, S: State>(&mut self, list: &mut StatefulList<T, S>, pattern: &str) {
         let pattern = pattern.to_lowercase();
         match self.state {
             SearchState::NotSearching | SearchState::PoppedKey => {
@@ -91,17 +91,21 @@ impl Search {
         }
     }
 
-    pub fn recover_item<T>(&mut self, list: &mut StatefulList<T>) {
+    pub fn recover_item<T, S: State>(&mut self, list: &mut StatefulList<T, S>) {
         list.state.select(self.recovery_index);
     }
 
-    fn jump_to_match<T>(&mut self, list: &mut StatefulList<T>, match_index: Option<usize>) {
+    fn jump_to_match<T, S: State>(
+        &mut self,
+        list: &mut StatefulList<T, S>,
+        match_index: Option<usize>,
+    ) {
         if match_index.is_some() {
             list.state.select(match_index);
         }
     }
 
-    pub fn next_match<T>(&mut self, list: &mut StatefulList<T>) {
+    pub fn next_match<T, S: State>(&mut self, list: &mut StatefulList<T, S>) {
         let indices = self.indices();
         let match_index = if let Some(current_index) = list.state.selected() {
             indices
@@ -115,7 +119,7 @@ impl Search {
         self.jump_to_match(list, match_index);
     }
 
-    pub fn prev_match<T>(&mut self, list: &mut StatefulList<T>) {
+    pub fn prev_match<T, S: State>(&mut self, list: &mut StatefulList<T, S>) {
         let indices = self.indices();
         let match_index = if let Some(current_index) = list.state.selected() {
             indices

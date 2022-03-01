@@ -8,12 +8,12 @@ use rusqlite::Connection;
 use serde_json::Value;
 use std::collections::HashSet;
 use std::time::Duration;
-use tui::widgets::ListState;
+use tui::widgets::{ListState, TableState};
 use ureq::{Agent, AgentBuilder};
 
 pub struct App {
-    pub channels: StatefulList<Channel>,
-    pub videos: StatefulList<Video>,
+    pub channels: StatefulList<Channel, ListState>,
+    pub videos: StatefulList<Video, TableState>,
     pub selected: Selected,
     pub mode: Mode,
     pub channel_ids: Vec<String>,
@@ -421,15 +421,40 @@ impl Instance {
     }
 }
 
-pub struct StatefulList<T> {
-    pub state: ListState,
+pub trait State {
+    fn select(&mut self, index: Option<usize>);
+    fn selected(&self) -> Option<usize>;
+}
+
+impl State for ListState {
+    fn select(&mut self, index: Option<usize>) {
+        self.select(index);
+    }
+
+    fn selected(&self) -> Option<usize> {
+        self.selected()
+    }
+}
+
+impl State for TableState {
+    fn select(&mut self, index: Option<usize>) {
+        self.select(index);
+    }
+
+    fn selected(&self) -> Option<usize> {
+        self.selected()
+    }
+}
+
+pub struct StatefulList<T, S: State> {
+    pub state: S,
     pub items: Vec<T>,
 }
 
-impl<T> StatefulList<T> {
-    fn with_items(items: Vec<T>) -> StatefulList<T> {
+impl<T, S: State + Default> StatefulList<T, S> {
+    fn with_items(items: Vec<T>) -> StatefulList<T, S> {
         StatefulList {
-            state: ListState::default(),
+            state: Default::default(),
             items,
         }
     }
@@ -498,7 +523,7 @@ impl<T> StatefulList<T> {
     }
 }
 
-impl<T> From<Vec<T>> for StatefulList<T> {
+impl<T, S: State + Default> From<Vec<T>> for StatefulList<T, S> {
     fn from(v: Vec<T>) -> Self {
         StatefulList::with_items(v)
     }

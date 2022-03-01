@@ -2,6 +2,7 @@ use serde_json::Value;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Write};
 use std::path::PathBuf;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 const PACKAGE_NAME: &str = env!("CARGO_PKG_NAME");
 const SUBS_FILE: &str = "subs";
@@ -75,4 +76,49 @@ pub fn read_subscriptions(path: Option<PathBuf>) -> Vec<String> {
 
 pub fn get_database_file() -> PathBuf {
     get_data_dir().join(DATABASE_FILE)
+}
+
+pub fn as_hhmmss(length: u32) -> String {
+    let seconds = length % 60;
+    let minutes = (length / 60) % 60;
+    let hours = (length / 60) / 60;
+    match (hours, minutes, seconds) {
+        (0, 0, _) => format!("0:{:02}", seconds),
+        (0, _, _) => format!("{}:{:02}", minutes, seconds),
+        _ => format!("{}:{:02}:{:02}", hours, minutes, seconds),
+    }
+}
+
+const MINUTE: u64 = 60;
+const HOUR: u64 = 3600;
+const DAY: u64 = 86400;
+const WEEK: u64 = 604800;
+const MONTH: u64 = 2592000;
+const YEAR: u64 = 31536000;
+
+pub fn published_text(published: u32) -> String {
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+    let passed = now - published as u64;
+    let (num, mut time_frame) = if passed < MINUTE {
+        (passed, "second".to_string())
+    } else if passed < HOUR {
+        (passed / MINUTE, "minute".to_string())
+    } else if passed < DAY {
+        (passed / HOUR, "hour".to_string())
+    } else if passed < WEEK * 2 {
+        (passed / DAY, "day".to_string())
+    } else if passed < MONTH {
+        (passed / WEEK, "week".to_string())
+    } else if passed < YEAR {
+        (passed / MONTH, "month".to_string())
+    } else {
+        (passed / YEAR, "year".to_string())
+    };
+    if num > 1 {
+        time_frame.push('s');
+    }
+    format!("{} {} ago", num, time_frame)
 }

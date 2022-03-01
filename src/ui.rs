@@ -1,10 +1,12 @@
-use crate::app::{App, Mode, Selected, StatefulList};
+use crate::app::{App, Mode, Selected, State, StatefulList};
+use crate::channel::VideoType;
 use crate::search::SearchDirection;
+use crate::utils;
 use tui::backend::Backend;
 use tui::layout::{Constraint, Direction, Layout, Rect};
 use tui::style::{Color, Modifier, Style};
 use tui::text::{Span, Spans};
-use tui::widgets::{Block, BorderType, Borders, List, ListItem, Paragraph};
+use tui::widgets::{Block, BorderType, Borders, Cell, List, ListItem, Paragraph, Row, Table};
 use tui::Frame;
 
 pub fn draw<B: Backend>(f: &mut Frame<B>, app: &mut App) {
@@ -19,7 +21,7 @@ pub fn draw<B: Backend>(f: &mut Frame<B>, app: &mut App) {
     };
     match app.mode {
         Mode::Subscriptions => draw_subscriptions(f, app, main_layout),
-        Mode::LatestVideos => draw_latest_videos(f, app, main_layout),
+        Mode::LatestVideos => draw_videos(f, app, main_layout),
     }
     if let Some(footer) = footer {
         draw_footer(f, app, footer);
@@ -28,19 +30,11 @@ pub fn draw<B: Backend>(f: &mut Frame<B>, app: &mut App) {
 
 fn draw_subscriptions<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
     let chunks = Layout::default()
-        .constraints([Constraint::Percentage(40), Constraint::Percentage(60)].as_ref())
+        .constraints([Constraint::Percentage(30), Constraint::Percentage(70)].as_ref())
         .direction(Direction::Horizontal)
         .split(area);
     draw_channels(f, app, chunks[0]);
     draw_videos(f, app, chunks[1]);
-}
-
-fn draw_latest_videos<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
-    let chunks = Layout::default()
-        .constraints([Constraint::Percentage(100)].as_ref())
-        .direction(Direction::Horizontal)
-        .split(area);
-    draw_videos(f, app, chunks[0]);
 }
 
 fn draw_channels<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
@@ -70,30 +64,82 @@ fn draw_channels<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
 }
 
 fn draw_videos<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
+    let (video_area, video_info_area) = if (matches!(app.mode, Mode::LatestVideos if area.width < 140)
+        || matches!(app.mode, Mode::Subscriptions if area.width < 117))
+        && app.get_current_video().is_some()
+    {
+        let chunks = Layout::default()
+            .constraints([Constraint::Min(10), Constraint::Length(6)])
+            .direction(Direction::Vertical)
+            .split(area);
+        (chunks[0], Some(chunks[1]))
+    } else {
+        (area, None)
+    };
     let videos = app
         .videos
         .items
         .iter()
         .map(|video| {
-            if video.watched {
-                Span::styled(video.to_string(), Style::default().fg(Color::DarkGray))
-            } else {
-                Span::raw(video.to_string())
+            let mut columns = Vec::new();
+
+            if let Some(VideoType::LatestVideos(channel_name)) = &video.video_type {
+                columns.push(Cell::from(Span::raw(channel_name)))
             }
+
+            columns.extend([
+                Cell::from(Span::raw(&video.title)),
+                Cell::from(Span::raw(utils::as_hhmmss(video.length))),
+                Cell::from(Span::raw(&video.published_text)),
+            ]);
+
+            Row::new(columns).style(if video.watched {
+                Style::default().fg(Color::DarkGray)
+            } else {
+                Style::default()
+            })
         })
-        .map(ListItem::new)
-        .collect::<Vec<ListItem>>();
+        .collect::<Vec<Row>>();
     let videos =
-        List::new(videos)
+        Table::new(videos)
             .block(Block::default().borders(Borders::ALL).title(
                 if let Mode::LatestVideos = app.mode {
-                    gen_title("Latest Videos".into(), &app.videos, area.width.into())
+                    gen_title("Latest Videos".into(), &app.videos, video_area.width.into())
                 } else if let Some(channel) = app.get_current_channel() {
-                    gen_title(channel.channel_name.clone(), &app.videos, area.width.into())
+                    gen_title(
+                        channel.channel_name.clone(),
+                        &app.videos,
+                        video_area.width.into(),
+                    )
                 } else {
                     Default::default()
                 },
             ))
+            .header(
+                Row::new(match app.mode {
+                    Mode::Subscriptions => vec!["Title", "Length", "Date"],
+                    Mode::LatestVideos => vec!["Channel", "Title", "Length", "Date"],
+                })
+                .style(
+                    Style::default()
+                        .fg(Color::Yellow)
+                        .add_modifier(Modifier::BOLD),
+                ),
+            )
+            .column_spacing(2)
+            .widths(match app.mode {
+                Mode::Subscriptions => &[
+                    Constraint::Min(90),
+                    Constraint::Min(20),
+                    Constraint::Min(30),
+                ],
+                Mode::LatestVideos => &[
+                    Constraint::Percentage(15),
+                    Constraint::Min(90),
+                    Constraint::Min(20),
+                    Constraint::Min(30),
+                ],
+            })
             .highlight_style({
                 let mut style = Style::default();
                 style = match app.selected {
@@ -107,7 +153,36 @@ fn draw_videos<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
                 }
                 style
             });
-    f.render_stateful_widget(videos, area, &mut app.videos.state);
+    f.render_stateful_widget(videos, video_area, &mut app.videos.state);
+    if let Some(area) = video_info_area {
+        draw_video_info(f, app, area);
+    }
+}
+
+fn draw_video_info<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
+    let current_video = app.get_current_video().unwrap();
+    let video_info = Paragraph::new(vec![
+        Spans::from(format!(
+            "channel: {}",
+            match &current_video.video_type {
+                Some(VideoType::LatestVideos(channel_name)) => channel_name,
+                Some(VideoType::Subscriptions) => &app.get_current_channel().unwrap().channel_name,
+                None => "",
+            }
+        )),
+        Spans::from(format!("title: {}", current_video.title)),
+        Spans::from(format!(
+            "length: {}",
+            utils::as_hhmmss(current_video.length)
+        )),
+        Spans::from(format!("date: {}", current_video.published_text.clone())),
+    ])
+    .block(
+        Block::default()
+            .borders(Borders::ALL)
+            .title(Span::styled("Video Info", Style::default().fg(Color::Cyan))),
+    );
+    f.render_widget(video_info, area);
 }
 
 fn draw_footer<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
@@ -128,7 +203,11 @@ fn draw_footer<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
     f.render_widget(text, area);
 }
 
-fn gen_title<'a, T>(title: String, list: &StatefulList<T>, area_width: usize) -> Vec<Span<'a>> {
+fn gen_title<'a, T, S: State>(
+    title: String,
+    list: &StatefulList<T, S>,
+    area_width: usize,
+) -> Vec<Span<'a>> {
     let style = Style::default()
         .fg(Color::Cyan)
         .add_modifier(Modifier::BOLD);

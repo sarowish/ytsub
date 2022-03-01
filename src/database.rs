@@ -1,4 +1,7 @@
-use crate::channel::{Channel, Video};
+use crate::{
+    channel::{Channel, Video, VideoType},
+    utils,
+};
 use rusqlite::{params, Connection};
 
 pub fn initialize_db(conn: &Connection) {
@@ -134,9 +137,11 @@ pub fn get_videos(conn: &Connection, channel_id: &str) -> Vec<Video> {
         .unwrap();
     stmt.query_map(params![channel_id], |row| {
         Ok(Video {
+            video_type: Some(VideoType::Subscriptions),
             video_id: row.get(0).unwrap(),
             title: row.get(1).unwrap(),
             published: row.get(2).unwrap(),
+            published_text: utils::published_text(row.get(2).unwrap()),
             length: row.get(3).unwrap(),
             watched: row.get(4).unwrap(),
             new: false,
@@ -150,8 +155,9 @@ pub fn get_videos(conn: &Connection, channel_id: &str) -> Vec<Video> {
 pub fn get_latest_videos(conn: &Connection) -> Vec<Video> {
     let mut stmt = conn
         .prepare(
-            "SELECT video_id, title, published, length, watched
-            FROM videos
+            "SELECT video_id, title, published, length, watched, channel_name
+            FROM videos, channels
+            WHERE videos.channel_id = channels.channel_id
             ORDER BY published DESC
             LIMIT 100
             ",
@@ -159,9 +165,11 @@ pub fn get_latest_videos(conn: &Connection) -> Vec<Video> {
         .unwrap();
     stmt.query_map([], |row| {
         Ok(Video {
+            video_type: Some(VideoType::LatestVideos(row.get(5).unwrap())),
             video_id: row.get(0).unwrap(),
             title: row.get(1).unwrap(),
             published: row.get(2).unwrap(),
+            published_text: utils::published_text(row.get(2).unwrap()),
             length: row.get(3).unwrap(),
             watched: row.get(4).unwrap(),
             new: false,
