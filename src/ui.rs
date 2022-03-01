@@ -47,11 +47,19 @@ fn draw_channels<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
         .map(ListItem::new)
         .collect::<Vec<ListItem>>();
     let channels = List::new(channels)
-        .block(Block::default().borders(Borders::ALL).title(gen_title(
-            "Channels".into(),
-            &app.channels,
-            area.width as usize,
-        )))
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title(gen_title(
+                    "Channels".into(),
+                    &app.channels,
+                    area.width as usize,
+                ))
+                .border_style(match app.selected {
+                    Selected::Channels => Style::default().fg(Color::Magenta),
+                    Selected::Videos => Style::default(),
+                }),
+        )
         .highlight_style(match app.selected {
             Selected::Channels => Style::default()
                 .fg(Color::Magenta)
@@ -100,10 +108,11 @@ fn draw_videos<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
             })
         })
         .collect::<Vec<Row>>();
-    let videos =
-        Table::new(videos)
-            .block(Block::default().borders(Borders::ALL).title(
-                if let Mode::LatestVideos = app.mode {
+    let videos = Table::new(videos)
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title(if let Mode::LatestVideos = app.mode {
                     gen_title("Latest Videos".into(), &app.videos, video_area.width.into())
                 } else if let Some(channel) = app.get_current_channel() {
                     gen_title(
@@ -113,46 +122,50 @@ fn draw_videos<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
                     )
                 } else {
                     Default::default()
-                },
-            ))
-            .header(
-                Row::new(match app.mode {
-                    Mode::Subscriptions => vec!["Title", "Length", "Date"],
-                    Mode::LatestVideos => vec!["Channel", "Title", "Length", "Date"],
                 })
-                .style(
-                    Style::default()
-                        .fg(Color::Yellow)
-                        .add_modifier(Modifier::BOLD),
-                ),
-            )
-            .column_spacing(2)
-            .widths(match app.mode {
-                Mode::Subscriptions => &[
-                    Constraint::Min(90),
-                    Constraint::Min(20),
-                    Constraint::Min(30),
-                ],
-                Mode::LatestVideos => &[
-                    Constraint::Percentage(15),
-                    Constraint::Min(90),
-                    Constraint::Min(20),
-                    Constraint::Min(30),
-                ],
+                .border_style(match app.selected {
+                    Selected::Channels => Style::default(),
+                    Selected::Videos => Style::default().fg(Color::Magenta),
+                }),
+        )
+        .header(
+            Row::new(match app.mode {
+                Mode::Subscriptions => vec!["Title", "Length", "Date"],
+                Mode::LatestVideos => vec!["Channel", "Title", "Length", "Date"],
             })
-            .highlight_style({
-                let mut style = Style::default();
-                style = match app.selected {
-                    Selected::Channels => style.fg(Color::Blue),
-                    Selected::Videos => style.fg(Color::Magenta),
-                };
-                if let Some(video) = app.get_current_video() {
-                    if !video.watched {
-                        style = style.add_modifier(Modifier::BOLD)
-                    }
+            .style(
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD),
+            ),
+        )
+        .column_spacing(2)
+        .widths(match app.mode {
+            Mode::Subscriptions => &[
+                Constraint::Min(90),
+                Constraint::Min(20),
+                Constraint::Min(30),
+            ],
+            Mode::LatestVideos => &[
+                Constraint::Percentage(15),
+                Constraint::Min(90),
+                Constraint::Min(20),
+                Constraint::Min(30),
+            ],
+        })
+        .highlight_style({
+            let mut style = Style::default();
+            style = match app.selected {
+                Selected::Channels => style.fg(Color::Blue),
+                Selected::Videos => style.fg(Color::Magenta),
+            };
+            if let Some(video) = app.get_current_video() {
+                if !video.watched {
+                    style = style.add_modifier(Modifier::BOLD)
                 }
-                style
-            });
+            }
+            style
+        });
     f.render_stateful_widget(videos, video_area, &mut app.videos.state);
     if let Some(area) = video_info_area {
         draw_video_info(f, app, area);
