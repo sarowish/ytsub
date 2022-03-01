@@ -37,7 +37,8 @@ fn fetch_invidious_instances() -> Vec<String> {
         .map(|arr| arr.as_array().unwrap())
         .filter(|instance| {
             let instance = &instance[1];
-            instance["type"].as_str().unwrap() != ONION && instance["api"].as_bool().unwrap()
+            instance["type"].as_str().unwrap() != ONION
+                && instance["api"].as_bool().unwrap_or(false)
         })
         .map(|instance| instance[1]["uri"].as_str().unwrap().to_string())
         .collect()
