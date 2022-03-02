@@ -22,6 +22,8 @@ pub fn handle_key_normal_mode(key: KeyEvent, app: &mut App) {
         KeyCode::Char('?') => app.search_backward(),
         KeyCode::Char('n') => app.next_match(),
         KeyCode::Char('N') => app.prev_match(),
+        KeyCode::Char('r') => app.refresh_channel(),
+        KeyCode::Char('R') => app.refresh_channels(),
         KeyCode::Char('o') => {
             app.mark_as_watched();
             app.open_video_in_browser();

@@ -22,7 +22,6 @@ use std::io::stdout;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use std::time::Instant;
-use tokio::runtime::Runtime;
 use tui::backend::CrosstermBackend;
 use tui::Terminal;
 use ui::draw;
@@ -32,25 +31,31 @@ fn main() {
     if options.gen_instance_list {
         utils::generate_instances_file();
     }
+
+    let (sync_io_tx, sync_io_rx) = std::sync::mpsc::channel();
+
     enable_raw_mode().unwrap();
     let mut stdout = stdout();
     execute!(stdout, EnterAlternateScreen).unwrap();
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend).unwrap();
-    let app = Arc::new(Mutex::new(App::new(options)));
+
+    let app = Arc::new(Mutex::new(App::new(options, sync_io_tx)));
+
+    let cloned_app = app.clone();
+    std::thread::spawn(move || {
+        async_io_loop(sync_io_rx, cloned_app);
+    });
+
     {
         let mut app = app.lock().unwrap();
         database::initialize_db(&app.conn);
         app.set_mode_subs();
         app.load_channels();
         app.select_first();
+        app.add_new_channels();
     }
-    let cloned_app = app.clone();
-    std::thread::spawn(move || {
-        let rt = Runtime::new().unwrap();
-        rt.block_on(add_new_channels(&cloned_app));
-        cloned_app.lock().unwrap().load_videos();
-    });
+
     let tick_rate = Duration::from_millis(200);
     let mut last_tick = Instant::now();
     loop {
@@ -67,27 +72,6 @@ fn main() {
                     InputMode::Normal => {
                         if let KeyCode::Char('q') = key.code {
                             break;
-                        } else if let KeyCode::Char('r') = key.code {
-                            let current_channel_id = app
-                                .lock()
-                                .unwrap()
-                                .get_current_channel()
-                                .unwrap()
-                                .channel_id
-                                .clone();
-                            let cloned_app = app.clone();
-                            std::thread::spawn(move || {
-                                let rt = Runtime::new().unwrap();
-                                rt.block_on(refresh_channel(&cloned_app, current_channel_id));
-                                cloned_app.lock().unwrap().load_videos();
-                            });
-                        } else if let KeyCode::Char('R') = key.code {
-                            let cloned_app = app.clone();
-                            std::thread::spawn(move || {
-                                let rt = Runtime::new().unwrap();
-                                rt.block_on(refresh_channels(&cloned_app));
-                                cloned_app.lock().unwrap().load_videos();
-                            });
                         } else {
                             input::handle_key_normal_mode(key, &mut app.lock().unwrap());
                         }
@@ -104,6 +88,24 @@ fn main() {
     }
     disable_raw_mode().unwrap();
     execute!(terminal.backend_mut(), LeaveAlternateScreen).unwrap();
+}
+
+pub enum IoEvent {
+    AddNewChannels,
+    RefreshChannel(String),
+    RefreshChannels,
+}
+
+#[tokio::main]
+async fn async_io_loop(io_rx: std::sync::mpsc::Receiver<IoEvent>, app: Arc<Mutex<App>>) {
+    while let Ok(io_event) = io_rx.recv() {
+        match io_event {
+            IoEvent::AddNewChannels => add_new_channels(&app).await,
+            IoEvent::RefreshChannel(channel_id) => refresh_channel(&app, channel_id).await,
+            IoEvent::RefreshChannels => refresh_channels(&app).await,
+        }
+        app.lock().unwrap().load_videos();
+    }
 }
 
 async fn add_new_channels(app: &Arc<Mutex<App>>) {

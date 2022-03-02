@@ -1,12 +1,13 @@
 use crate::channel::{Channel, RefreshState, Video};
 use crate::input::InputMode;
 use crate::search::{Search, SearchDirection, SearchState};
-use crate::utils;
 use crate::{database, Options};
+use crate::{utils, IoEvent};
 use rand::prelude::*;
 use rusqlite::Connection;
 use serde_json::Value;
 use std::collections::HashSet;
+use std::sync::mpsc::Sender;
 use std::time::Duration;
 use tui::widgets::{ListState, TableState};
 use ureq::{Agent, AgentBuilder};
@@ -23,10 +24,11 @@ pub struct App {
     search: Search,
     instance: Instance,
     hide_watched: bool,
+    io_tx: Sender<IoEvent>,
 }
 
 impl App {
-    pub fn new(options: Options) -> Self {
+    pub fn new(options: Options, io_tx: Sender<IoEvent>) -> Self {
         Self {
             channels: StatefulList::with_items(Default::default()),
             videos: StatefulList::with_items(Default::default()),
@@ -44,6 +46,7 @@ impl App {
             search: Default::default(),
             instance: Instance::new(),
             hide_watched: false,
+            io_tx,
         }
     }
 
@@ -393,6 +396,24 @@ impl App {
 
     fn reset_search(&mut self) {
         self.search.matches.clear();
+    }
+
+    fn dispatch(&self, action: IoEvent) {
+        self.io_tx.send(action).unwrap();
+    }
+
+    pub fn add_new_channels(&self) {
+        self.dispatch(IoEvent::AddNewChannels);
+    }
+
+    pub fn refresh_channel(&self) {
+        if let Some(current_channel) = self.get_current_channel() {
+            self.dispatch(IoEvent::RefreshChannel(current_channel.channel_id.clone()));
+        }
+    }
+
+    pub fn refresh_channels(&self) {
+        self.dispatch(IoEvent::RefreshChannels);
     }
 }
 
