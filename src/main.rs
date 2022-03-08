@@ -108,6 +108,14 @@ async fn async_io_loop(io_rx: std::sync::mpsc::Receiver<IoEvent>, app: Arc<Mutex
     }
 }
 
+async fn clear_message(app: &Arc<Mutex<App>>) {
+    let app = app.clone();
+    tokio::task::spawn(async move {
+        tokio::time::sleep(Duration::from_secs(5)).await;
+        app.lock().unwrap().clear_message();
+    });
+}
+
 async fn add_new_channels(app: &Arc<Mutex<App>>) {
     let channel_ids = app.lock().unwrap().get_new_channel_ids();
     let instance = app.lock().unwrap().instance();
@@ -125,17 +133,33 @@ async fn add_new_channels(app: &Arc<Mutex<App>>) {
 }
 
 async fn refresh_channel(app: &Arc<Mutex<App>>, channel_id: String) {
+    let now = std::time::Instant::now();
     let instance = app.lock().unwrap().instance();
     app.lock().unwrap().start_refreshing_channel(&channel_id);
-    let app = app.clone();
+    app.lock().unwrap().set_message("Refreshing channel");
+    let cloned_app = app.clone();
     tokio::task::spawn_blocking(move || {
         let videos_json = instance.get_videos_of_channel(&channel_id);
-        app.lock().unwrap().add_videos(videos_json, &channel_id);
-        app.lock().unwrap().complete_refreshing_channel(&channel_id);
-    });
+        cloned_app
+            .lock()
+            .unwrap()
+            .add_videos(videos_json, &channel_id);
+        cloned_app
+            .lock()
+            .unwrap()
+            .complete_refreshing_channel(&channel_id);
+    })
+    .await
+    .unwrap();
+    let elapsed = now.elapsed();
+    app.lock()
+        .unwrap()
+        .set_message(&format!("Refreshed in {:?}", elapsed));
+    clear_message(app).await;
 }
 
 async fn refresh_channels(app: &Arc<Mutex<App>>) {
+    let now = std::time::Instant::now();
     app.lock()
         .unwrap()
         .channels
@@ -143,18 +167,36 @@ async fn refresh_channels(app: &Arc<Mutex<App>>) {
         .iter_mut()
         .for_each(|channel| channel.set_to_be_refreshed());
     let channel_ids = app.lock().unwrap().channel_ids.clone();
+    let count = Arc::new(Mutex::new(0));
+    let total = channel_ids.len();
+    app.lock().unwrap().set_message(&format!(
+        "Refreshing Channels: {}/{}",
+        count.lock().unwrap(),
+        total
+    ));
     let instance = app.lock().unwrap().instance();
     let streams = futures_util::stream::iter(channel_ids).map(|channel_id| {
         let instance = instance.clone();
         app.lock().unwrap().start_refreshing_channel(&channel_id);
         let app = app.clone();
-
+        let count = count.clone();
         tokio::task::spawn_blocking(move || {
             let videos_json = instance.get_videos_of_channel(&channel_id);
             app.lock().unwrap().add_videos(videos_json, &channel_id);
             app.lock().unwrap().complete_refreshing_channel(&channel_id);
+            *count.lock().unwrap() += 1;
+            app.lock().unwrap().set_message(&format!(
+                "Refreshing Channels: {}/{}",
+                count.lock().unwrap(),
+                total
+            ));
         })
     });
     let mut buffered = streams.buffer_unordered(num_cpus::get());
     while buffered.next().await.is_some() {}
+    let elapsed = now.elapsed();
+    app.lock()
+        .unwrap()
+        .set_message(&format!("Refreshed in {:?}", elapsed));
+    clear_message(app).await;
 }

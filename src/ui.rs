@@ -1,5 +1,6 @@
 use crate::app::{App, Mode, Selected, State, StatefulList};
 use crate::channel::VideoType;
+use crate::input::InputMode;
 use crate::search::SearchDirection;
 use crate::utils;
 use tui::backend::Backend;
@@ -199,20 +200,23 @@ fn draw_video_info<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
 }
 
 fn draw_footer<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
-    let text = Paragraph::new(Spans::from(vec![
-        Span::raw(match app.search_direction() {
-            SearchDirection::Forward => "/",
-            SearchDirection::Backward => "?",
-        }),
-        Span::styled(
-            app.input.clone(),
-            if app.any_matches() {
-                Style::default()
-            } else {
-                Style::default().fg(Color::Red)
-            },
-        ),
-    ]));
+    let text = match app.input_mode {
+        InputMode::Editing => Paragraph::new(Spans::from(vec![
+            Span::raw(match app.search_direction() {
+                SearchDirection::Forward => "/",
+                SearchDirection::Backward => "?",
+            }),
+            Span::styled(
+                app.input.clone(),
+                if app.any_matches() {
+                    Style::default()
+                } else {
+                    Style::default().fg(Color::Red)
+                },
+            ),
+        ])),
+        _ => Paragraph::new(Span::raw(&app.message)),
+    };
     f.render_widget(text, area);
 }
 

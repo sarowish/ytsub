@@ -19,6 +19,7 @@ pub struct App {
     pub mode: Mode,
     pub channel_ids: Vec<String>,
     pub conn: Connection,
+    pub message: String,
     pub input: String,
     pub input_mode: InputMode,
     search: Search,
@@ -41,6 +42,7 @@ impl App {
                     .unwrap_or_else(utils::get_database_file),
             )
             .unwrap(),
+            message: Default::default(),
             input: Default::default(),
             input_mode: InputMode::Normal,
             search: Default::default(),
@@ -302,7 +304,7 @@ impl App {
     }
 
     pub fn is_footer_active(&self) -> bool {
-        matches!(self.input_mode, InputMode::Editing)
+        matches!(self.input_mode, InputMode::Editing) || !self.message.is_empty()
     }
 
     fn start_searching(&mut self) {
@@ -414,6 +416,14 @@ impl App {
 
     pub fn refresh_channels(&self) {
         self.dispatch(IoEvent::RefreshChannels);
+    }
+
+    pub fn set_message(&mut self, message: &str) {
+        self.message = message.to_string();
+    }
+
+    pub fn clear_message(&mut self) {
+        self.message.clear();
     }
 }
 
