@@ -92,7 +92,11 @@ impl Search {
     }
 
     pub fn recover_item<T, S: State>(&mut self, list: &mut StatefulList<T, S>) {
-        list.state.select(self.recovery_index);
+        list.state.select(if self.recovery_index.is_some() {
+            self.recovery_index
+        } else {
+            list.state.selected()
+        });
     }
 
     fn jump_to_match<T, S: State>(
