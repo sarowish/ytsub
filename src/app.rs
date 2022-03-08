@@ -88,7 +88,7 @@ impl App {
     pub fn add_videos(&mut self, videos_json: Value, channel_id: &str) {
         let videos: Vec<Video> = Video::vec_from_json(videos_json);
         let any_new_videos = database::add_videos(&self.conn, channel_id, &videos);
-        self.get_channel_by_id(channel_id).unwrap().new_video = any_new_videos;
+        self.get_channel_by_id(channel_id).unwrap().new_video |= any_new_videos;
     }
 
     pub fn load_channels(&mut self) {
