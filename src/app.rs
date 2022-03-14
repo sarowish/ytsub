@@ -3,7 +3,7 @@ use crate::input::InputMode;
 use crate::search::{Search, SearchDirection, SearchState};
 use crate::{database, Options};
 use crate::{utils, IoEvent};
-use anyhow::Result;
+use anyhow::{Context, Result};
 use rand::prelude::*;
 use rusqlite::Connection;
 use serde_json::Value;
@@ -474,7 +474,12 @@ pub struct Instance {
 
 impl Instance {
     pub fn new(timeout: u64) -> Result<Self> {
-        let invidious_instances = utils::read_instances()?;
+        let invidious_instances = match utils::read_instances() {
+            Ok(instances) => instances,
+            Err(_) => {
+                utils::fetch_invidious_instances().with_context(|| "No instances available")?
+            }
+        };
         let mut rng = thread_rng();
         let domain = invidious_instances[rng.gen_range(0..invidious_instances.len())].to_string();
         let agent = AgentBuilder::new()

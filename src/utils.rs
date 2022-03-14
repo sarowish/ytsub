@@ -32,7 +32,7 @@ fn get_data_dir() -> Result<PathBuf> {
     Ok(path)
 }
 
-fn fetch_invidious_instances() -> Result<Vec<String>> {
+pub fn fetch_invidious_instances() -> Result<Vec<String>> {
     const REQUEST_URL: &str = "https://api.invidious.io/instances.json";
     const ONION: &str = "onion";
     let agent = ureq::agent();
@@ -66,10 +66,7 @@ pub fn generate_instances_file() -> Result<()> {
 }
 
 pub fn read_instances() -> Result<Vec<String>> {
-    let file = File::open(get_instances_file()?).expect(
-        "Instances file doesn't exist. Create it
-        by running the program with -g flag.",
-    );
+    let file = File::open(get_instances_file()?)?;
     let mut instances = Vec::new();
     for instance in BufReader::new(file).lines() {
         instances.push(instance?);
