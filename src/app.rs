@@ -3,6 +3,7 @@ use crate::input::InputMode;
 use crate::search::{Search, SearchDirection, SearchState};
 use crate::{database, Options};
 use crate::{utils, IoEvent};
+use anyhow::Result;
 use rand::prelude::*;
 use rusqlite::Connection;
 use serde_json::Value;
@@ -29,37 +30,44 @@ pub struct App {
 }
 
 impl App {
-    pub fn new(options: Options, io_tx: Sender<IoEvent>) -> Self {
-        Self {
+    pub fn new(options: Options, io_tx: Sender<IoEvent>) -> Result<Self> {
+        let mut app = Self {
             channels: StatefulList::with_items(Default::default()),
             videos: StatefulList::with_items(Default::default()),
             selected: Selected::Channels,
             mode: Mode::Subscriptions,
-            channel_ids: utils::read_subscriptions(options.subs_path),
+            channel_ids: utils::read_subscriptions(options.subs_path)?,
             conn: Connection::open(
                 options
                     .database_path
-                    .unwrap_or_else(utils::get_database_file),
-            )
-            .unwrap(),
+                    .unwrap_or_else(|| utils::get_database_file().unwrap()),
+            )?,
             message: Default::default(),
             input: Default::default(),
             input_mode: InputMode::Normal,
             search: Default::default(),
-            instance: Instance::new(),
+            instance: Instance::new()?,
             hide_watched: false,
             io_tx,
-        }
+        };
+
+        database::initialize_db(&app.conn)?;
+        app.set_mode_subs();
+        app.load_channels()?;
+        app.select_first();
+        app.add_new_channels();
+
+        Ok(app)
     }
 
-    pub fn get_new_channel_ids(&mut self) -> Vec<String> {
-        let channels_in_database = database::get_channel_ids(&self.conn);
+    pub fn get_new_channel_ids(&mut self) -> Result<Vec<String>> {
+        let channels_in_database = database::get_channel_ids(&self.conn)?;
         let channels_in_database = channels_in_database.into_iter().collect::<HashSet<_>>();
         let current_channels = self.channel_ids.iter().cloned().collect::<HashSet<_>>();
-        current_channels
+        Ok(current_channels
             .difference(&channels_in_database)
             .cloned()
-            .collect()
+            .collect())
     }
 
     pub fn add_channel(&mut self, videos_json: Value) {
@@ -80,19 +88,29 @@ impl App {
             .unwrap()
             .to_string();
         let channel = Channel::new(channel_id.clone(), channel_name);
-        database::create_channel(&self.conn, &channel);
+        if let Err(e) = database::create_channel(&self.conn, &channel) {
+            self.set_message(&e.to_string());
+            return;
+        };
         self.channels.items.push(channel);
         self.add_videos(videos_json, &channel_id);
     }
 
     pub fn add_videos(&mut self, videos_json: Value, channel_id: &str) {
         let videos: Vec<Video> = Video::vec_from_json(videos_json);
-        let any_new_videos = database::add_videos(&self.conn, channel_id, &videos);
+        let any_new_videos = match database::add_videos(&self.conn, channel_id, &videos) {
+            Ok(new_video_count) => new_video_count,
+            Err(e) => {
+                self.set_message(&e.to_string());
+                return;
+            }
+        };
         self.get_channel_by_id(channel_id).unwrap().new_video |= any_new_videos;
     }
 
-    pub fn load_channels(&mut self) {
-        self.channels = database::get_channels(&self.conn).into();
+    pub fn load_channels(&mut self) -> Result<()> {
+        self.channels = database::get_channels(&self.conn)?.into();
+        Ok(())
     }
 
     pub fn set_mode(&mut self, mode: Mode) {
@@ -107,6 +125,7 @@ impl App {
         if !matches!(self.mode, Mode::Subscriptions) {
             self.mode = Mode::Subscriptions;
             self.selected = Selected::Channels;
+            self.load_videos();
             self.select_first();
         }
     }
@@ -141,6 +160,10 @@ impl App {
         self.get_channel_by_id(channel_id).unwrap().refresh_state = RefreshState::Completed;
     }
 
+    pub fn refresh_failed(&mut self, channel_id: &str) {
+        self.get_channel_by_id(channel_id).unwrap().refresh_state = RefreshState::Failed;
+    }
+
     pub fn get_current_channel(&self) -> Option<&Channel> {
         self.channels.get_selected()
     }
@@ -156,11 +179,13 @@ impl App {
     fn set_watched(&mut self, is_watched: bool) {
         if let Some(current_video) = self.get_mut_current_video() {
             current_video.watched = is_watched;
-            database::set_watched_field(
+            if let Err(e) = database::set_watched_field(
                 &self.conn,
                 &self.get_current_video().unwrap().video_id,
                 is_watched,
-            );
+            ) {
+                self.set_message(&e.to_string())
+            }
         }
     }
 
@@ -189,7 +214,7 @@ impl App {
 
     pub fn play_video(&mut self) {
         if let Some(current_video) = self.get_current_video() {
-            std::process::Command::new("setsid")
+            if let Err(e) = std::process::Command::new("setsid")
                 .arg("--fork")
                 .arg("mpv")
                 .arg("--no-terminal")
@@ -199,32 +224,35 @@ impl App {
                     current_video.video_id
                 ))
                 .spawn()
-                .unwrap();
+            {
+                self.set_message(&format!("couldn't play in mpv:\n{}", e));
+            }
         }
     }
 
     pub fn open_video_in_browser(&mut self) {
         if let Some(current_video) = self.get_current_video() {
-            webbrowser::open_browser_with_options(
+            if let Err(e) = webbrowser::open_browser_with_options(
                 webbrowser::BrowserOptions::create_with_suppressed_output(&format!(
                     "{}/watch?v={}",
                     self.instance.domain.clone(),
                     current_video.video_id
                 )),
-            )
-            .unwrap();
+            ) {
+                self.set_message(&format!("couldn't open in browser:\n{}", e));
+            }
         }
     }
 
-    fn get_videos_of_current_channel(&self) -> Vec<Video> {
+    fn get_videos_of_current_channel(&self) -> Result<Vec<Video>> {
         if let Some(channel) = self.get_current_channel() {
             database::get_videos(&self.conn, &channel.channel_id)
         } else {
-            Vec::new()
+            Ok(Vec::new())
         }
     }
 
-    fn get_latest_videos(&self) -> Vec<Video> {
+    fn get_latest_videos(&self) -> Result<Vec<Video>> {
         database::get_latest_videos(&self.conn)
     }
 
@@ -233,11 +261,19 @@ impl App {
             Mode::Subscriptions => self.get_videos_of_current_channel(),
             Mode::LatestVideos => self.get_latest_videos(),
         };
-        self.videos.items = if self.hide_watched {
-            videos.into_iter().filter(|video| !video.watched).collect()
-        } else {
-            videos
-        };
+        match videos {
+            Ok(videos) => {
+                self.videos.items = if self.hide_watched {
+                    videos.into_iter().filter(|video| !video.watched).collect()
+                } else {
+                    videos
+                };
+            }
+            Err(e) => {
+                self.videos.items.clear();
+                self.set_message(&e.to_string())
+            }
+        }
     }
 
     pub fn on_change_channel(&mut self) {
@@ -400,21 +436,24 @@ impl App {
         self.search.matches.clear();
     }
 
-    fn dispatch(&self, action: IoEvent) {
-        self.io_tx.send(action).unwrap();
-    }
-
-    pub fn add_new_channels(&self) {
-        self.dispatch(IoEvent::AddNewChannels);
-    }
-
-    pub fn refresh_channel(&self) {
-        if let Some(current_channel) = self.get_current_channel() {
-            self.dispatch(IoEvent::RefreshChannel(current_channel.channel_id.clone()));
+    fn dispatch(&mut self, action: IoEvent) {
+        if let Err(e) = self.io_tx.send(action) {
+            self.set_message(&format!("Error from dispatch: {}", e));
         }
     }
 
-    pub fn refresh_channels(&self) {
+    pub fn add_new_channels(&mut self) {
+        self.dispatch(IoEvent::AddNewChannels);
+    }
+
+    pub fn refresh_channel(&mut self) {
+        if let Some(current_channel) = self.get_current_channel() {
+            let channel_id = current_channel.channel_id.clone();
+            self.dispatch(IoEvent::RefreshChannel(channel_id));
+        }
+    }
+
+    pub fn refresh_channels(&mut self) {
         self.dispatch(IoEvent::RefreshChannels);
     }
 
@@ -434,21 +473,25 @@ pub struct Instance {
 }
 
 impl Instance {
-    pub fn new() -> Self {
-        let invidious_instances = utils::read_instances();
+    pub fn new() -> Result<Self> {
+        let invidious_instances = utils::read_instances()?;
         let mut rng = thread_rng();
         let domain = invidious_instances[rng.gen_range(0..invidious_instances.len())].to_string();
         let agent = AgentBuilder::new().timeout(Duration::from_secs(5)).build();
-        Self { domain, agent }
+        Ok(Self { domain, agent })
     }
 
-    pub fn get_videos_of_channel(&self, channel_id: &str) -> Value {
-        let query = String::from("?fields=title,videoId,author,authorId,published,lengthSeconds");
-        let url = format!(
-            "{}{}{}/videos{}",
-            self.domain, "/api/v1/channels/", channel_id, query
-        );
-        self.agent.get(&url).call().unwrap().into_json().unwrap()
+    pub fn get_videos_of_channel(&self, channel_id: &str) -> Result<Value> {
+        let url = format!("{}/api/v1/channels/{}/videos", self.domain, channel_id);
+        Ok(self
+            .agent
+            .get(&url)
+            .query(
+                "fields",
+                "title,videoId,author,authorId,published,lengthSeconds",
+            )
+            .call()?
+            .into_json()?)
     }
 }
 

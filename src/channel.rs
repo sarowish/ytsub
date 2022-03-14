@@ -6,6 +6,7 @@ pub enum RefreshState {
     ToBeRefreshed,
     Refreshing,
     Completed,
+    Failed,
 }
 
 pub struct Channel {
@@ -36,6 +37,7 @@ impl Display for Channel {
             RefreshState::ToBeRefreshed => "□ ",
             RefreshState::Refreshing => "■ ",
             RefreshState::Completed => "",
+            RefreshState::Failed => "✗ ",
         };
         let new_video_indicator = if self.new_video { " [N]" } else { "" };
         write!(
