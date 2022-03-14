@@ -40,6 +40,8 @@ fn main() -> Result<()> {
     execute!(stdout, EnterAlternateScreen)?;
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
+    let tick_rate = Duration::from_millis(options.tick_rate);
+
     let app = Arc::new(Mutex::new(App::new(options, sync_io_tx)?));
 
     let cloned_app = app.clone();
@@ -48,7 +50,6 @@ fn main() -> Result<()> {
         Ok(())
     });
 
-    let tick_rate = Duration::from_millis(200);
     let mut last_tick = Instant::now();
     loop {
         terminal.draw(|f| draw(f, &mut app.lock().unwrap()))?;

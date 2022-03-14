@@ -46,7 +46,7 @@ impl App {
             input: Default::default(),
             input_mode: InputMode::Normal,
             search: Default::default(),
-            instance: Instance::new()?,
+            instance: Instance::new(options.request_timeout)?,
             hide_watched: false,
             io_tx,
         };
@@ -473,11 +473,13 @@ pub struct Instance {
 }
 
 impl Instance {
-    pub fn new() -> Result<Self> {
+    pub fn new(timeout: u64) -> Result<Self> {
         let invidious_instances = utils::read_instances()?;
         let mut rng = thread_rng();
         let domain = invidious_instances[rng.gen_range(0..invidious_instances.len())].to_string();
-        let agent = AgentBuilder::new().timeout(Duration::from_secs(5)).build();
+        let agent = AgentBuilder::new()
+            .timeout(Duration::from_secs(timeout))
+            .build();
         Ok(Self { domain, agent })
     }
 

@@ -13,4 +13,10 @@ pub struct Options {
     /// generate invidious instances file
     #[clap(short, long)]
     pub gen_instance_list: bool,
+    /// tick rate in milliseconds
+    #[clap(short, long, default_value_t = 200)]
+    pub tick_rate: u64,
+    /// timeout in secs
+    #[clap(short, long, default_value_t = 5)]
+    pub request_timeout: u64,
 }
