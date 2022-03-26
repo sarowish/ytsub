@@ -4,6 +4,9 @@ use crate::search::{Search, SearchDirection, SearchState};
 use crate::{database, Options};
 use crate::{utils, IoEvent};
 use anyhow::{Context, Result};
+use nix::sys::wait::wait;
+use nix::unistd::ForkResult::{Child, Parent};
+use nix::unistd::{fork, setsid};
 use rand::prelude::*;
 use rusqlite::Connection;
 use serde_json::Value;
@@ -213,34 +216,51 @@ impl App {
     }
 
     pub fn play_video(&mut self) {
+        let pid = unsafe { fork().unwrap() };
         if let Some(current_video) = self.get_current_video() {
-            if let Err(e) = std::process::Command::new("setsid")
-                .arg("--fork")
-                .arg("mpv")
-                .arg("--no-terminal")
-                .arg(format!(
-                    "{}/watch?v={}",
-                    self.instance.domain.clone(),
-                    current_video.video_id
-                ))
-                .spawn()
-            {
-                self.set_message(&format!("couldn't play in mpv:\n{}", e));
+            match pid {
+                Parent { .. } => {
+                    wait().unwrap();
+                }
+                Child => {
+                    setsid().unwrap();
+                    std::process::Command::new("mpv")
+                        .arg("--no-terminal")
+                        .arg(format!(
+                            "{}/watch?v={}",
+                            self.instance.domain.clone(),
+                            current_video.video_id
+                        ))
+                        .spawn()
+                        .unwrap();
+                    std::process::exit(0);
+                }
             }
+            self.mark_as_watched();
         }
     }
 
     pub fn open_video_in_browser(&mut self) {
+        let pid = unsafe { fork().unwrap() };
         if let Some(current_video) = self.get_current_video() {
-            if let Err(e) = webbrowser::open_browser_with_options(
-                webbrowser::BrowserOptions::create_with_suppressed_output(&format!(
-                    "{}/watch?v={}",
-                    self.instance.domain.clone(),
-                    current_video.video_id
-                )),
-            ) {
-                self.set_message(&format!("couldn't open in browser:\n{}", e));
+            match pid {
+                Parent { .. } => {
+                    std::thread::spawn(|| {
+                        wait().unwrap();
+                    });
+                }
+                Child => {
+                    setsid().unwrap();
+                    open::that(&format!(
+                        "{}/watch?v={}",
+                        self.instance.domain.clone(),
+                        current_video.video_id
+                    ))
+                    .unwrap();
+                    std::process::exit(0);
+                }
             }
+            self.mark_as_watched();
         }
     }
 
