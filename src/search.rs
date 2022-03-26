@@ -48,7 +48,7 @@ impl Search {
                     .iter()
                     .enumerate()
                     .map(|(i, item)| (i, item.to_string().to_lowercase()))
-                    .filter(|(_, item)| item.starts_with(&pattern))
+                    .filter(|(_, item)| item.contains(&pattern))
                     .collect();
                 self.state = SearchState::PushedKey;
             }
@@ -56,7 +56,7 @@ impl Search {
                 self.matches = self
                     .matches
                     .drain(..)
-                    .filter(|(_, text)| text.starts_with(&pattern))
+                    .filter(|(_, text)| text.contains(&pattern))
                     .collect();
             }
         }
