@@ -60,13 +60,12 @@ fn main() -> Result<()> {
             if let Event::Key(key) = event::read()? {
                 let input_mode = app.lock().unwrap().input_mode.clone();
                 match input_mode {
-                    InputMode::Normal => {
-                        if let KeyCode::Char('q') = key.code {
-                            break;
-                        } else {
+                    InputMode::Normal => match key.code {
+                        KeyCode::Char('q') | KeyCode::Esc => break,
+                        _ => {
                             input::handle_key_normal_mode(key, &mut app.lock().unwrap());
                         }
-                    }
+                    },
                     InputMode::Editing => {
                         input::handle_key_input_mode(key, &mut app.lock().unwrap())
                     }
