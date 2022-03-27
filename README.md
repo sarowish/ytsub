@@ -7,7 +7,7 @@ ytsub is a subscriptions only tui youtube client that uses the invidious api.
 
 ## Installation
 
-`mpv` is an optional dependency to play videos.
+`mpv` and `yt-dlp` are optional dependencies to play videos.
 
 ```
 cargo install ytsub --git https://codeberg.org/sarowish/ytsub
