@@ -438,12 +438,14 @@ impl App {
     }
 
     fn recover_item(&mut self) {
-        match self.selected {
-            Selected::Channels => {
-                self.search.recover_item(&mut self.channels);
-                self.on_change_channel()
+        if self.search.recovery_index.is_some() {
+            match self.selected {
+                Selected::Channels => {
+                    self.search.recover_item(&mut self.channels);
+                    self.on_change_channel()
+                }
+                Selected::Videos => self.search.recover_item(&mut self.videos),
             }
-            Selected::Videos => self.search.recover_item(&mut self.videos),
         }
     }
 
