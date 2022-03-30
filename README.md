@@ -82,4 +82,4 @@ https://yt.artemislena.eu
 | `r`                  | refresh selected channel       |
 | `R`                  | refresh all channels           |
 | `m`                  | toggle watched/unwatched       |
-| `q,escape`           | quit application               |
+| `q`                  | quit application               |

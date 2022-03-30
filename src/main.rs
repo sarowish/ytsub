@@ -61,7 +61,7 @@ fn main() -> Result<()> {
                 let input_mode = app.lock().unwrap().input_mode.clone();
                 match input_mode {
                     InputMode::Normal => match key.code {
-                        KeyCode::Char('q') | KeyCode::Esc => break,
+                        KeyCode::Char('q') => break,
                         _ => {
                             input::handle_key_normal_mode(key, &mut app.lock().unwrap());
                         }
