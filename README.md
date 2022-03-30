@@ -65,21 +65,22 @@ https://yt.artemislena.eu
 
 ## Key Bindings
 
-| Key Binding          | Action                         |
-| -------------------- | ----------------------------   |
-| `h/l,left/right`     | switch to channels/videos block|
-| `k/j,up/down`        | go one line upward/downward    |
-| `g`                  | go to first line               |
-| `G`                  | go to last line                |
-| `1`                  | switch to subscriptions mode   |
-| `2`                  | switch to latest videos mode   |
-| `o`                  | open video in browser          |
-| `p`                  | play video in mpv              |
-| `t`                  | toggle hide                    |
-| `/`                  | search forward                 |
-| `?`                  | search backward                |
-| `n/N`                | next/previous match            |
-| `r`                  | refresh selected channel       |
-| `R`                  | refresh all channels           |
-| `m`                  | toggle watched/unwatched       |
-| `q`                  | quit application               |
+| Key Binding          | Action                                       |
+| -------------------- | -------------------------------------------- |
+| `h/l,left/right`     | switch to channels/videos block              |
+| `k/j,up/down`        | go one line upward/downward                  |
+| `g`                  | go to first line                             |
+| `G`                  | go to last line                              |
+| `1`                  | switch to subscriptions mode                 |
+| `2`                  | switch to latest videos mode                 |
+| `o`                  | open video in browser                        |
+| `p`                  | play video in mpv                            |
+| `t`                  | toggle hide                                  |
+| `/`                  | search forward                               |
+| `?`                  | search backward                              |
+| `n`                  | repeat last search                           |
+| `N`                  | repeat last search in the opposite direction |
+| `r`                  | refresh selected channel                     |
+| `R`                  | refresh all channels                         |
+| `m`                  | toggle watched/unwatched                     |
+| `q`                  | quit application                             |

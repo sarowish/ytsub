@@ -117,7 +117,6 @@ impl App {
     }
 
     pub fn set_mode(&mut self, mode: Mode) {
-        self.reset_search();
         match mode {
             Mode::Subscriptions => self.set_mode_subs(),
             Mode::LatestVideos => self.set_mode_latest_videos(),
@@ -324,14 +323,12 @@ impl App {
     pub fn on_left(&mut self) {
         if matches!(self.selected, Selected::Videos) && matches!(self.mode, Mode::Subscriptions) {
             self.selected = Selected::Channels;
-            self.reset_search();
         }
     }
 
     pub fn on_right(&mut self) {
         if matches!(self.selected, Selected::Channels) && matches!(self.mode, Mode::Subscriptions) {
             self.selected = Selected::Videos;
-            self.reset_search();
         }
     }
 
@@ -365,7 +362,6 @@ impl App {
 
     fn start_searching(&mut self) {
         self.input_mode = InputMode::Editing;
-        self.search.previous_matches = self.search.matches.drain(..).collect();
     }
 
     pub fn search_forward(&mut self) {
@@ -392,29 +388,28 @@ impl App {
         }
     }
 
-    pub fn next_match(&mut self) {
+    fn repeat_last_search_helper(&mut self, opposite: bool) {
         match self.selected {
             Selected::Channels => {
-                self.search.next_match(&mut self.channels);
+                self.search.repeat_last(&mut self.channels, opposite);
                 self.on_change_channel()
             }
-            Selected::Videos => self.search.next_match(&mut self.videos),
+            Selected::Videos => self.search.repeat_last(&mut self.videos, opposite),
         }
     }
 
-    pub fn prev_match(&mut self) {
-        match self.selected {
-            Selected::Channels => {
-                self.search.prev_match(&mut self.channels);
-                self.on_change_channel()
-            }
-            Selected::Videos => self.search.prev_match(&mut self.videos),
-        }
+    pub fn repeat_last_search(&mut self) {
+        self.repeat_last_search_helper(false);
+    }
+
+    pub fn repeat_last_search_opposite(&mut self) {
+        self.repeat_last_search_helper(true);
     }
 
     pub fn push_key(&mut self, c: char) {
         self.input.push(c);
         self.search_in_block();
+        self.search.state = SearchState::PushedKey;
     }
 
     pub fn pop_key(&mut self) {
@@ -452,10 +447,6 @@ impl App {
     pub fn abort_search(&mut self) {
         self.recover_item();
         self.finalize_search(true);
-    }
-
-    fn reset_search(&mut self) {
-        self.search.matches.clear();
     }
 
     fn dispatch(&mut self, action: IoEvent) {
