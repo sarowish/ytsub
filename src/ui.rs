@@ -61,6 +61,7 @@ fn draw_channels<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
                     Selected::Videos => Style::default(),
                 }),
         )
+        .highlight_symbol(&app.options.highlight_symbol)
         .highlight_style(match app.selected {
             Selected::Channels => Style::default()
                 .fg(Color::Magenta)
@@ -154,6 +155,7 @@ fn draw_videos<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
                 Constraint::Min(30),
             ],
         })
+        .highlight_symbol(&app.options.highlight_symbol)
         .highlight_style({
             let mut style = Style::default();
             style = match app.selected {

@@ -74,13 +74,12 @@ pub fn read_instances() -> Result<Vec<String>> {
     Ok(instances)
 }
 
-fn get_subscriptions_file() -> Result<PathBuf> {
+pub fn get_subscriptions_file() -> Result<PathBuf> {
     Ok(get_config_dir()?.join(SUBS_FILE))
 }
 
-pub fn read_subscriptions(path: Option<PathBuf>) -> Result<Vec<String>> {
-    let path = path.unwrap_or(get_subscriptions_file()?);
-    let file = File::open(path)?;
+pub fn read_subscriptions(path: &Option<PathBuf>) -> Result<Vec<String>> {
+    let file = File::open(path.as_ref().unwrap())?;
     let mut ids = Vec::new();
     for id in BufReader::new(file).lines() {
         ids.push(id?);

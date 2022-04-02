@@ -25,6 +25,7 @@ OPTIONS:
     -d, --database-path <FILE>                 path to database file
     -g, --gen-instance-list                    generate invidious instances file
     -h, --help                                 Print help information
+        --highlight-symbol <SYMBOL>            symbol to highlight selected items [default: ]
     -r, --request-timeout <REQUEST_TIMEOUT>    timeout in secs [default: 5]
     -s, --subs-path <FILE>                     path to subscriptions file
     -t, --tick-rate <TICK_RATE>                tick rate in milliseconds [default: 200]

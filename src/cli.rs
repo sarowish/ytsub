@@ -19,4 +19,7 @@ pub struct Options {
     /// timeout in secs
     #[clap(short, long, default_value_t = 5)]
     pub request_timeout: u64,
+    /// symbol to highlight selected items
+    #[clap(long, default_value = "", value_name = "SYMBOL")]
+    pub highlight_symbol: String,
 }

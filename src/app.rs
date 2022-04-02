@@ -26,6 +26,7 @@ pub struct App {
     pub message: String,
     pub input: String,
     pub input_mode: InputMode,
+    pub options: Options,
     search: Search,
     instance: Instance,
     hide_watched: bool,
@@ -33,23 +34,26 @@ pub struct App {
 }
 
 impl App {
-    pub fn new(options: Options, io_tx: Sender<IoEvent>) -> Result<Self> {
+    pub fn new(mut options: Options, io_tx: Sender<IoEvent>) -> Result<Self> {
+        if options.subs_path.is_none() {
+            options.subs_path = Some(utils::get_subscriptions_file()?);
+        }
+        if options.database_path.is_none() {
+            options.database_path = Some(utils::get_database_file()?);
+        }
         let mut app = Self {
             channels: StatefulList::with_items(Default::default()),
             videos: StatefulList::with_items(Default::default()),
             selected: Selected::Channels,
             mode: Mode::Subscriptions,
-            channel_ids: utils::read_subscriptions(options.subs_path)?,
-            conn: Connection::open(
-                options
-                    .database_path
-                    .unwrap_or_else(|| utils::get_database_file().unwrap()),
-            )?,
+            channel_ids: utils::read_subscriptions(&options.subs_path)?,
+            conn: Connection::open(options.database_path.as_ref().unwrap())?,
             message: Default::default(),
             input: Default::default(),
             input_mode: InputMode::Normal,
             search: Default::default(),
             instance: Instance::new(options.request_timeout)?,
+            options,
             hide_watched: false,
             io_tx,
         };
