@@ -120,13 +120,6 @@ impl App {
         Ok(())
     }
 
-    pub fn set_mode(&mut self, mode: Mode) {
-        match mode {
-            Mode::Subscriptions => self.set_mode_subs(),
-            Mode::LatestVideos => self.set_mode_latest_videos(),
-        }
-    }
-
     pub fn set_mode_subs(&mut self) {
         if !matches!(self.mode, Mode::Subscriptions) {
             self.mode = Mode::Subscriptions;

@@ -1,4 +1,4 @@
-use crate::app::{App, Mode};
+use crate::app::App;
 use crossterm::event::{KeyCode, KeyEvent};
 
 #[derive(Clone)]
@@ -9,8 +9,8 @@ pub enum InputMode {
 
 pub fn handle_key_normal_mode(key: KeyEvent, app: &mut App) {
     match key.code {
-        KeyCode::Char('1') => app.set_mode(Mode::Subscriptions),
-        KeyCode::Char('2') => app.set_mode(Mode::LatestVideos),
+        KeyCode::Char('1') => app.set_mode_subs(),
+        KeyCode::Char('2') => app.set_mode_latest_videos(),
         KeyCode::Char('j') | KeyCode::Down => app.on_down(),
         KeyCode::Char('k') | KeyCode::Up => app.on_up(),
         KeyCode::Char('h') | KeyCode::Left => app.on_left(),
