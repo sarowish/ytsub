@@ -34,18 +34,10 @@ pub fn handle_key_normal_mode(key: KeyEvent, app: &mut App) {
 
 pub fn handle_key_input_mode(key: KeyEvent, app: &mut App) {
     match key.code {
-        KeyCode::Enter => {
-            app.complete_search();
-        }
-        KeyCode::Char(c) => {
-            app.push_key(c);
-        }
-        KeyCode::Backspace => {
-            app.pop_key();
-        }
-        KeyCode::Esc => {
-            app.abort_search();
-        }
+        KeyCode::Enter => app.complete_search(),
+        KeyCode::Char(c) => app.push_key(c),
+        KeyCode::Backspace => app.pop_key(),
+        KeyCode::Esc => app.abort_search(),
         _ => {}
     }
 }
