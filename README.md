@@ -71,6 +71,7 @@ https://yt.artemislena.eu
 | `k/j,up/down`        | go one line upward/downward                  |
 | `g`                  | go to first line                             |
 | `G`                  | go to last line                              |
+| `c`                  | jump to channel from latest videos mode      |
 | `1`                  | switch to subscriptions mode                 |
 | `2`                  | switch to latest videos mode                 |
 | `o`                  | open video in browser                        |

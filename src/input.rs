@@ -17,6 +17,7 @@ pub fn handle_key_normal_mode(key: KeyEvent, app: &mut App) {
         KeyCode::Char('l') | KeyCode::Right => app.on_right(),
         KeyCode::Char('g') => app.select_first(),
         KeyCode::Char('G') => app.select_last(),
+        KeyCode::Char('c') => app.jump_to_channel(),
         KeyCode::Char('t') => app.toggle_hide(),
         KeyCode::Char('/') => app.search_forward(),
         KeyCode::Char('?') => app.search_backward(),

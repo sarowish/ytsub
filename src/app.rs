@@ -1,4 +1,4 @@
-use crate::channel::{Channel, RefreshState, Video};
+use crate::channel::{Channel, RefreshState, Video, VideoType};
 use crate::input::InputMode;
 use crate::search::{Search, SearchDirection, SearchState};
 use crate::{database, Options};
@@ -152,6 +152,13 @@ impl App {
             }
         }
         None
+    }
+
+    fn find_channel_by_name(&mut self, channel_name: &str) -> Option<usize> {
+        self.channels
+            .items
+            .iter()
+            .position(|channel| channel.channel_name == channel_name)
     }
 
     pub fn start_refreshing_channel(&mut self, channel_id: &str) {
@@ -352,6 +359,21 @@ impl App {
             }
             Selected::Videos => {
                 self.videos.select_last();
+            }
+        }
+    }
+
+    pub fn jump_to_channel(&mut self) {
+        if let Mode::LatestVideos = self.mode {
+            if let Some(video) = self.get_current_video() {
+                if let VideoType::LatestVideos(channel_name) = video.video_type.as_ref().unwrap() {
+                    let channel_name = channel_name.clone();
+                    let index = self.find_channel_by_name(&channel_name).unwrap();
+                    self.mode = Mode::Subscriptions;
+                    self.selected = Selected::Videos;
+                    self.channels.select_with_index(index);
+                    self.on_change_channel();
+                }
             }
         }
     }
