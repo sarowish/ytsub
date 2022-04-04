@@ -112,7 +112,23 @@ impl App {
                 return;
             }
         };
-        self.get_channel_by_id(channel_id).unwrap().new_video |= any_new_videos;
+        if any_new_videos {
+            self.move_channel_to_top(channel_id);
+        }
+    }
+
+    fn move_channel_to_top(&mut self, channel_id: &str) {
+        let id_of_current_channel = self
+            .get_current_channel()
+            .map(|channel| channel.channel_id.clone());
+        let index = self.find_channel_by_id(channel_id).unwrap();
+        let mut channel = self.channels.items.remove(index);
+        channel.new_video |= true;
+        self.channels.items.insert(0, channel);
+        if let Some(id) = id_of_current_channel {
+            let index = self.find_channel_by_id(&id).unwrap();
+            self.channels.select_with_index(index);
+        }
     }
 
     pub fn load_channels(&mut self) -> Result<()> {
@@ -143,12 +159,15 @@ impl App {
     }
 
     fn get_channel_by_id(&mut self, channel_id: &str) -> Option<&mut Channel> {
-        for channel in &mut self.channels.items {
-            if channel.channel_id == channel_id {
-                return Some(channel);
-            }
-        }
-        None
+        self.find_channel_by_id(channel_id)
+            .map(|index| &mut self.channels.items[index])
+    }
+
+    fn find_channel_by_id(&mut self, channel_id: &str) -> Option<usize> {
+        self.channels
+            .items
+            .iter()
+            .position(|channel| channel.channel_id == channel_id)
     }
 
     fn find_channel_by_name(&mut self, channel_name: &str) -> Option<usize> {
