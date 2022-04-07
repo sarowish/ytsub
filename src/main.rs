@@ -12,7 +12,7 @@ use app::App;
 use clap::Parser;
 use cli::Options;
 use crossterm::event;
-use crossterm::event::{Event, KeyCode};
+use crossterm::event::{Event, KeyCode, KeyModifiers};
 use crossterm::execute;
 use crossterm::terminal::{
     disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
@@ -71,8 +71,10 @@ fn main() -> Result<()> {
             if let Event::Key(key) = event::read()? {
                 let input_mode = app.lock().unwrap().input_mode.clone();
                 match input_mode {
-                    InputMode::Normal => match key.code {
-                        KeyCode::Char('q') => break,
+                    InputMode::Normal => match (key.code, key.modifiers) {
+                        (KeyCode::Char('q'), _) | (KeyCode::Char('c'), KeyModifiers::CONTROL) => {
+                            break
+                        }
                         _ => {
                             input::handle_key_normal_mode(key, &mut app.lock().unwrap());
                         }
