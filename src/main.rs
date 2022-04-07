@@ -53,6 +53,17 @@ fn main() -> Result<()> {
     let mut last_tick = Instant::now();
     loop {
         terminal.draw(|f| draw(f, &mut app.lock().unwrap()))?;
+
+        if let InputMode::Editing = app.lock().unwrap().input_mode {
+            terminal.show_cursor()?;
+        } else {
+            terminal.hide_cursor()?;
+        }
+        terminal.set_cursor(
+            app.lock().unwrap().cursor_position,
+            terminal.size()?.height - 1,
+        )?;
+
         let timeout = tick_rate
             .checked_sub(last_tick.elapsed())
             .unwrap_or_else(|| Duration::from_secs(0));

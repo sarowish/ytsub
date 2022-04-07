@@ -26,6 +26,7 @@ pub struct App {
     pub message: String,
     pub input: String,
     pub input_mode: InputMode,
+    pub cursor_position: u16,
     pub options: Options,
     new_video_ids: HashSet<String>,
     search: Search,
@@ -52,6 +53,7 @@ impl App {
             message: Default::default(),
             input: Default::default(),
             input_mode: InputMode::Normal,
+            cursor_position: 0,
             search: Default::default(),
             instance: Instance::new(options.request_timeout)?,
             options,
@@ -417,6 +419,7 @@ impl App {
 
     fn start_searching(&mut self) {
         self.input_mode = InputMode::Editing;
+        self.cursor_position = 1;
     }
 
     pub fn search_forward(&mut self) {
@@ -462,15 +465,19 @@ impl App {
     }
 
     pub fn push_key(&mut self, c: char) {
+        self.cursor_position += 1;
         self.input.push(c);
         self.search_in_block();
         self.search.state = SearchState::PushedKey;
     }
 
     pub fn pop_key(&mut self) {
-        self.input.pop();
-        self.search.state = SearchState::PoppedKey;
-        self.search_in_block();
+        if !self.input.is_empty() {
+            self.cursor_position -= 1;
+            self.input.pop();
+            self.search.state = SearchState::PoppedKey;
+            self.search_in_block();
+        }
     }
 
     pub fn any_matches(&self) -> bool {
