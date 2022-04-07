@@ -27,6 +27,7 @@ pub struct App {
     pub input: String,
     pub input_mode: InputMode,
     pub options: Options,
+    new_video_ids: HashSet<String>,
     search: Search,
     instance: Instance,
     hide_watched: bool,
@@ -54,6 +55,7 @@ impl App {
             search: Default::default(),
             instance: Instance::new(options.request_timeout)?,
             options,
+            new_video_ids: Default::default(),
             hide_watched: false,
             io_tx,
         };
@@ -105,15 +107,19 @@ impl App {
 
     pub fn add_videos(&mut self, videos_json: Value, channel_id: &str) {
         let videos: Vec<Video> = Video::vec_from_json(videos_json);
-        let any_new_videos = match database::add_videos(&self.conn, channel_id, &videos) {
+        let new_video_count = match database::add_videos(&self.conn, channel_id, &videos) {
             Ok(new_video_count) => new_video_count,
             Err(e) => {
                 self.set_message(&e.to_string());
                 return;
             }
         };
-        if any_new_videos {
+        if new_video_count > 0 {
             self.move_channel_to_top(channel_id);
+            let ids =
+                database::get_newly_inserted_video_ids(&self.conn, channel_id, new_video_count)
+                    .unwrap_or_default();
+            self.new_video_ids.extend(ids);
         }
     }
 
@@ -310,6 +316,17 @@ impl App {
                 } else {
                     videos
                 };
+
+                let mut count = 0;
+                for video in &mut self.videos.items {
+                    if self.new_video_ids.contains(&video.video_id) {
+                        video.new = true;
+                        count += 1;
+                    }
+                    if count == self.new_video_ids.len() {
+                        break;
+                    }
+                }
             }
             Err(e) => {
                 self.videos.items.clear();

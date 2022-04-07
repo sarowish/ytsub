@@ -98,7 +98,11 @@ fn draw_videos<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
             }
 
             columns.extend([
-                Cell::from(Span::raw(&video.title)),
+                Cell::from(Span::raw(format!(
+                    "{} {}",
+                    video.title,
+                    if video.new { "[N]" } else { "" }
+                ))),
                 Cell::from(Span::raw(utils::as_hhmmss(video.length))),
                 Cell::from(Span::raw(&video.published_text)),
             ]);

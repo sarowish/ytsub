@@ -43,7 +43,7 @@ pub fn create_channel(conn: &Connection, channel: &Channel) -> Result<()> {
     Ok(())
 }
 
-pub fn add_videos(conn: &Connection, channel_id: &str, videos: &[Video]) -> Result<bool> {
+pub fn add_videos(conn: &Connection, channel_id: &str, videos: &[Video]) -> Result<usize> {
     let columns = [
         "video_id",
         "channel_id",
@@ -90,7 +90,28 @@ pub fn add_videos(conn: &Connection, channel_id: &str, videos: &[Video]) -> Resu
     );
     let new_video_count = conn.execute(&query, videos_values.as_slice())?;
 
-    Ok(new_video_count > 0)
+    Ok(new_video_count)
+}
+
+pub fn get_newly_inserted_video_ids(
+    conn: &Connection,
+    channel_id: &str,
+    new_video_count: usize,
+) -> Result<Vec<String>> {
+    let mut stmt = conn.prepare(
+        "SELECT video_id
+        FROM videos
+        WHERE channel_id=?1
+        ORDER BY published DESC
+        LIMIT ?2
+        ",
+    )?;
+    let mut video_ids = Vec::new();
+    for video in stmt.query_map(params![channel_id, new_video_count], |row| row.get(0))? {
+        video_ids.push(video?);
+    }
+
+    Ok(video_ids)
 }
 
 pub fn get_channel_ids(conn: &Connection) -> Result<Vec<String>> {
