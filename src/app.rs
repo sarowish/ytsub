@@ -419,7 +419,7 @@ impl App {
 
     fn start_searching(&mut self) {
         self.input_mode = InputMode::Editing;
-        self.cursor_position = 1;
+        self.cursor_position = 0;
     }
 
     pub fn search_forward(&mut self) {
@@ -465,19 +465,81 @@ impl App {
     }
 
     pub fn push_key(&mut self, c: char) {
-        self.cursor_position += 1;
-        self.input.push(c);
+        if self.cursor_position as usize == self.input.len() {
+            self.input.push(c);
+        } else {
+            self.input.insert(self.cursor_position.into(), c);
+            self.search.state = SearchState::PoppedKey;
+        }
         self.search_in_block();
         self.search.state = SearchState::PushedKey;
+        self.cursor_position += 1;
     }
 
     pub fn pop_key(&mut self) {
-        if !self.input.is_empty() {
+        if self.cursor_position != 0 {
             self.cursor_position -= 1;
-            self.input.pop();
+            self.input.remove(self.cursor_position.into());
             self.search.state = SearchState::PoppedKey;
             self.search_in_block();
         }
+    }
+
+    pub fn move_cursor_left(&mut self) {
+        if self.cursor_position != 0 {
+            self.cursor_position -= 1;
+        }
+    }
+
+    pub fn move_cursor_right(&mut self) {
+        if self.cursor_position as usize != self.input.len() {
+            self.cursor_position += 1;
+        }
+    }
+
+    pub fn move_cursor_one_word_left(&mut self) {
+        self.cursor_position = self.input[..self.cursor_position as usize]
+            .trim()
+            .rfind(|c| c == ' ')
+            .map(|pos| pos + 1)
+            .unwrap_or(0) as u16;
+    }
+
+    pub fn move_cursor_one_word_right(&mut self) {
+        self.cursor_position = self
+            .input
+            .chars()
+            .skip(self.cursor_position as usize)
+            .position(|c| c == ' ')
+            .map(|pos| pos as u16 + self.cursor_position + 1)
+            .unwrap_or(self.input.len() as u16) as u16;
+    }
+
+    pub fn move_cursor_to_beginning_of_line(&mut self) {
+        self.cursor_position = 0;
+    }
+
+    pub fn move_cursor_to_end_of_line(&mut self) {
+        self.cursor_position = self.input.len() as u16;
+    }
+
+    pub fn delete_word_before_cursor(&mut self) {
+        let old_cursor_position = self.cursor_position;
+        self.move_cursor_one_word_left();
+        self.input
+            .drain(self.cursor_position as usize..old_cursor_position as usize);
+        self.search.state = SearchState::PoppedKey;
+    }
+
+    pub fn clear_line(&mut self) {
+        self.input.clear();
+        self.cursor_position = 0;
+        self.search.state = SearchState::PoppedKey;
+    }
+
+    pub fn clear_to_right(&mut self) {
+        self.input.drain(self.cursor_position as usize..);
+        self.search.state = SearchState::PoppedKey;
     }
 
     pub fn any_matches(&self) -> bool {

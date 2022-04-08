@@ -60,7 +60,7 @@ fn main() -> Result<()> {
             terminal.hide_cursor()?;
         }
         terminal.set_cursor(
-            app.lock().unwrap().cursor_position,
+            app.lock().unwrap().cursor_position + 1,
             terminal.size()?.height - 1,
         )?;
 

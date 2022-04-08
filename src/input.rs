@@ -1,5 +1,5 @@
 use crate::app::App;
-use crossterm::event::{KeyCode, KeyEvent};
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 #[derive(Clone)]
 pub enum InputMode {
@@ -33,11 +33,22 @@ pub fn handle_key_normal_mode(key: KeyEvent, app: &mut App) {
 }
 
 pub fn handle_key_input_mode(key: KeyEvent, app: &mut App) {
-    match key.code {
-        KeyCode::Enter => app.complete_search(),
-        KeyCode::Char(c) => app.push_key(c),
-        KeyCode::Backspace => app.pop_key(),
-        KeyCode::Esc => app.abort_search(),
+    match (key.code, key.modifiers) {
+        (KeyCode::Left, KeyModifiers::CONTROL) => app.move_cursor_one_word_left(),
+        (KeyCode::Right, KeyModifiers::CONTROL) => app.move_cursor_one_word_right(),
+        (KeyCode::Left, _) | (KeyCode::Char('b'), KeyModifiers::CONTROL) => app.move_cursor_left(),
+        (KeyCode::Right, _) | (KeyCode::Char('f'), KeyModifiers::CONTROL) => {
+            app.move_cursor_right()
+        }
+        (KeyCode::Char('a'), KeyModifiers::CONTROL) => app.move_cursor_to_beginning_of_line(),
+        (KeyCode::Char('e'), KeyModifiers::CONTROL) => app.move_cursor_to_end_of_line(),
+        (KeyCode::Char('w'), KeyModifiers::CONTROL) => app.delete_word_before_cursor(),
+        (KeyCode::Char('u'), KeyModifiers::CONTROL) => app.clear_line(),
+        (KeyCode::Char('k'), KeyModifiers::CONTROL) => app.clear_to_right(),
+        (KeyCode::Enter, _) => app.complete_search(),
+        (KeyCode::Backspace, _) | (KeyCode::Char('h'), KeyModifiers::CONTROL) => app.pop_key(),
+        (KeyCode::Char(c), _) => app.push_key(c),
+        (KeyCode::Esc, _) => app.abort_search(),
         _ => {}
     }
 }
