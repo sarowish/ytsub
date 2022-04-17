@@ -39,7 +39,7 @@ Default directory of the configuration files is `~/.config/ytsub`.
 | `subs`      | includes the ids of subscribed channels |
 | `instances` | includes the invidious instances        |
 
-Every entry in these files are separated by lines.
+Every entry in these files is separated by a line.
 
 To subscribe to channels add their ids to `subs` file.  
 Example `subs` file:
