@@ -42,7 +42,8 @@ Default directory of the configuration files is `~/.config/ytsub`.
 Every entry in these files is separated by a line.
 
 To subscribe to channels add their ids to `subs` file.  
-Example `subs` file:
+
+#### Example `subs` file:
 
 ```
 UCsXVk37bltHxD1rDPwtNM8Q
@@ -53,7 +54,8 @@ UCBa659QWEk1AI4Tg--mrJ2A
 If the `instances` file doesn't exist, every time you open the app, instances list will be built from https://api.invidious.io/.
 You can either manually create the file and add instances that have api enabled or
 automatically generate it from the instances in https://api.invidious.io/ by running the app with `-g` flag.  
-Example `instances` file:
+
+#### Example `instances` file:
 
 ```
 https://vid.puffyan.us
