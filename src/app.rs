@@ -6,11 +6,12 @@ use crate::{utils, IoEvent};
 use anyhow::{Context, Result};
 use nix::sys::wait::wait;
 use nix::unistd::ForkResult::{Child, Parent};
-use nix::unistd::{fork, setsid};
+use nix::unistd::{dup2, fork, setsid};
 use rand::prelude::*;
 use rusqlite::Connection;
 use serde_json::Value;
 use std::collections::HashSet;
+use std::os::unix::io::IntoRawFd;
 use std::sync::mpsc::Sender;
 use std::time::Duration;
 use tui::widgets::{ListState, TableState};
@@ -245,51 +246,53 @@ impl App {
         self.on_change_channel();
     }
 
-    pub fn play_video(&mut self) {
+    fn run_detached<F: FnOnce()>(&mut self, func: F) {
         let pid = unsafe { fork().unwrap() };
-        if let Some(current_video) = self.get_current_video() {
-            match pid {
-                Parent { .. } => {
-                    wait().unwrap();
-                }
-                Child => {
-                    setsid().unwrap();
-                    std::process::Command::new("mpv")
-                        .arg("--no-terminal")
-                        .arg(format!(
-                            "{}/watch?v={}",
-                            self.instance.domain.clone(),
-                            current_video.video_id
-                        ))
-                        .spawn()
-                        .unwrap();
-                    std::process::exit(0);
-                }
+        match pid {
+            Parent { .. } => {
+                wait().unwrap();
             }
+            Child => {
+                setsid().unwrap();
+                let fd = std::fs::OpenOptions::new()
+                    .write(true)
+                    .read(true)
+                    .open("/dev/null")
+                    .unwrap()
+                    .into_raw_fd();
+                dup2(fd, 0).unwrap();
+                dup2(fd, 1).unwrap();
+                dup2(fd, 2).unwrap();
+                func();
+                std::process::exit(0);
+            }
+        }
+    }
+
+    pub fn play_video(&mut self) {
+        if let Some(current_video) = self.get_current_video() {
+            let url = format!(
+                "{}/watch?v={}",
+                self.instance.domain.clone(),
+                current_video.video_id
+            );
+            let mpv_process = || {
+                std::process::Command::new("mpv").arg(url).spawn().unwrap();
+            };
+            self.run_detached(mpv_process);
             self.mark_as_watched();
         }
     }
 
     pub fn open_video_in_browser(&mut self) {
-        let pid = unsafe { fork().unwrap() };
         if let Some(current_video) = self.get_current_video() {
-            match pid {
-                Parent { .. } => {
-                    std::thread::spawn(|| {
-                        wait().unwrap();
-                    });
-                }
-                Child => {
-                    setsid().unwrap();
-                    open::that(&format!(
-                        "{}/watch?v={}",
-                        self.instance.domain.clone(),
-                        current_video.video_id
-                    ))
-                    .unwrap();
-                    std::process::exit(0);
-                }
-            }
+            let url = format!(
+                "{}/watch?v={}",
+                self.instance.domain.clone(),
+                current_video.video_id
+            );
+            let browser_process = || webbrowser::open(&url).unwrap();
+            self.run_detached(browser_process);
             self.mark_as_watched();
         }
     }
