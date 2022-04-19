@@ -40,6 +40,7 @@ fn main() -> Result<()> {
     execute!(stdout, EnterAlternateScreen)?;
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
+    terminal.clear()?;
     let tick_rate = Duration::from_millis(options.tick_rate);
 
     let app = Arc::new(Mutex::new(App::new(options, sync_io_tx)?));
