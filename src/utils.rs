@@ -6,7 +6,6 @@ use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 const PACKAGE_NAME: &str = env!("CARGO_PKG_NAME");
-const SUBS_FILE: &str = "subs";
 const INSTANCES_FILE: &str = "instances";
 const DATABASE_FILE: &str = "videos.db";
 
@@ -72,19 +71,6 @@ pub fn read_instances() -> Result<Vec<String>> {
         instances.push(instance?);
     }
     Ok(instances)
-}
-
-pub fn get_subscriptions_file() -> Result<PathBuf> {
-    Ok(get_config_dir()?.join(SUBS_FILE))
-}
-
-pub fn read_subscriptions(path: &Option<PathBuf>) -> Result<Vec<String>> {
-    let file = File::open(path.as_ref().unwrap())?;
-    let mut ids = Vec::new();
-    for id in BufReader::new(file).lines() {
-        ids.push(id?);
-    }
-    Ok(ids)
 }
 
 pub fn get_database_file() -> Result<PathBuf> {

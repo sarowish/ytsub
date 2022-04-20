@@ -22,7 +22,6 @@ pub struct App {
     pub videos: StatefulList<Video, TableState>,
     pub selected: Selected,
     pub mode: Mode,
-    pub channel_ids: Vec<String>,
     pub conn: Connection,
     pub message: String,
     pub input: String,
@@ -38,9 +37,6 @@ pub struct App {
 
 impl App {
     pub fn new(mut options: Options, io_tx: Sender<IoEvent>) -> Result<Self> {
-        if options.subs_path.is_none() {
-            options.subs_path = Some(utils::get_subscriptions_file()?);
-        }
         if options.database_path.is_none() {
             options.database_path = Some(utils::get_database_file()?);
         }
@@ -49,7 +45,6 @@ impl App {
             videos: StatefulList::with_items(Default::default()),
             selected: Selected::Channels,
             mode: Mode::Subscriptions,
-            channel_ids: utils::read_subscriptions(&options.subs_path)?,
             conn: Connection::open(options.database_path.as_ref().unwrap())?,
             message: Default::default(),
             input: Default::default(),
@@ -67,19 +62,8 @@ impl App {
         app.set_mode_subs();
         app.load_channels()?;
         app.select_first();
-        app.add_new_channels();
 
         Ok(app)
-    }
-
-    pub fn get_new_channel_ids(&mut self) -> Result<Vec<String>> {
-        let channels_in_database = database::get_channel_ids(&self.conn)?;
-        let channels_in_database = channels_in_database.into_iter().collect::<HashSet<_>>();
-        let current_channels = self.channel_ids.iter().cloned().collect::<HashSet<_>>();
-        Ok(current_channels
-            .difference(&channels_in_database)
-            .cloned()
-            .collect())
     }
 
     pub fn add_channel(&mut self, videos_json: Value) {
@@ -417,11 +401,50 @@ impl App {
     }
 
     pub fn is_footer_active(&self) -> bool {
-        matches!(self.input_mode, InputMode::Editing) || !self.message.is_empty()
+        !matches!(self.input_mode, InputMode::Normal | InputMode::Confirmation)
+            || !self.message.is_empty()
+    }
+
+    pub fn prompt_for_subscription(&mut self) {
+        self.input_mode = InputMode::Subscribe;
+        self.cursor_position = 0;
+    }
+
+    pub fn subscribe(&mut self) {
+        let channel_id = if self.input.contains('/') {
+            self.input
+                .rsplit_once('/')
+                .map(|(_, id)| id.to_owned())
+                .unwrap()
+        } else {
+            self.input.drain(..).collect()
+        };
+        self.input_mode = InputMode::Normal;
+        self.input.clear();
+        self.subscribe_to_channel(channel_id);
+    }
+
+    pub fn prompt_for_unsubscribing(&mut self) {
+        if let Mode::Subscriptions = self.mode {
+            self.input_mode = InputMode::Confirmation;
+        }
+    }
+
+    pub fn unsubscribe(&mut self) {
+        if let Some(index) = self.channels.state.selected() {
+            let channel_id = &self.get_current_channel().unwrap().channel_id;
+            database::delete_channel(&self.conn, channel_id).unwrap();
+            self.input_mode = InputMode::Normal;
+            self.channels.items.remove(index);
+            if index == self.channels.items.len() {
+                self.channels.previous();
+            }
+            self.on_change_channel();
+        }
     }
 
     fn start_searching(&mut self) {
-        self.input_mode = InputMode::Editing;
+        self.input_mode = InputMode::Search;
         self.cursor_position = 0;
     }
 
@@ -472,10 +495,14 @@ impl App {
             self.input.push(c);
         } else {
             self.input.insert(self.cursor_position.into(), c);
-            self.search.state = SearchState::PoppedKey;
+            if let InputMode::Search = self.input_mode {
+                self.search.state = SearchState::PoppedKey;
+            }
         }
-        self.search_in_block();
-        self.search.state = SearchState::PushedKey;
+        if let InputMode::Search = self.input_mode {
+            self.search_in_block();
+            self.search.state = SearchState::PushedKey;
+        }
         self.cursor_position += 1;
     }
 
@@ -483,8 +510,10 @@ impl App {
         if self.cursor_position != 0 {
             self.cursor_position -= 1;
             self.input.remove(self.cursor_position.into());
-            self.search.state = SearchState::PoppedKey;
-            self.search_in_block();
+            if let InputMode::Search = self.input_mode {
+                self.search.state = SearchState::PoppedKey;
+                self.search_in_block();
+            }
         }
     }
 
@@ -582,8 +611,8 @@ impl App {
         }
     }
 
-    pub fn add_new_channels(&mut self) {
-        self.dispatch(IoEvent::AddNewChannels);
+    pub fn subscribe_to_channel(&mut self, channel_id: String) {
+        self.dispatch(IoEvent::SubscribeToChannel(channel_id));
     }
 
     pub fn refresh_channel(&mut self) {

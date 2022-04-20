@@ -24,7 +24,7 @@ pub fn initialize_db(conn: &Connection) -> Result<()> {
             published INTEGER,
             length INTEGER,
             watched BOOL,
-            FOREIGN KEY(channel_id) REFERENCES channels(channel_id)
+            FOREIGN KEY(channel_id) REFERENCES channels(channel_id) ON DELETE CASCADE
             )
         ",
         [],
@@ -39,6 +39,37 @@ pub fn create_channel(conn: &Connection, channel: &Channel) -> Result<()> {
         VALUES (?1, ?2)",
         params![channel.channel_id, channel.channel_name],
     )?;
+
+    Ok(())
+}
+
+pub fn delete_channel(conn: &Connection, channel_id: &str) -> Result<()> {
+    if let Err(e) = conn.execute(
+        "DELETE FROM channels WHERE channel_id=?1",
+        params![channel_id],
+    ) {
+        match e {
+            rusqlite::Error::SqliteFailure(
+                rusqlite::ffi::Error {
+                    code: rusqlite::ErrorCode::ConstraintViolation,
+                    ..
+                },
+                _,
+            ) => {
+                // if the table was created without the "ON DELETE CASCADE" option, delete the
+                // videos manually
+                conn.execute(
+                    "DELETE FROM videos WHERE channel_id=?1",
+                    params![channel_id],
+                )?;
+                conn.execute(
+                    "DELETE FROM channels WHERE channel_id=?1",
+                    params![channel_id],
+                )?;
+            }
+            _ => return Err(anyhow::anyhow!(e)),
+        }
+    }
 
     Ok(())
 }

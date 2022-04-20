@@ -4,10 +4,12 @@ use crate::input::InputMode;
 use crate::search::SearchDirection;
 use crate::utils;
 use tui::backend::Backend;
-use tui::layout::{Constraint, Direction, Layout, Rect};
+use tui::layout::{Alignment, Constraint, Direction, Layout, Rect};
 use tui::style::{Color, Modifier, Style};
 use tui::text::{Span, Spans};
-use tui::widgets::{Block, BorderType, Borders, Cell, List, ListItem, Paragraph, Row, Table};
+use tui::widgets::{
+    Block, BorderType, Borders, Cell, Clear, List, ListItem, Paragraph, Row, Table, Wrap,
+};
 use tui::Frame;
 
 pub fn draw<B: Backend>(f: &mut Frame<B>, app: &mut App) {
@@ -26,6 +28,10 @@ pub fn draw<B: Backend>(f: &mut Frame<B>, app: &mut App) {
     }
     if let Some(footer) = footer {
         draw_footer(f, app, footer);
+    }
+
+    if let InputMode::Confirmation = app.input_mode {
+        draw_confirmation_window(f, app);
     }
 }
 
@@ -207,7 +213,7 @@ fn draw_video_info<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
 
 fn draw_footer<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
     let text = match app.input_mode {
-        InputMode::Editing => Paragraph::new(Spans::from(vec![
+        InputMode::Search => Paragraph::new(Spans::from(vec![
             Span::raw(match app.search_direction() {
                 SearchDirection::Forward => "/",
                 SearchDirection::Backward => "?",
@@ -221,9 +227,85 @@ fn draw_footer<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
                 },
             ),
         ])),
+        InputMode::Subscribe => Paragraph::new(Spans::from(vec![
+            Span::raw("Enter channel id or url: "),
+            Span::raw(&app.input),
+        ])),
         _ => Paragraph::new(Span::raw(&app.message)),
     };
     f.render_widget(text, area);
+}
+
+fn draw_confirmation_window<B: Backend>(f: &mut Frame<B>, app: &App) {
+    let window = popup_window(50, 15, f.size());
+    f.render_widget(Clear, window);
+    f.render_widget(Block::default().borders(Borders::ALL), window);
+
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Percentage(80), Constraint::Min(1)])
+        .margin(1)
+        .split(window);
+
+    let (yes_area, no_area) = {
+        let chunks = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
+            .split(chunks[1]);
+        (chunks[0], chunks[1])
+    };
+
+    let channel_name = &app.get_current_channel().unwrap().channel_name;
+    let mut text = Paragraph::new(Spans::from(format!(
+        "Are you sure you want to unsubscribe from '{}'?",
+        channel_name
+    )))
+    .alignment(Alignment::Center);
+    // program crashes if width is 0 and wrap is enabled
+    if chunks[0].width > 0 {
+        text = text.wrap(Wrap { trim: true });
+    }
+
+    let yes = Paragraph::new(Spans::from(vec![
+        Span::styled("Y", Style::default().fg(Color::Green)),
+        Span::raw("es"),
+    ]))
+    .alignment(Alignment::Center);
+    let no = Paragraph::new(Spans::from(vec![
+        Span::styled("N", Style::default().fg(Color::Red)),
+        Span::raw("o"),
+    ]))
+    .alignment(Alignment::Center);
+
+    f.render_widget(text, chunks[0]);
+    f.render_widget(yes, yes_area);
+    f.render_widget(no, no_area);
+}
+
+fn popup_window(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
+    let popup_layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints(
+            [
+                Constraint::Percentage((100 - percent_y) / 2),
+                Constraint::Percentage(percent_y),
+                Constraint::Percentage((100 - percent_y) / 2),
+            ]
+            .as_ref(),
+        )
+        .split(r);
+
+    Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints(
+            [
+                Constraint::Percentage((100 - percent_x) / 2),
+                Constraint::Percentage(percent_x),
+                Constraint::Percentage((100 - percent_x) / 2),
+            ]
+            .as_ref(),
+        )
+        .split(popup_layout[1])[1]
 }
 
 fn gen_title<'a, T, S: State>(

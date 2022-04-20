@@ -4,7 +4,9 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 #[derive(Clone)]
 pub enum InputMode {
     Normal,
-    Editing,
+    Subscribe,
+    Search,
+    Confirmation,
 }
 
 pub fn handle_key_normal_mode(key: KeyEvent, app: &mut App) {
@@ -19,6 +21,8 @@ pub fn handle_key_normal_mode(key: KeyEvent, app: &mut App) {
         KeyCode::Char('G') => app.select_last(),
         KeyCode::Char('c') => app.jump_to_channel(),
         KeyCode::Char('t') => app.toggle_hide(),
+        KeyCode::Char('i') => app.prompt_for_subscription(),
+        KeyCode::Char('d') => app.prompt_for_unsubscribing(),
         KeyCode::Char('/') => app.search_forward(),
         KeyCode::Char('?') => app.search_backward(),
         KeyCode::Char('n') => app.repeat_last_search(),
@@ -32,7 +36,15 @@ pub fn handle_key_normal_mode(key: KeyEvent, app: &mut App) {
     }
 }
 
-pub fn handle_key_input_mode(key: KeyEvent, app: &mut App) {
+pub fn handle_key_confirmation_mode(key: KeyEvent, app: &mut App) {
+    match key.code {
+        KeyCode::Char('y') => app.unsubscribe(),
+        KeyCode::Char('n') => app.input_mode = InputMode::Normal,
+        _ => (),
+    }
+}
+
+pub fn handle_key_editing_mode(key: KeyEvent, app: &mut App) {
     match (key.code, key.modifiers) {
         (KeyCode::Left, KeyModifiers::CONTROL) => app.move_cursor_one_word_left(),
         (KeyCode::Right, KeyModifiers::CONTROL) => app.move_cursor_one_word_right(),
@@ -45,10 +57,29 @@ pub fn handle_key_input_mode(key: KeyEvent, app: &mut App) {
         (KeyCode::Char('w'), KeyModifiers::CONTROL) => app.delete_word_before_cursor(),
         (KeyCode::Char('u'), KeyModifiers::CONTROL) => app.clear_line(),
         (KeyCode::Char('k'), KeyModifiers::CONTROL) => app.clear_to_right(),
-        (KeyCode::Enter, _) => app.complete_search(),
+        (KeyCode::Enter, _) => complete(app),
         (KeyCode::Backspace, _) | (KeyCode::Char('h'), KeyModifiers::CONTROL) => app.pop_key(),
         (KeyCode::Char(c), _) => app.push_key(c),
-        (KeyCode::Esc, _) => app.abort_search(),
+        (KeyCode::Esc, _) => abort(app),
         _ => {}
+    }
+}
+
+fn complete(app: &mut App) {
+    match app.input_mode {
+        InputMode::Subscribe => app.subscribe(),
+        InputMode::Search => app.complete_search(),
+        _ => (),
+    }
+}
+
+fn abort(app: &mut App) {
+    match app.input_mode {
+        InputMode::Subscribe => {
+            app.input_mode = InputMode::Normal;
+            app.input.clear();
+        }
+        InputMode::Search => app.abort_search(),
+        _ => (),
     }
 }

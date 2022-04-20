@@ -55,13 +55,24 @@ fn main() -> Result<()> {
     loop {
         terminal.draw(|f| draw(f, &mut app.lock().unwrap()))?;
 
-        if let InputMode::Editing = app.lock().unwrap().input_mode {
+        const SEARCH_MODE_CURSOR_OFFSET: u16 = 1;
+        const SUBSCRIBE_MODE_CURSOR_OFFSET: u16 = 25;
+
+        if !matches!(
+            app.lock().unwrap().input_mode,
+            InputMode::Normal | InputMode::Confirmation
+        ) {
             terminal.show_cursor()?;
         } else {
             terminal.hide_cursor()?;
         }
+        let offset = match app.lock().unwrap().input_mode {
+            InputMode::Search => SEARCH_MODE_CURSOR_OFFSET,
+            InputMode::Subscribe => SUBSCRIBE_MODE_CURSOR_OFFSET,
+            _ => 0,
+        };
         terminal.set_cursor(
-            app.lock().unwrap().cursor_position + 1,
+            app.lock().unwrap().cursor_position + offset,
             terminal.size()?.height - 1,
         )?;
 
@@ -80,9 +91,10 @@ fn main() -> Result<()> {
                             input::handle_key_normal_mode(key, &mut app.lock().unwrap());
                         }
                     },
-                    InputMode::Editing => {
-                        input::handle_key_input_mode(key, &mut app.lock().unwrap())
+                    InputMode::Confirmation => {
+                        input::handle_key_confirmation_mode(key, &mut app.lock().unwrap())
                     }
+                    _ => input::handle_key_editing_mode(key, &mut app.lock().unwrap()),
                 }
             }
         }
@@ -96,7 +108,7 @@ fn main() -> Result<()> {
 }
 
 pub enum IoEvent {
-    AddNewChannels,
+    SubscribeToChannel(String),
     RefreshChannel(String),
     RefreshChannels,
 }
@@ -108,7 +120,9 @@ async fn async_io_loop(
 ) -> Result<()> {
     while let Ok(io_event) = io_rx.recv() {
         match io_event {
-            IoEvent::AddNewChannels => add_new_channels(&app).await?,
+            IoEvent::SubscribeToChannel(channel_id) => {
+                subscribe_to_channel(&app, channel_id).await?
+            }
             IoEvent::RefreshChannel(channel_id) => refresh_channel(&app, channel_id).await?,
             IoEvent::RefreshChannels => refresh_channels(&app).await?,
         }
@@ -125,21 +139,26 @@ async fn clear_message(app: &Arc<Mutex<App>>, duration_seconds: u64) {
     });
 }
 
-async fn add_new_channels(app: &Arc<Mutex<App>>) -> Result<()> {
-    let channel_ids = app.lock().unwrap().get_new_channel_ids()?;
+async fn subscribe_to_channel(app: &Arc<Mutex<App>>, channel_id: String) -> Result<()> {
     let instance = app.lock().unwrap().instance();
-    let streams = futures_util::stream::iter(channel_ids).map(|channel_id| {
-        let instance = instance.clone();
-        let app = app.clone();
-
-        tokio::task::spawn_blocking(move || -> Result<()> {
-            let videos_json = instance.get_videos_of_channel(&channel_id)?;
-            app.lock().unwrap().add_channel(videos_json);
-            Ok(())
-        })
-    });
-    let mut buffered = streams.buffer_unordered(num_cpus::get());
-    while buffered.next().await.is_some() {}
+    app.lock().unwrap().set_message("Subscribing to channel");
+    let cloned_app = app.clone();
+    match tokio::task::spawn_blocking(move || -> Result<()> {
+        let videos_json = instance.get_videos_of_channel(&channel_id)?;
+        cloned_app.lock().unwrap().add_channel(videos_json);
+        Ok(())
+    })
+    .await?
+    {
+        Ok(_) => app.lock().unwrap().clear_message(),
+        Err(e) => {
+            app.lock()
+                .unwrap()
+                .set_message(&format!("Failed to subscribe: {:?}", e));
+            clear_message(app, 5).await;
+            return Ok(());
+        }
+    }
     Ok(())
 }
 
@@ -189,7 +208,7 @@ async fn refresh_channels(app: &Arc<Mutex<App>>) -> Result<()> {
         .items
         .iter_mut()
         .for_each(|channel| channel.set_to_be_refreshed());
-    let channel_ids = app.lock().unwrap().channel_ids.clone();
+    let channel_ids = database::get_channel_ids(&app.lock().unwrap().conn)?;
     let count = Arc::new(Mutex::new(0));
     let total = channel_ids.len();
     app.lock().unwrap().set_message(&format!(
