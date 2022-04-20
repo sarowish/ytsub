@@ -350,13 +350,13 @@ impl App {
     }
 
     pub fn on_left(&mut self) {
-        if matches!(self.selected, Selected::Videos) && matches!(self.mode, Mode::Subscriptions) {
+        if matches!(self.mode, Mode::Subscriptions) {
             self.selected = Selected::Channels;
         }
     }
 
     pub fn on_right(&mut self) {
-        if matches!(self.selected, Selected::Channels) && matches!(self.mode, Mode::Subscriptions) {
+        if matches!(self.mode, Mode::Subscriptions) {
             self.selected = Selected::Videos;
         }
     }
