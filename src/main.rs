@@ -171,7 +171,7 @@ async fn refresh_channel(app: &Arc<Mutex<App>>, channel_id: String) -> Result<()
     match tokio::task::spawn_blocking(move || -> Result<()> {
         let cloned_id = channel_id.clone();
         let videos_json = instance
-            .get_videos_of_channel(&channel_id)
+            .get_latest_videos_of_channel(&channel_id)
             .with_context(|| cloned_id)?;
         cloned_app
             .lock()
@@ -225,7 +225,7 @@ async fn refresh_channels(app: &Arc<Mutex<App>>) -> Result<()> {
         tokio::task::spawn_blocking(move || -> Result<()> {
             let cloned_id = channel_id.clone();
             let videos_json = instance
-                .get_videos_of_channel(&channel_id)
+                .get_latest_videos_of_channel(&channel_id)
                 .with_context(|| cloned_id)?;
             app.lock().unwrap().add_videos(videos_json, &channel_id);
             app.lock().unwrap().complete_refreshing_channel(&channel_id);

@@ -66,18 +66,14 @@ impl App {
         Ok(app)
     }
 
-    pub fn add_channel(&mut self, videos_json: Value) {
+    pub fn add_channel(&mut self, mut videos_json: Value) {
         let channel_id: String = videos_json
-            .get(0)
-            .unwrap()
             .get("authorId")
             .unwrap()
             .as_str()
             .unwrap()
             .to_string();
         let channel_name: String = videos_json
-            .get(0)
-            .unwrap()
             .get("author")
             .unwrap()
             .as_str()
@@ -89,7 +85,8 @@ impl App {
             return;
         };
         self.channels.items.push(channel);
-        self.add_videos(videos_json, &channel_id);
+        let latest_videos = videos_json["latestVideos"].take();
+        self.add_videos(latest_videos, &channel_id);
     }
 
     pub fn add_videos(&mut self, videos_json: Value, channel_id: &str) {
@@ -658,14 +655,24 @@ impl Instance {
     }
 
     pub fn get_videos_of_channel(&self, channel_id: &str) -> Result<Value> {
-        let url = format!("{}/api/v1/channels/{}/videos", self.domain, channel_id);
+        let url = format!("{}/api/v1/channels/{}", self.domain, channel_id);
         Ok(self
             .agent
             .get(&url)
             .query(
                 "fields",
-                "title,videoId,author,authorId,published,lengthSeconds",
+                "author,authorId,latestVideos(title,videoId,published,lengthSeconds)",
             )
+            .call()?
+            .into_json()?)
+    }
+
+    pub fn get_latest_videos_of_channel(&self, channel_id: &str) -> Result<Value> {
+        let url = format!("{}/api/v1/channels/latest/{}", self.domain, channel_id);
+        Ok(self
+            .agent
+            .get(&url)
+            .query("fields", "title,videoId,published,lengthSeconds")
             .call()?
             .into_json()?)
     }
