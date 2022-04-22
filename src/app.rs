@@ -429,7 +429,7 @@ impl App {
     }
 
     pub fn prompt_for_unsubscribing(&mut self) {
-        if let Mode::Subscriptions = self.mode {
+        if matches!(self.mode, Mode::Subscriptions) && self.channels.state.selected().is_some() {
             self.input_mode = InputMode::Confirmation;
         }
     }
@@ -440,7 +440,10 @@ impl App {
             database::delete_channel(&self.conn, channel_id).unwrap();
             self.input_mode = InputMode::Normal;
             self.channels.items.remove(index);
-            if index == self.channels.items.len() {
+            let length = self.channels.items.len();
+            if length == 0 {
+                self.channels.state.select(None);
+            } else if index == length {
                 self.channels.previous();
             }
             self.on_change_channel();
