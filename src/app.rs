@@ -130,7 +130,7 @@ impl App {
         if !matches!(self.mode, Mode::Subscriptions) {
             self.mode = Mode::Subscriptions;
             self.selected = Selected::Channels;
-            self.load_videos();
+            self.channels.state.select(None);
             self.select_first();
         }
     }
@@ -361,6 +361,9 @@ impl App {
     pub fn select_first(&mut self) {
         match self.selected {
             Selected::Channels => {
+                if let Some(0) = self.channels.state.selected() {
+                    return;
+                }
                 self.channels.select_first();
                 self.on_change_channel();
             }
@@ -373,6 +376,10 @@ impl App {
     pub fn select_last(&mut self) {
         match self.selected {
             Selected::Channels => {
+                let length = self.channels.items.len();
+                if matches!(self.channels.state.selected(), Some(index) if index + 1 == length) {
+                    return;
+                }
                 self.channels.select_last();
                 self.on_change_channel();
             }
