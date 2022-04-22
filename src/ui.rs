@@ -59,6 +59,7 @@ fn draw_channels<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
                 .borders(Borders::ALL)
                 .title(gen_title(
                     "Channels".into(),
+                    false,
                     &app.channels,
                     area.width as usize,
                 ))
@@ -125,10 +126,16 @@ fn draw_videos<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
             Block::default()
                 .borders(Borders::ALL)
                 .title(if let Mode::LatestVideos = app.mode {
-                    gen_title("Latest Videos".into(), &app.videos, video_area.width.into())
+                    gen_title(
+                        "Latest Videos".into(),
+                        app.hide_watched,
+                        &app.videos,
+                        video_area.width.into(),
+                    )
                 } else if let Some(channel) = app.get_current_channel() {
                     gen_title(
                         channel.channel_name.clone(),
+                        app.hide_watched,
                         &app.videos,
                         video_area.width.into(),
                     )
@@ -310,6 +317,7 @@ fn popup_window(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
 
 fn gen_title<'a, T, S: State>(
     title: String,
+    hide_flag: bool,
     list: &StatefulList<T, S>,
     area_width: usize,
 ) -> Vec<Span<'a>> {
@@ -334,11 +342,22 @@ fn gen_title<'a, T, S: State>(
 
     let border_symbol = BorderType::line_symbols(BorderType::Plain).horizontal;
     const MIN_GAP: usize = 2;
-    let required_space = title.width() + position.width() + 2 + MIN_GAP;
+    let mut required_space = title.width() + position.width() + 2 + MIN_GAP;
+
+    let mut title_sections = Vec::with_capacity(5);
+    title_sections.push(title);
+
+    if hide_flag {
+        title_sections.push(Span::raw(border_symbol));
+        title_sections.push(Span::styled("[H]", style));
+        required_space += 4;
+    }
+
     if let Some(p_gap_width) = area_width.checked_sub(required_space) {
         let fill = Span::raw(border_symbol.repeat(p_gap_width + MIN_GAP));
-        vec![title, fill, position]
-    } else {
-        vec![title]
+        title_sections.push(fill);
+        title_sections.push(position);
     }
+
+    title_sections
 }

@@ -31,7 +31,7 @@ pub struct App {
     new_video_ids: HashSet<String>,
     search: Search,
     instance: Instance,
-    hide_watched: bool,
+    pub hide_watched: bool,
     io_tx: Sender<IoEvent>,
 }
 
