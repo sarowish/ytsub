@@ -126,7 +126,6 @@ async fn async_io_loop(
             IoEvent::RefreshChannel(channel_id) => refresh_channel(&app, channel_id).await?,
             IoEvent::RefreshChannels => refresh_channels(&app).await?,
         }
-        app.lock().unwrap().load_videos();
     }
     Ok(())
 }

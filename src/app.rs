@@ -1,4 +1,4 @@
-use crate::channel::{Channel, RefreshState, Video, VideoType};
+use crate::channel::{Channel, ListItem, RefreshState, Video, VideoType};
 use crate::input::InputMode;
 use crate::search::{Search, SearchDirection, SearchState};
 use crate::{database, Options};
@@ -104,6 +104,7 @@ impl App {
                 database::get_newly_inserted_video_ids(&self.conn, channel_id, new_video_count)
                     .unwrap_or_default();
             self.new_video_ids.extend(ids);
+            self.reload_videos();
         }
     }
 
@@ -111,12 +112,12 @@ impl App {
         let id_of_current_channel = self
             .get_current_channel()
             .map(|channel| channel.channel_id.clone());
-        let index = self.find_channel_by_id(channel_id).unwrap();
+        let index = self.channels.find_by_id(channel_id).unwrap();
         let mut channel = self.channels.items.remove(index);
         channel.new_video |= true;
         self.channels.items.insert(0, channel);
         if let Some(id) = id_of_current_channel {
-            let index = self.find_channel_by_id(&id).unwrap();
+            let index = self.channels.find_by_id(&id).unwrap();
             self.channels.select_with_index(index);
         }
     }
@@ -149,15 +150,9 @@ impl App {
     }
 
     fn get_channel_by_id(&mut self, channel_id: &str) -> Option<&mut Channel> {
-        self.find_channel_by_id(channel_id)
-            .map(|index| &mut self.channels.items[index])
-    }
-
-    fn find_channel_by_id(&mut self, channel_id: &str) -> Option<usize> {
         self.channels
-            .items
-            .iter()
-            .position(|channel| channel.channel_id == channel_id)
+            .find_by_id(channel_id)
+            .map(|index| &mut self.channels.items[index])
     }
 
     fn find_channel_by_name(&mut self, channel_name: &str) -> Option<usize> {
@@ -224,7 +219,7 @@ impl App {
 
     pub fn toggle_hide(&mut self) {
         self.hide_watched = !self.hide_watched;
-        self.on_change_channel();
+        self.reload_videos();
     }
 
     fn run_detached<F: FnOnce()>(&mut self, func: F) {
@@ -318,6 +313,41 @@ impl App {
                 self.videos.items.clear();
                 self.set_message(&e.to_string())
             }
+        }
+    }
+
+    pub fn reload_videos(&mut self) {
+        let current_video = self.get_current_video();
+
+        let id_of_current_video = match current_video {
+            Some(current_video) if self.hide_watched && current_video.watched => {
+                // if the currently selected video is watched, jump to the first unwatched video above
+                let mut index = self.videos.state.selected().unwrap();
+                loop {
+                    if let Some(i) = index.checked_sub(1) {
+                        index = i;
+                    } else {
+                        break None;
+                    }
+
+                    let video = &self.videos.items[index];
+                    if !video.watched {
+                        break Some(video.video_id.clone());
+                    }
+                }
+            }
+            Some(current_video) => Some(current_video.video_id.clone()),
+            None => None,
+        };
+
+        self.load_videos();
+
+        match id_of_current_video {
+            Some(id) => {
+                let index = self.videos.find_by_id(&id).unwrap();
+                self.videos.select_with_index(index);
+            }
+            None => self.videos.reset_state(),
         }
     }
 
@@ -787,6 +817,12 @@ impl<T, S: State + Default> StatefulList<T, S> {
             Some(i) => Some(&mut self.items[i]),
             None => None,
         }
+    }
+}
+
+impl<T: ListItem, S: State> StatefulList<T, S> {
+    fn find_by_id(&mut self, id: &str) -> Option<usize> {
+        self.items.iter().position(|item| item.id() == id)
     }
 }
 

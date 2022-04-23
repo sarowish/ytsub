@@ -9,6 +9,10 @@ pub enum RefreshState {
     Failed,
 }
 
+pub trait ListItem {
+    fn id(&self) -> &str;
+}
+
 pub struct Channel {
     pub channel_id: String,
     pub channel_name: String,
@@ -28,6 +32,12 @@ impl Channel {
 
     pub fn set_to_be_refreshed(&mut self) {
         self.refresh_state = RefreshState::ToBeRefreshed;
+    }
+}
+
+impl ListItem for Channel {
+    fn id(&self) -> &str {
+        &self.channel_id
     }
 }
 
@@ -97,6 +107,12 @@ impl Video {
             .iter()
             .map(Video::from_json)
             .collect()
+    }
+}
+
+impl ListItem for Video {
+    fn id(&self) -> &str {
+        &self.video_id
     }
 }
 
