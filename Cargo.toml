@@ -2,7 +2,13 @@
 name = "ytsub"
 version = "0.1.0"
 edition = "2021"
+description = "A subscriptions only TUI Youtube client that uses the Invidious API"
+authors = ["Berke Enercan <berkeenercan@tutanota.com>"]
+repository = "https://codeberg.org/sarowish/ytsub"
 license = "GPL-3.0"
+readme = "README.md"
+keywords = ["youtube", "cli", "tui", "terminal"]
+categories = ["command-line-utilities"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
