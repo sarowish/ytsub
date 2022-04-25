@@ -249,8 +249,7 @@ impl App {
         if let Some(current_video) = self.get_current_video() {
             let url = format!(
                 "{}/watch?v={}",
-                self.instance.domain.clone(),
-                current_video.video_id
+                "https://www.youtube.com", current_video.video_id
             );
             let mpv_process = || {
                 std::process::Command::new("mpv").arg(url).spawn().unwrap();
