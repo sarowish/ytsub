@@ -19,4 +19,7 @@ pub struct Options {
     /// symbol to highlight selected items
     #[clap(long, default_value = "", value_name = "SYMBOL")]
     pub highlight_symbol: String,
+    /// path to the video player
+    #[clap(long, default_value = "mpv", value_name = "PATH")]
+    pub video_player_path: String,
 }

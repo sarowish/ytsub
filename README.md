@@ -28,6 +28,7 @@ OPTIONS:
         --highlight-symbol <SYMBOL>            symbol to highlight selected items [default: ]
     -r, --request-timeout <REQUEST_TIMEOUT>    timeout in secs [default: 5]
     -t, --tick-rate <TICK_RATE>                tick rate in milliseconds [default: 200]
+        --video-player-path <PATH>             path to the video player [default: mpv]
 ```
 
 ## Configuration

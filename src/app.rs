@@ -251,10 +251,14 @@ impl App {
                 "{}/watch?v={}",
                 "https://www.youtube.com", current_video.video_id
             );
-            let mpv_process = || {
-                std::process::Command::new("mpv").arg(url).spawn().unwrap();
+            let video_player = self.options.video_player_path.clone();
+            let video_player_process = || {
+                std::process::Command::new(video_player)
+                    .arg(url)
+                    .spawn()
+                    .unwrap();
             };
-            self.run_detached(mpv_process);
+            self.run_detached(video_player_process);
             self.mark_as_watched();
         }
     }
