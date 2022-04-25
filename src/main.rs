@@ -58,23 +58,19 @@ fn main() -> Result<()> {
         const SEARCH_MODE_CURSOR_OFFSET: u16 = 1;
         const SUBSCRIBE_MODE_CURSOR_OFFSET: u16 = 25;
 
-        if !matches!(
-            app.lock().unwrap().input_mode,
-            InputMode::Normal | InputMode::Confirmation
-        ) {
-            terminal.show_cursor()?;
-        } else {
-            terminal.hide_cursor()?;
+        let cursor_position = app.lock().unwrap().cursor_position;
+        match &app.lock().unwrap().input_mode {
+            mode @ InputMode::Subscribe | mode @ InputMode::Search => {
+                let offset = match mode {
+                    InputMode::Search => SEARCH_MODE_CURSOR_OFFSET,
+                    InputMode::Subscribe => SUBSCRIBE_MODE_CURSOR_OFFSET,
+                    _ => 0,
+                };
+                terminal.set_cursor(cursor_position + offset, terminal.size()?.height - 1)?;
+                terminal.show_cursor()?;
+            }
+            _ => terminal.hide_cursor()?,
         }
-        let offset = match app.lock().unwrap().input_mode {
-            InputMode::Search => SEARCH_MODE_CURSOR_OFFSET,
-            InputMode::Subscribe => SUBSCRIBE_MODE_CURSOR_OFFSET,
-            _ => 0,
-        };
-        terminal.set_cursor(
-            app.lock().unwrap().cursor_position + offset,
-            terminal.size()?.height - 1,
-        )?;
 
         let timeout = tick_rate
             .checked_sub(last_tick.elapsed())
