@@ -72,9 +72,7 @@ fn main() -> Result<()> {
             _ => terminal.hide_cursor()?,
         }
 
-        let timeout = tick_rate
-            .checked_sub(last_tick.elapsed())
-            .unwrap_or_else(|| Duration::from_secs(0));
+        let timeout = tick_rate.saturating_sub(last_tick.elapsed());
         if crossterm::event::poll(timeout)? {
             if let Event::Key(key) = event::read()? {
                 let input_mode = app.lock().unwrap().input_mode.clone();

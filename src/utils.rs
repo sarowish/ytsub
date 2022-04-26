@@ -100,7 +100,7 @@ pub fn published_text(published: u32) -> String {
         .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_secs();
-    let passed = now - published as u64;
+    let passed = now.saturating_sub(published.into());
     let (num, mut time_frame) = if passed < MINUTE {
         (passed, "second".to_string())
     } else if passed < HOUR {
