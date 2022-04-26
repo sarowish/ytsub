@@ -3,15 +3,17 @@ use crate::input::InputMode;
 use crate::search::{Search, SearchDirection, SearchState};
 use crate::{database, Options};
 use crate::{utils, IoEvent};
-use anyhow::{Context, Result};
-use nix::sys::wait::wait;
+use anyhow::{anyhow, Context, Result};
+use nix::sys::wait::{wait, WaitStatus};
 use nix::unistd::ForkResult::{Child, Parent};
-use nix::unistd::{dup2, fork, setsid};
+use nix::unistd::{close, dup2, fork, pipe, setsid};
 use rand::prelude::*;
 use rusqlite::Connection;
 use serde_json::Value;
 use std::collections::HashSet;
-use std::os::unix::io::IntoRawFd;
+use std::fs::File;
+use std::io::prelude::*;
+use std::os::unix::io::{FromRawFd, IntoRawFd};
 use std::sync::mpsc::Sender;
 use std::time::Duration;
 use tui::widgets::{ListState, TableState};
@@ -222,11 +224,22 @@ impl App {
         self.reload_videos();
     }
 
-    fn run_detached<F: FnOnce()>(&mut self, func: F) {
+    fn run_detached<F: FnOnce() -> Result<(), std::io::Error>>(&mut self, func: F) -> Result<()> {
+        let (pipe_r, pipe_w) = pipe().unwrap();
         let pid = unsafe { fork().unwrap() };
         match pid {
             Parent { .. } => {
-                wait().unwrap();
+                // check if child process failed to run
+                if let Ok(WaitStatus::Exited(_, 101)) = wait() {
+                    close(pipe_w)?;
+                    let mut file = unsafe { File::from_raw_fd(pipe_r) };
+                    let mut error_message = String::new();
+                    file.read_to_string(&mut error_message)?;
+                    close(pipe_r)?;
+                    Err(anyhow!(error_message))
+                } else {
+                    Ok(())
+                }
             }
             Child => {
                 setsid().unwrap();
@@ -239,7 +252,13 @@ impl App {
                 dup2(fd, 0).unwrap();
                 dup2(fd, 1).unwrap();
                 dup2(fd, 2).unwrap();
-                func();
+                if let Err(e) = func() {
+                    close(pipe_r).unwrap();
+                    dup2(pipe_w, 1).unwrap();
+                    println!("{}", e);
+                    close(pipe_w).unwrap();
+                    std::process::exit(101);
+                }
                 std::process::exit(0);
             }
         }
@@ -253,13 +272,16 @@ impl App {
             );
             let video_player = self.options.video_player_path.clone();
             let video_player_process = || {
-                std::process::Command::new(video_player)
+                std::process::Command::new(video_player.clone())
                     .arg(url)
                     .spawn()
-                    .unwrap();
+                    .map(|_| ())
             };
-            self.run_detached(video_player_process);
-            self.mark_as_watched();
+            if let Err(e) = self.run_detached(video_player_process) {
+                self.set_message(&format!("couldn't run \"{}\": {}", video_player, e));
+            } else {
+                self.mark_as_watched();
+            }
         }
     }
 
@@ -270,9 +292,12 @@ impl App {
                 self.instance.domain.clone(),
                 current_video.video_id
             );
-            let browser_process = || webbrowser::open(&url).unwrap();
-            self.run_detached(browser_process);
-            self.mark_as_watched();
+            let browser_process = || webbrowser::open(&url);
+            if let Err(e) = self.run_detached(browser_process) {
+                self.set_message(&format!("{}", e));
+            } else {
+                self.mark_as_watched();
+            }
         }
     }
 
