@@ -28,6 +28,8 @@ serde_json = "1.0.72"
 tokio = { version = "1", features = ["time", "macros", "rt-multi-thread"] }
 tui = { version = "0.16.0", default-features = false, features = ['crossterm'] }
 ureq = { version = "2", features = ["json"] }
+unicode-width = "0.1"
+unicode-segmentation = "1.9"
 
 [profile.release-lto]
 inherits = "release"

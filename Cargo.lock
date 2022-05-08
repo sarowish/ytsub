@@ -1331,6 +1331,8 @@ dependencies = [
  "serde_json",
  "tokio",
  "tui",
+ "unicode-segmentation",
+ "unicode-width",
  "ureq",
  "webbrowser",
 ]

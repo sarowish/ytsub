@@ -17,6 +17,8 @@ use std::os::unix::io::{FromRawFd, IntoRawFd};
 use std::sync::mpsc::Sender;
 use std::time::Duration;
 use tui::widgets::{ListState, TableState};
+use unicode_segmentation::UnicodeSegmentation;
+use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 use ureq::{Agent, AgentBuilder};
 
 pub struct App {
@@ -28,6 +30,7 @@ pub struct App {
     pub message: String,
     pub input: String,
     pub input_mode: InputMode,
+    pub input_idx: usize,
     pub cursor_position: u16,
     pub options: Options,
     new_video_ids: HashSet<String>,
@@ -51,6 +54,7 @@ impl App {
             message: Default::default(),
             input: Default::default(),
             input_mode: InputMode::Normal,
+            input_idx: 0,
             cursor_position: 0,
             search: Default::default(),
             instance: Instance::new(options.request_timeout)?,
@@ -469,6 +473,7 @@ impl App {
 
     pub fn prompt_for_subscription(&mut self) {
         self.input_mode = InputMode::Subscribe;
+        self.input_idx = 0;
         self.cursor_position = 0;
     }
 
@@ -510,6 +515,7 @@ impl App {
 
     fn start_searching(&mut self) {
         self.input_mode = InputMode::Search;
+        self.input_idx = 0;
         self.cursor_position = 0;
     }
 
@@ -556,10 +562,10 @@ impl App {
     }
 
     pub fn push_key(&mut self, c: char) {
-        if self.cursor_position as usize == self.input.len() {
+        if self.input_idx == self.input.len() {
             self.input.push(c);
         } else {
-            self.input.insert(self.cursor_position.into(), c);
+            self.input.insert(self.input_idx, c);
             if let InputMode::Search = self.input_mode {
                 self.search.state = SearchState::PoppedKey;
             }
@@ -568,13 +574,19 @@ impl App {
             self.search_in_block();
             self.search.state = SearchState::PushedKey;
         }
-        self.cursor_position += 1;
+        self.input_idx += c.len_utf8();
+        self.cursor_position += c.width().unwrap() as u16;
     }
 
     pub fn pop_key(&mut self) {
-        if self.cursor_position != 0 {
-            self.cursor_position -= 1;
-            self.input.remove(self.cursor_position.into());
+        if self.input_idx != 0 {
+            let (idx, ch) = self.input[..self.input_idx]
+                .grapheme_indices(true)
+                .last()
+                .unwrap();
+            self.cursor_position -= ch.width() as u16;
+            self.input.drain(idx..self.input_idx);
+            self.input_idx = idx;
             if let InputMode::Search = self.input_mode {
                 self.search.state = SearchState::PoppedKey;
                 self.search_in_block();
@@ -583,59 +595,74 @@ impl App {
     }
 
     pub fn move_cursor_left(&mut self) {
-        if self.cursor_position != 0 {
-            self.cursor_position -= 1;
+        if self.input_idx != 0 {
+            let (idx, ch) = self.input[..self.input_idx]
+                .grapheme_indices(true)
+                .last()
+                .unwrap();
+            self.input_idx = idx;
+            self.cursor_position -= ch.width() as u16;
         }
     }
 
     pub fn move_cursor_right(&mut self) {
-        if self.cursor_position as usize != self.input.len() {
-            self.cursor_position += 1;
+        if self.input_idx != self.input.len() {
+            let (idx, ch) = self.input[self.input_idx..]
+                .grapheme_indices(true)
+                .next()
+                .map(|(idx, ch)| (self.input_idx + idx + ch.len(), ch))
+                .unwrap();
+            self.input_idx = idx;
+            self.cursor_position += ch.width() as u16;
         }
     }
 
     pub fn move_cursor_one_word_left(&mut self) {
-        self.cursor_position = self.input[..self.cursor_position as usize]
-            .trim()
-            .rfind(|c| c == ' ')
-            .map(|pos| pos + 1)
-            .unwrap_or(0) as u16;
+        let idx = self.input[..self.input_idx]
+            .unicode_word_indices()
+            .last()
+            .map(|(idx, _)| idx)
+            .unwrap_or(0);
+        self.cursor_position -= self.input[idx..self.input_idx].width() as u16;
+        self.input_idx = idx;
     }
 
     pub fn move_cursor_one_word_right(&mut self) {
-        self.cursor_position = self
-            .input
-            .chars()
-            .skip(self.cursor_position as usize)
-            .position(|c| c == ' ')
-            .map(|pos| pos as u16 + self.cursor_position + 1)
-            .unwrap_or(self.input.len() as u16) as u16;
+        let old_idx = self.input_idx;
+        self.input_idx = self.input[self.input_idx..]
+            .unicode_word_indices()
+            .nth(1)
+            .map(|(idx, _)| self.input_idx + idx)
+            .unwrap_or(self.input.len());
+        self.cursor_position += self.input[old_idx..self.input_idx].width() as u16;
     }
 
     pub fn move_cursor_to_beginning_of_line(&mut self) {
+        self.input_idx = 0;
         self.cursor_position = 0;
     }
 
     pub fn move_cursor_to_end_of_line(&mut self) {
-        self.cursor_position = self.input.len() as u16;
+        self.input_idx = self.input.len();
+        self.cursor_position = self.input.width() as u16;
     }
 
     pub fn delete_word_before_cursor(&mut self) {
-        let old_cursor_position = self.cursor_position;
+        let old_idx = self.input_idx;
         self.move_cursor_one_word_left();
-        self.input
-            .drain(self.cursor_position as usize..old_cursor_position as usize);
+        self.input.drain(self.input_idx..old_idx);
         self.search.state = SearchState::PoppedKey;
     }
 
     pub fn clear_line(&mut self) {
         self.input.clear();
+        self.input_idx = 0;
         self.cursor_position = 0;
         self.search.state = SearchState::PoppedKey;
     }
 
     pub fn clear_to_right(&mut self) {
-        self.input.drain(self.cursor_position as usize..);
+        self.input.drain(self.input_idx..);
         self.search.state = SearchState::PoppedKey;
     }
 
