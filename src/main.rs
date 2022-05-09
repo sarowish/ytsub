@@ -3,6 +3,7 @@ mod channel;
 mod cli;
 mod database;
 mod input;
+mod message;
 mod search;
 mod ui;
 mod utils;
@@ -105,6 +106,7 @@ pub enum IoEvent {
     SubscribeToChannel(String),
     RefreshChannel(String),
     RefreshChannels,
+    ClearMessage(u64),
 }
 
 #[tokio::main]
@@ -119,6 +121,7 @@ async fn async_io_loop(
             }
             IoEvent::RefreshChannel(channel_id) => refresh_channel(&app, channel_id).await?,
             IoEvent::RefreshChannels => refresh_channels(&app).await?,
+            IoEvent::ClearMessage(duration_seconds) => clear_message(&app, duration_seconds).await,
         }
     }
     Ok(())
@@ -126,9 +129,14 @@ async fn async_io_loop(
 
 async fn clear_message(app: &Arc<Mutex<App>>, duration_seconds: u64) {
     let app = app.clone();
+    let cloned_token = app.lock().unwrap().message.clone_token();
     tokio::task::spawn(async move {
-        tokio::time::sleep(Duration::from_secs(duration_seconds)).await;
-        app.lock().unwrap().clear_message();
+        tokio::select! {
+            _ = cloned_token.cancelled() => {}
+            _ = tokio::time::sleep(std::time::Duration::from_secs(duration_seconds)) => {
+                app.lock().unwrap().message.clear_message();
+            }
+        }
     });
 }
 
@@ -143,12 +151,11 @@ async fn subscribe_to_channel(app: &Arc<Mutex<App>>, channel_id: String) -> Resu
     })
     .await?
     {
-        Ok(_) => app.lock().unwrap().clear_message(),
+        Ok(_) => app.lock().unwrap().message.clear_message(),
         Err(e) => {
             app.lock()
                 .unwrap()
-                .set_message(&format!("Failed to subscribe: {:?}", e));
-            clear_message(app, 5).await;
+                .set_message_with_default_duration(&format!("Failed to subscribe: {:?}", e));
             return Ok(());
         }
     }
@@ -181,15 +188,16 @@ async fn refresh_channel(app: &Arc<Mutex<App>>, channel_id: String) -> Result<()
         Ok(_) => (),
         Err(e) => {
             app.lock().unwrap().refresh_failed(&e.to_string());
-            app.lock().unwrap().set_message("failed to refresh channel");
+            app.lock()
+                .unwrap()
+                .set_message_with_default_duration("failed to refresh channel");
             return Ok(());
         }
     };
     let elapsed = now.elapsed();
     app.lock()
         .unwrap()
-        .set_message(&format!("Refreshed in {:?}", elapsed));
-    clear_message(app, 5).await;
+        .set_message_with_default_duration(&format!("Refreshed in {:?}", elapsed));
     Ok(())
 }
 
@@ -238,12 +246,13 @@ async fn refresh_channels(app: &Arc<Mutex<App>>) -> Result<()> {
         }
     }
     let elapsed = now.elapsed();
-    app.lock().unwrap().set_message(&format!(
-        "Refreshed {} out of {} channels in {:?}",
-        count.lock().unwrap(),
-        total,
-        elapsed
-    ));
-    clear_message(app, 5).await;
+    app.lock()
+        .unwrap()
+        .set_message_with_default_duration(&format!(
+            "Refreshed {} out of {} channels in {:?}",
+            count.lock().unwrap(),
+            total,
+            elapsed
+        ));
     Ok(())
 }

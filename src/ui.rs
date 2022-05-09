@@ -238,7 +238,7 @@ fn draw_footer<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
             Span::raw("Enter channel id or url: "),
             Span::raw(&app.input),
         ])),
-        _ => Paragraph::new(Span::raw(&app.message)),
+        _ => Paragraph::new(Span::raw(&*app.message)),
     };
     f.render_widget(text, area);
 }
