@@ -15,7 +15,7 @@ fn get_config_dir() -> Result<PathBuf> {
         None => bail!("Couldn't find config directory"),
     };
     if !path.exists() {
-        std::fs::create_dir(&path)?;
+        std::fs::create_dir_all(&path)?;
     }
     Ok(path)
 }
@@ -26,7 +26,7 @@ fn get_data_dir() -> Result<PathBuf> {
         None => bail!("Couldn't find local  directory"),
     };
     if !path.exists() {
-        std::fs::create_dir(&path)?;
+        std::fs::create_dir_all(&path)?;
     }
     Ok(path)
 }
