@@ -474,6 +474,7 @@ impl App {
 
     pub fn prompt_for_subscription(&mut self) {
         self.input_mode = InputMode::Subscribe;
+        self.message.clear_message();
         self.input_idx = 0;
         self.cursor_position = 0;
     }
@@ -516,6 +517,7 @@ impl App {
 
     fn start_searching(&mut self) {
         self.input_mode = InputMode::Search;
+        self.message.clear_message();
         self.input_idx = 0;
         self.cursor_position = 0;
     }
