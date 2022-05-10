@@ -568,6 +568,11 @@ impl App {
         self.repeat_last_search_helper(true);
     }
 
+    fn update_search_on_delete(&mut self) {
+        self.search.state = SearchState::PoppedKey;
+        self.search_in_block();
+    }
+
     pub fn push_key(&mut self, c: char) {
         if self.input_idx == self.input.len() {
             self.input.push(c);
@@ -595,8 +600,7 @@ impl App {
             self.input.drain(idx..self.input_idx);
             self.input_idx = idx;
             if let InputMode::Search = self.input_mode {
-                self.search.state = SearchState::PoppedKey;
-                self.search_in_block();
+                self.update_search_on_delete();
             }
         }
     }
@@ -658,19 +662,25 @@ impl App {
         let old_idx = self.input_idx;
         self.move_cursor_one_word_left();
         self.input.drain(self.input_idx..old_idx);
-        self.search.state = SearchState::PoppedKey;
+        if let InputMode::Search = self.input_mode {
+            self.update_search_on_delete();
+        }
     }
 
     pub fn clear_line(&mut self) {
         self.input.clear();
         self.input_idx = 0;
         self.cursor_position = 0;
-        self.search.state = SearchState::PoppedKey;
+        if let InputMode::Search = self.input_mode {
+            self.update_search_on_delete();
+        }
     }
 
     pub fn clear_to_right(&mut self) {
         self.input.drain(self.input_idx..);
-        self.search.state = SearchState::PoppedKey;
+        if let InputMode::Search = self.input_mode {
+            self.update_search_on_delete();
+        }
     }
 
     pub fn any_matches(&self) -> bool {
