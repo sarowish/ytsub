@@ -57,9 +57,14 @@ fn get_instances_file() -> Result<PathBuf> {
 pub fn generate_instances_file() -> Result<()> {
     let instances = fetch_invidious_instances()?;
     let instances_file_path = get_instances_file()?;
-    let mut file = File::create(instances_file_path)?;
+    let mut file = File::create(instances_file_path.as_path())?;
+    println!(
+        "Generated \"{}\" with the following instances:",
+        instances_file_path.display()
+    );
     for instance in instances {
         writeln!(file, "{}", instance)?;
+        println!("{}", instance);
     }
     Ok(())
 }

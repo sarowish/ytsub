@@ -32,6 +32,7 @@ fn main() -> Result<()> {
     let options = Options::parse();
     if options.gen_instance_list {
         utils::generate_instances_file()?;
+        return Ok(());
     }
 
     let (sync_io_tx, sync_io_rx) = std::sync::mpsc::channel();
