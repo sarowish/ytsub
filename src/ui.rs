@@ -1,6 +1,7 @@
 use crate::app::{App, Mode, Selected, State, StatefulList};
 use crate::channel::VideoType;
 use crate::input::InputMode;
+use crate::message::MessageType;
 use crate::search::SearchDirection;
 use crate::utils;
 use tui::backend::Backend;
@@ -238,7 +239,10 @@ fn draw_footer<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
             Span::raw("Enter channel id or url: "),
             Span::raw(&app.input),
         ])),
-        _ => Paragraph::new(Span::raw(&*app.message)),
+        _ => Paragraph::new(match app.message.message_type {
+            MessageType::Normal => Span::raw(&*app.message),
+            MessageType::Error => Span::styled(&*app.message, Style::default().fg(Color::Red)),
+        }),
     };
     f.render_widget(text, area);
 }

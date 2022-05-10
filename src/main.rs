@@ -155,7 +155,7 @@ async fn subscribe_to_channel(app: &Arc<Mutex<App>>, channel_id: String) -> Resu
         Err(e) => {
             app.lock()
                 .unwrap()
-                .set_message_with_default_duration(&format!("Failed to subscribe: {:?}", e));
+                .set_error_message(&format!("Failed to subscribe: {:?}", e));
             return Ok(());
         }
     }
@@ -190,7 +190,7 @@ async fn refresh_channel(app: &Arc<Mutex<App>>, channel_id: String) -> Result<()
             app.lock().unwrap().refresh_failed(&e.to_string());
             app.lock()
                 .unwrap()
-                .set_message_with_default_duration("failed to refresh channel");
+                .set_error_message("failed to refresh channel");
             return Ok(());
         }
     };
@@ -246,13 +246,18 @@ async fn refresh_channels(app: &Arc<Mutex<App>>) -> Result<()> {
         }
     }
     let elapsed = now.elapsed();
-    app.lock()
-        .unwrap()
-        .set_message_with_default_duration(&format!(
-            "Refreshed {} out of {} channels in {:?}",
-            count.lock().unwrap(),
-            total,
-            elapsed
-        ));
+    match *count.lock().unwrap() {
+        0 => app
+            .lock()
+            .unwrap()
+            .set_error_message("Failed to refresh channels"),
+        count => app
+            .lock()
+            .unwrap()
+            .set_message_with_default_duration(&format!(
+                "Refreshed {} out of {} channels in {:?}",
+                count, total, elapsed
+            )),
+    }
     Ok(())
 }

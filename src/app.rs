@@ -88,7 +88,7 @@ impl App {
             .to_string();
         let channel = Channel::new(channel_id.clone(), channel_name);
         if let Err(e) = database::create_channel(&self.conn, &channel) {
-            self.set_message_with_default_duration(&e.to_string());
+            self.set_error_message(&e.to_string());
             return;
         };
         self.channels.items.push(channel);
@@ -101,7 +101,7 @@ impl App {
         let new_video_count = match database::add_videos(&self.conn, channel_id, &videos) {
             Ok(new_video_count) => new_video_count,
             Err(e) => {
-                self.set_message_with_default_duration(&e.to_string());
+                self.set_error_message(&e.to_string());
                 return;
             }
         };
@@ -201,7 +201,7 @@ impl App {
                 &self.get_current_video().unwrap().video_id,
                 is_watched,
             ) {
-                self.set_message_with_default_duration(&e.to_string())
+                self.set_error_message(&e.to_string())
             }
         }
     }
@@ -283,10 +283,7 @@ impl App {
                     .map(|_| ())
             };
             if let Err(e) = self.run_detached(video_player_process) {
-                self.set_message_with_default_duration(&format!(
-                    "couldn't run \"{}\": {}",
-                    video_player, e
-                ));
+                self.set_error_message(&format!("couldn't run \"{}\": {}", video_player, e));
             } else {
                 self.mark_as_watched();
             }
@@ -302,7 +299,7 @@ impl App {
             );
             let browser_process = || webbrowser::open(&url);
             if let Err(e) = self.run_detached(browser_process) {
-                self.set_message_with_default_duration(&format!("{}", e));
+                self.set_error_message(&format!("{}", e));
             } else {
                 self.mark_as_watched();
             }
@@ -347,7 +344,7 @@ impl App {
             }
             Err(e) => {
                 self.videos.items.clear();
-                self.set_message_with_default_duration(&e.to_string());
+                self.set_error_message(&e.to_string());
             }
         }
     }
@@ -703,7 +700,7 @@ impl App {
 
     fn dispatch(&mut self, action: IoEvent) {
         if let Err(e) = self.io_tx.send(action) {
-            self.set_message_with_default_duration(&format!("Error from dispatch: {}", e));
+            self.set_error_message(&format!("Error from dispatch: {}", e));
         }
     }
 
@@ -729,6 +726,12 @@ impl App {
     pub fn set_message_with_default_duration(&mut self, message: &str) {
         const DEFAULT_DURATION: u64 = 5;
         self.set_message(message);
+        self.clear_message_after_duration(DEFAULT_DURATION);
+    }
+
+    pub fn set_error_message(&mut self, message: &str) {
+        const DEFAULT_DURATION: u64 = 5;
+        self.message.set_error_message(message);
         self.clear_message_after_duration(DEFAULT_DURATION);
     }
 
