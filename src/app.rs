@@ -552,6 +552,10 @@ impl App {
             }
             Selected::Videos => self.search.repeat_last(&mut self.videos, opposite),
         }
+        if !self.search.any_matches() {
+            self.set_error_message(&format!("Pattern not found: {}", self.search.pattern));
+        }
+        self.search.complete_search(true);
     }
 
     pub fn repeat_last_search(&mut self) {
@@ -672,6 +676,9 @@ impl App {
     }
 
     pub fn complete_search(&mut self) {
+        if !self.search.any_matches() {
+            self.set_error_message(&format!("Pattern not found: {}", self.search.pattern));
+        }
         self.finalize_search(false);
     }
 

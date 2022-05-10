@@ -40,7 +40,7 @@ type LastSearch = (String, SearchDirection);
 #[derive(Default)]
 pub struct Search {
     matches: Vec<Match>,
-    pattern: String,
+    pub pattern: String,
     pub state: SearchState,
     pub direction: SearchDirection,
     pub recovery_index: Option<usize>,
@@ -158,7 +158,6 @@ impl Search {
                 direction.clone()
             };
             self.search(list, &pattern);
-            self.complete_search(true);
         }
     }
 }
