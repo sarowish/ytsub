@@ -100,29 +100,33 @@ const WEEK: u64 = 604800;
 const MONTH: u64 = 2592000;
 const YEAR: u64 = 31536000;
 
-pub fn published_text(published: u32) -> String {
+pub fn published_text(published: u64) -> String {
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_secs();
-    let passed = now.saturating_sub(published.into());
-    let (num, mut time_frame) = if passed < MINUTE {
-        (passed, "second".to_string())
-    } else if passed < HOUR {
-        (passed / MINUTE, "minute".to_string())
-    } else if passed < DAY {
-        (passed / HOUR, "hour".to_string())
-    } else if passed < WEEK * 2 {
-        (passed / DAY, "day".to_string())
-    } else if passed < MONTH {
-        (passed / WEEK, "week".to_string())
-    } else if passed < YEAR {
-        (passed / MONTH, "month".to_string())
+    let time_diff = now.abs_diff(published);
+    let (num, mut time_frame) = if time_diff < MINUTE {
+        (time_diff, "second".to_string())
+    } else if time_diff < HOUR {
+        (time_diff / MINUTE, "minute".to_string())
+    } else if time_diff < DAY {
+        (time_diff / HOUR, "hour".to_string())
+    } else if time_diff < WEEK * 2 {
+        (time_diff / DAY, "day".to_string())
+    } else if time_diff < MONTH {
+        (time_diff / WEEK, "week".to_string())
+    } else if time_diff < YEAR {
+        (time_diff / MONTH, "month".to_string())
     } else {
-        (passed / YEAR, "year".to_string())
+        (time_diff / YEAR, "year".to_string())
     };
     if num > 1 {
         time_frame.push('s');
     }
-    format!("{} {} ago", num, time_frame)
+    if published > now {
+        format!("Premieres in {} {}", num, time_frame)
+    } else {
+        format!("Shared {} {} ago", num, time_frame)
+    }
 }

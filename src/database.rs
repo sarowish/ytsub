@@ -115,8 +115,12 @@ pub fn add_videos(conn: &Connection, channel_id: &str, videos: &[Video]) -> Resu
     }
 
     let query = format!(
-        "INSERT OR IGNORE INTO videos ({})
-        VALUES {}",
+        "INSERT INTO videos ({})
+        VALUES {}
+        ON CONFLICT (video_id) DO UPDATE
+        SET length=excluded.length, published=excluded.published
+        WHERE length=0 AND excluded.length!=0
+        ",
         columns_str, values_string
     );
     let new_video_count = conn.execute(&query, videos_values.as_slice())?;

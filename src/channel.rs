@@ -69,7 +69,7 @@ pub struct Video {
     pub video_type: Option<VideoType>,
     pub video_id: String,
     pub title: String,
-    pub published: u32,
+    pub published: u64,
     pub published_text: String,
     pub length: u32,
     pub watched: bool,
@@ -78,6 +78,7 @@ pub struct Video {
 
 impl Video {
     pub fn from_json(video_json: &Value) -> Self {
+        let is_upcoming = video_json.get("isUpcoming").unwrap().as_bool().unwrap();
         Video {
             video_type: Default::default(),
             video_id: video_json
@@ -92,7 +93,15 @@ impl Video {
                 .as_str()
                 .unwrap()
                 .to_string(),
-            published: video_json.get("published").unwrap().as_u64().unwrap() as u32,
+            published: if is_upcoming {
+                video_json
+                    .get("premiereTimestamp")
+                    .unwrap()
+                    .as_u64()
+                    .unwrap()
+            } else {
+                video_json.get("published").unwrap().as_u64().unwrap()
+            },
             published_text: Default::default(),
             length: video_json.get("lengthSeconds").unwrap().as_u64().unwrap() as u32,
             watched: false,

@@ -789,7 +789,7 @@ impl Instance {
             .get(&url)
             .query(
                 "fields",
-                "author,authorId,latestVideos(title,videoId,published,lengthSeconds)",
+                "author,authorId,latestVideos(title,videoId,published,lengthSeconds,isUpcoming,premiereTimestamp)",
             )
             .call()?
             .into_json()?)
@@ -800,7 +800,10 @@ impl Instance {
         Ok(self
             .agent
             .get(&url)
-            .query("fields", "title,videoId,published,lengthSeconds")
+            .query(
+                "fields",
+                "title,videoId,published,lengthSeconds,isUpcoming,premiereTimestamp",
+            )
             .call()?
             .into_json()?)
     }
