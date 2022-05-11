@@ -228,10 +228,10 @@ fn draw_footer<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
             }),
             Span::styled(
                 app.input.clone(),
-                if app.any_matches() {
-                    Style::default()
-                } else {
+                if app.no_search_pattern_match() {
                     Style::default().fg(Color::Red)
+                } else {
+                    Style::default()
                 },
             ),
         ])),

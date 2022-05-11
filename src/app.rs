@@ -554,10 +554,11 @@ impl App {
             }
             Selected::Videos => self.search.repeat_last(&mut self.videos, opposite),
         }
-        if !self.search.any_matches() {
+        if self.no_search_pattern_match() {
             self.set_error_message(&format!("Pattern not found: {}", self.search.pattern));
         }
         self.search.complete_search(true);
+        self.search.pattern.clear();
     }
 
     pub fn repeat_last_search(&mut self) {
@@ -683,12 +684,12 @@ impl App {
         }
     }
 
-    pub fn any_matches(&self) -> bool {
-        self.search.any_matches()
+    pub fn no_search_pattern_match(&self) -> bool {
+        !self.search.pattern.is_empty() && !self.search.any_matches()
     }
 
     pub fn complete_search(&mut self) {
-        if !self.search.any_matches() {
+        if self.no_search_pattern_match() {
             self.set_error_message(&format!("Pattern not found: {}", self.search.pattern));
         }
         self.finalize_search(false);
