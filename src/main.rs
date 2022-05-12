@@ -8,7 +8,7 @@ mod search;
 mod ui;
 mod utils;
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use app::App;
 use clap::Parser;
 use cli::Options;
@@ -117,10 +117,8 @@ async fn async_io_loop(
 ) -> Result<()> {
     while let Ok(io_event) = io_rx.recv() {
         match io_event {
-            IoEvent::SubscribeToChannel(channel_id) => {
-                subscribe_to_channel(&app, channel_id).await?
-            }
-            IoEvent::RefreshChannel(channel_id) => refresh_channel(&app, channel_id).await?,
+            IoEvent::SubscribeToChannel(channel_id) => subscribe_to_channel(&app, channel_id).await,
+            IoEvent::RefreshChannel(channel_id) => refresh_channel(&app, channel_id).await,
             IoEvent::RefreshChannels => refresh_channels(&app).await?,
             IoEvent::ClearMessage(duration_seconds) => clear_message(&app, duration_seconds).await,
         }
@@ -141,65 +139,50 @@ async fn clear_message(app: &Arc<Mutex<App>>, duration_seconds: u64) {
     });
 }
 
-async fn subscribe_to_channel(app: &Arc<Mutex<App>>, channel_id: String) -> Result<()> {
+async fn subscribe_to_channel(app: &Arc<Mutex<App>>, channel_id: String) {
     let instance = app.lock().unwrap().instance();
     app.lock().unwrap().set_message("Subscribing to channel");
-    let cloned_app = app.clone();
-    match tokio::task::spawn_blocking(move || -> Result<()> {
-        let videos_json = instance.get_videos_of_channel(&channel_id)?;
-        cloned_app.lock().unwrap().add_channel(videos_json);
-        Ok(())
-    })
-    .await?
-    {
-        Ok(_) => app.lock().unwrap().message.clear_message(),
-        Err(e) => {
-            app.lock()
-                .unwrap()
-                .set_error_message(&format!("Failed to subscribe: {:?}", e));
-            return Ok(());
+    let app = app.clone();
+    tokio::task::spawn(async move {
+        let videos_json = instance.get_videos_of_channel(&channel_id);
+        match videos_json {
+            Ok(videos_json) => {
+                app.lock().unwrap().message.clear_message();
+                app.lock().unwrap().add_channel(videos_json);
+            }
+            Err(e) => {
+                app.lock()
+                    .unwrap()
+                    .set_error_message(&format!("Failed to subscribe: {:?}", e));
+            }
         }
-    }
-    Ok(())
+    });
 }
 
-async fn refresh_channel(app: &Arc<Mutex<App>>, channel_id: String) -> Result<()> {
+async fn refresh_channel(app: &Arc<Mutex<App>>, channel_id: String) {
     let now = std::time::Instant::now();
     let instance = app.lock().unwrap().instance();
     app.lock().unwrap().start_refreshing_channel(&channel_id);
     app.lock().unwrap().set_message("Refreshing channel");
-    let cloned_app = app.clone();
-    match tokio::task::spawn_blocking(move || -> Result<()> {
-        let cloned_id = channel_id.clone();
-        let videos_json = instance
-            .get_latest_videos_of_channel(&channel_id)
-            .with_context(|| cloned_id)?;
-        cloned_app
-            .lock()
+    let app = app.clone();
+    tokio::task::spawn(async move {
+        let videos_json = match instance.get_latest_videos_of_channel(&channel_id) {
+            Ok(videos) => videos,
+            Err(_) => {
+                app.lock().unwrap().refresh_failed(&channel_id);
+                app.lock()
+                    .unwrap()
+                    .set_error_message("failed to refresh channel");
+                return;
+            }
+        };
+        app.lock().unwrap().add_videos(videos_json, &channel_id);
+        app.lock().unwrap().complete_refreshing_channel(&channel_id);
+        let elapsed = now.elapsed();
+        app.lock()
             .unwrap()
-            .add_videos(videos_json, &channel_id);
-        cloned_app
-            .lock()
-            .unwrap()
-            .complete_refreshing_channel(&channel_id);
-        Ok(())
-    })
-    .await?
-    {
-        Ok(_) => (),
-        Err(e) => {
-            app.lock().unwrap().refresh_failed(&e.to_string());
-            app.lock()
-                .unwrap()
-                .set_error_message("failed to refresh channel");
-            return Ok(());
-        }
-    };
-    let elapsed = now.elapsed();
-    app.lock()
-        .unwrap()
-        .set_message_with_default_duration(&format!("Refreshed in {:?}", elapsed));
-    Ok(())
+            .set_message_with_default_duration(&format!("Refreshed in {:?}", elapsed));
+    });
 }
 
 async fn refresh_channels(app: &Arc<Mutex<App>>) -> Result<()> {
@@ -224,28 +207,25 @@ async fn refresh_channels(app: &Arc<Mutex<App>>) -> Result<()> {
         app.lock().unwrap().start_refreshing_channel(&channel_id);
         let app = app.clone();
         let count = count.clone();
-        tokio::task::spawn_blocking(move || -> Result<()> {
-            let cloned_id = channel_id.clone();
-            let videos_json = instance
-                .get_latest_videos_of_channel(&channel_id)
-                .with_context(|| cloned_id)?;
-            app.lock().unwrap().add_videos(videos_json, &channel_id);
-            app.lock().unwrap().complete_refreshing_channel(&channel_id);
-            *count.lock().unwrap() += 1;
-            app.lock().unwrap().set_message(&format!(
-                "Refreshing Channels: {}/{}",
-                count.lock().unwrap(),
-                total
-            ));
-            Ok(())
+        tokio::task::spawn(async move {
+            let videos_json = instance.get_latest_videos_of_channel(&channel_id);
+            match videos_json {
+                Ok(videos_json) => {
+                    app.lock().unwrap().add_videos(videos_json, &channel_id);
+                    app.lock().unwrap().complete_refreshing_channel(&channel_id);
+                    *count.lock().unwrap() += 1;
+                    app.lock().unwrap().set_message(&format!(
+                        "Refreshing Channels: {}/{}",
+                        count.lock().unwrap(),
+                        total
+                    ));
+                }
+                Err(_) => app.lock().unwrap().refresh_failed(&channel_id),
+            }
         })
     });
     let mut buffered = streams.buffer_unordered(num_cpus::get());
-    while let Some(result) = buffered.next().await {
-        if let Err(e) = result? {
-            app.lock().unwrap().refresh_failed(&e.to_string());
-        }
-    }
+    while buffered.next().await.is_some() {}
     let elapsed = now.elapsed();
     match *count.lock().unwrap() {
         0 => app
