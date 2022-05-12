@@ -20,7 +20,7 @@ dirs = "4.0"
 futures-util = "0.3"
 num_cpus = "1.8"
 rand = "0.8.4"
-rusqlite = { version = "0.26.3", features = ["bundled"] }
+rusqlite = { version = "0.26.3" }
 webbrowser = "0.6"
 nix = "0.23"
 serde = { version = "1.0", features = ["derive"] }
@@ -31,6 +31,9 @@ tui = { version = "0.16.0", default-features = false, features = ['crossterm'] }
 ureq = { version = "2", features = ["json"] }
 unicode-width = "0.1"
 unicode-segmentation = "1.9"
+
+[features]
+bundled_sqlite = ["rusqlite/bundled"]
 
 [profile.release-lto]
 inherits = "release"
