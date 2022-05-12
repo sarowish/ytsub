@@ -4,17 +4,11 @@ use crate::message::Message;
 use crate::search::{Search, SearchDirection, SearchState};
 use crate::{database, Options};
 use crate::{utils, IoEvent};
-use anyhow::{anyhow, Context, Result};
-use nix::sys::wait::{wait, WaitStatus};
-use nix::unistd::ForkResult::{Child, Parent};
-use nix::unistd::{close, dup2, fork, pipe, setsid};
+use anyhow::{Context, Result};
 use rand::prelude::*;
 use rusqlite::Connection;
 use serde_json::Value;
 use std::collections::HashSet;
-use std::fs::File;
-use std::io::prelude::*;
-use std::os::unix::io::{FromRawFd, IntoRawFd};
 use std::sync::mpsc::Sender;
 use std::time::Duration;
 use tui::widgets::{ListState, TableState};
@@ -229,7 +223,15 @@ impl App {
         self.reload_videos();
     }
 
+    #[cfg(unix)]
     fn run_detached<F: FnOnce() -> Result<(), std::io::Error>>(&mut self, func: F) -> Result<()> {
+        use nix::sys::wait::{wait, WaitStatus};
+        use nix::unistd::ForkResult::{Child, Parent};
+        use nix::unistd::{close, dup2, fork, pipe, setsid};
+        use std::fs::File;
+        use std::io::prelude::*;
+        use std::os::unix::io::{FromRawFd, IntoRawFd};
+
         let (pipe_r, pipe_w) = pipe().unwrap();
         let pid = unsafe { fork().unwrap() };
         match pid {
@@ -241,7 +243,7 @@ impl App {
                     let mut error_message = String::new();
                     file.read_to_string(&mut error_message)?;
                     close(pipe_r)?;
-                    Err(anyhow!(error_message))
+                    Err(anyhow::anyhow!(error_message))
                 } else {
                     Ok(())
                 }
@@ -282,7 +284,13 @@ impl App {
                     .spawn()
                     .map(|_| ())
             };
-            if let Err(e) = self.run_detached(video_player_process) {
+
+            #[cfg(unix)]
+            let res = self.run_detached(video_player_process);
+            #[cfg(not(unix))]
+            let res = video_player_process();
+
+            if let Err(e) = res {
                 self.set_error_message(&format!(
                     "couldn't run \"{}\": {}",
                     self.options.video_player_path, e
@@ -300,7 +308,13 @@ impl App {
                 self.instance.domain, current_video.video_id
             );
             let browser_process = || webbrowser::open(&url);
-            if let Err(e) = self.run_detached(browser_process) {
+
+            #[cfg(unix)]
+            let res = self.run_detached(browser_process);
+            #[cfg(not(unix))]
+            let res = browser_process();
+
+            if let Err(e) = res {
                 self.set_error_message(&format!("{}", e));
             } else {
                 self.mark_as_watched();
