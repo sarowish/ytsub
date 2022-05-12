@@ -5,19 +5,29 @@ ytsub is a subscriptions only tui youtube client that uses the invidious api.
 ![subscriptions mode](screenshots/subscriptions.png)
 ![latest videos mode](screenshots/latest_videos.png)
 
-## Installation
+## Dependencies
 
-`mpv` and `yt-dlp` are optional dependencies to play videos.
+`mpv` and `yt-dlp` are optional dependencies for playing videos.
+
+`sqlite` is a required dependency. If it is not available on the system,
+it can be compiled and linked by enabling
+the `bundled_sqlite` feature when building with cargo:
 
 ```
-cargo install ytsub --git https://codeberg.org/sarowish/ytsub
+cargo build --features bundled_sqlite
+```
+
+## Installation
+
+```bash
+cargo install ytsub
+# or
+cargo install ytsub --features bundled_sqlite
 ```
 
 ## Usage
 
 ```
-ytsub
-
 USAGE:
     ytsub [OPTIONS]
 
@@ -28,6 +38,7 @@ OPTIONS:
         --highlight-symbol <SYMBOL>            symbol to highlight selected items [default: ]
     -r, --request-timeout <REQUEST_TIMEOUT>    timeout in secs [default: 5]
     -t, --tick-rate <TICK_RATE>                tick rate in milliseconds [default: 200]
+    -V, --version                              Print version information
         --video-player-path <PATH>             path to the video player [default: mpv]
 ```
 
