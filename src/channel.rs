@@ -53,9 +53,7 @@ impl Display for Channel {
         write!(
             f,
             "{}{}{}",
-            refresh_indicator,
-            self.channel_name.clone(),
-            new_video_indicator
+            refresh_indicator, self.channel_name, new_video_indicator
         )
     }
 }
@@ -127,6 +125,6 @@ impl ListItem for Video {
 
 impl Display for Video {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.title.clone())
+        write!(f, "{}", self.title)
     }
 }

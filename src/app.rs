@@ -277,13 +277,16 @@ impl App {
             );
             let video_player = self.options.video_player_path.clone();
             let video_player_process = || {
-                std::process::Command::new(video_player.clone())
+                std::process::Command::new(video_player)
                     .arg(url)
                     .spawn()
                     .map(|_| ())
             };
             if let Err(e) = self.run_detached(video_player_process) {
-                self.set_error_message(&format!("couldn't run \"{}\": {}", video_player, e));
+                self.set_error_message(&format!(
+                    "couldn't run \"{}\": {}",
+                    self.options.video_player_path, e
+                ));
             } else {
                 self.mark_as_watched();
             }
@@ -294,8 +297,7 @@ impl App {
         if let Some(current_video) = self.get_current_video() {
             let url = format!(
                 "{}/watch?v={}",
-                self.instance.domain.clone(),
-                current_video.video_id
+                self.instance.domain, current_video.video_id
             );
             let browser_process = || webbrowser::open(&url);
             if let Err(e) = self.run_detached(browser_process) {

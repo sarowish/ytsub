@@ -209,7 +209,7 @@ fn draw_video_info<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
             "length: {}",
             utils::as_hhmmss(current_video.length)
         )),
-        Spans::from(format!("date: {}", current_video.published_text.clone())),
+        Spans::from(format!("date: {}", current_video.published_text)),
     ])
     .block(
         Block::default()
@@ -227,7 +227,7 @@ fn draw_footer<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
                 SearchDirection::Backward => "?",
             }),
             Span::styled(
-                app.input.clone(),
+                &app.input,
                 if app.no_search_pattern_match() {
                     Style::default().fg(Color::Red)
                 } else {
