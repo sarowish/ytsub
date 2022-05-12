@@ -75,5 +75,6 @@ https://yt.artemislena.eu
 | `N`                  | repeat last search in the opposite direction |
 | `r`                  | refresh selected channel                     |
 | `R`                  | refresh all channels                         |
+| `F`                  | retry refreshing failed channels             |
 | `m`                  | toggle watched/unwatched                     |
 | `q`,`ctrl+c`         | quit application                             |

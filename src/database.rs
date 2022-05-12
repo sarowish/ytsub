@@ -149,21 +149,6 @@ pub fn get_newly_inserted_video_ids(
     Ok(video_ids)
 }
 
-pub fn get_channel_ids(conn: &Connection) -> Result<Vec<String>> {
-    let mut stmt = conn.prepare(
-        "SELECT channel_id
-        FROM channels
-        ",
-    )?;
-
-    let mut ids = Vec::new();
-    for row in stmt.query_map([], |row| row.get(0))? {
-        ids.push(row?);
-    }
-
-    Ok(ids)
-}
-
 pub fn get_channels(conn: &Connection) -> Result<Vec<Channel>> {
     let mut stmt = conn.prepare(
         "SELECT channel_id, channel_name

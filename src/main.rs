@@ -10,6 +10,7 @@ mod utils;
 
 use anyhow::Result;
 use app::App;
+use channel::RefreshState;
 use clap::Parser;
 use cli::Options;
 use crossterm::event;
@@ -106,7 +107,7 @@ fn main() -> Result<()> {
 pub enum IoEvent {
     SubscribeToChannel(String),
     RefreshChannel(String),
-    RefreshChannels,
+    RefreshChannels(bool),
     ClearMessage(u64),
 }
 
@@ -119,7 +120,9 @@ async fn async_io_loop(
         match io_event {
             IoEvent::SubscribeToChannel(channel_id) => subscribe_to_channel(&app, channel_id).await,
             IoEvent::RefreshChannel(channel_id) => refresh_channel(&app, channel_id).await,
-            IoEvent::RefreshChannels => refresh_channels(&app).await?,
+            IoEvent::RefreshChannels(refresh_failed) => {
+                refresh_channels(&app, refresh_failed).await?
+            }
             IoEvent::ClearMessage(duration_seconds) => clear_message(&app, duration_seconds).await,
         }
     }
@@ -185,15 +188,22 @@ async fn refresh_channel(app: &Arc<Mutex<App>>, channel_id: String) {
     });
 }
 
-async fn refresh_channels(app: &Arc<Mutex<App>>) -> Result<()> {
+async fn refresh_channels(app: &Arc<Mutex<App>>, refresh_failed: bool) -> Result<()> {
     let now = std::time::Instant::now();
-    app.lock()
-        .unwrap()
-        .channels
-        .items
-        .iter_mut()
-        .for_each(|channel| channel.set_to_be_refreshed());
-    let channel_ids = database::get_channel_ids(&app.lock().unwrap().conn)?;
+
+    let mut channel_ids = Vec::new();
+    for channel in &mut app.lock().unwrap().channels.items {
+        if refresh_failed && !matches!(channel.refresh_state, RefreshState::Failed) {
+            continue;
+        }
+        channel.set_to_be_refreshed();
+        channel_ids.push(channel.channel_id.clone());
+    }
+
+    if channel_ids.is_empty() {
+        return Ok(());
+    }
+
     let count = Arc::new(Mutex::new(0));
     let total = channel_ids.len();
     app.lock().unwrap().set_message(&format!(

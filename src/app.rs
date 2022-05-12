@@ -738,7 +738,18 @@ impl App {
     }
 
     pub fn refresh_channels(&mut self) {
-        self.dispatch(IoEvent::RefreshChannels);
+        self.dispatch(IoEvent::RefreshChannels(false));
+    }
+
+    pub fn refresh_failed_channels(&mut self) {
+        match Instance::new(self.options.request_timeout) {
+            Ok(instance) => self.instance = instance,
+            Err(e) => {
+                self.set_error_message(&format!("Couldn't change instance: {}", e));
+                return;
+            }
+        }
+        self.dispatch(IoEvent::RefreshChannels(true));
     }
 
     pub fn set_message(&mut self, message: &str) {

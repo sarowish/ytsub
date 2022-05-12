@@ -29,6 +29,7 @@ pub fn handle_key_normal_mode(key: KeyEvent, app: &mut App) {
         KeyCode::Char('N') => app.repeat_last_search_opposite(),
         KeyCode::Char('r') => app.refresh_channel(),
         KeyCode::Char('R') => app.refresh_channels(),
+        KeyCode::Char('F') => app.refresh_failed_channels(),
         KeyCode::Char('o') => app.open_video_in_browser(),
         KeyCode::Char('p') => app.play_video(),
         KeyCode::Char('m') => app.toggle_watched(),
