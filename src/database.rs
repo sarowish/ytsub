@@ -6,6 +6,7 @@ use anyhow::Result;
 use rusqlite::{params, Connection};
 
 pub fn initialize_db(conn: &Connection) -> Result<()> {
+    conn.pragma_update(None, "foreign_keys", "on")?;
     conn.execute(
         "
         CREATE TABLE IF NOT EXISTS channels (
