@@ -32,14 +32,14 @@ USAGE:
     ytsub [OPTIONS]
 
 OPTIONS:
-    -d, --database-path <FILE>                 path to database file
-    -g, --gen-instance-list                    generate invidious instances file
+    -d, --database-path <FILE>                 Path to database file
+    -g, --gen-instance-list                    Generate invidious instances file
     -h, --help                                 Print help information
-        --highlight-symbol <SYMBOL>            symbol to highlight selected items [default: ]
-    -r, --request-timeout <REQUEST_TIMEOUT>    timeout in secs [default: 5]
-    -t, --tick-rate <TICK_RATE>                tick rate in milliseconds [default: 200]
+        --highlight-symbol <SYMBOL>            Symbol to highlight selected items [default: ]
+    -r, --request-timeout <REQUEST_TIMEOUT>    Timeout in secs [default: 5]
+    -t, --tick-rate <TICK_RATE>                Tick rate in milliseconds [default: 200]
     -V, --version                              Print version information
-        --video-player-path <PATH>             path to the video player [default: mpv]
+        --video-player-path <PATH>             Path to the video player [default: mpv]
 ```
 
 ## Configuration
