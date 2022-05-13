@@ -1,6 +1,6 @@
 [package]
 name = "ytsub"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "A subscriptions only TUI Youtube client that uses the Invidious API"
 authors = ["Berke Enercan <berkeenercan@tutanota.com>"]
