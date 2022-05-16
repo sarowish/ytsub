@@ -75,7 +75,7 @@ https://yt.artemislena.eu
 | `c`                  | jump to channel from latest videos mode      |
 | `1`                  | switch to subscriptions mode                 |
 | `2`                  | switch to latest videos mode                 |
-| `o`                  | open video in browser                        |
+| `o`                  | open channel or video in browser             |
 | `p`                  | play video in mpv                            |
 | `t`                  | toggle hide                                  |
 | `i`                  | subscribe                                    |

@@ -301,24 +301,35 @@ impl App {
         }
     }
 
-    pub fn open_video_in_browser(&mut self) {
-        if let Some(current_video) = self.get_current_video() {
-            let url = format!(
-                "{}/watch?v={}",
-                self.instance.domain, current_video.video_id
-            );
-            let browser_process = || webbrowser::open(&url);
+    pub fn open_in_browser(&mut self) {
+        let url = match self.selected {
+            Selected::Channels => match self.get_current_channel() {
+                Some(current_channel) => format!(
+                    "{}/channel/{}",
+                    self.instance.domain, current_channel.channel_id
+                ),
+                None => return,
+            },
+            Selected::Videos => match self.get_current_video() {
+                Some(current_video) => format!(
+                    "{}/watch?v={}",
+                    self.instance.domain, current_video.video_id
+                ),
+                None => return,
+            },
+        };
 
-            #[cfg(unix)]
-            let res = self.run_detached(browser_process);
-            #[cfg(not(unix))]
-            let res = browser_process();
+        let browser_process = || webbrowser::open(&url);
 
-            if let Err(e) = res {
-                self.set_error_message(&format!("{}", e));
-            } else {
-                self.mark_as_watched();
-            }
+        #[cfg(unix)]
+        let res = self.run_detached(browser_process);
+        #[cfg(not(unix))]
+        let res = browser_process();
+
+        if let Err(e) = res {
+            self.set_error_message(&format!("{}", e));
+        } else if matches!(self.selected, Selected::Videos) {
+            self.mark_as_watched();
         }
     }
 
