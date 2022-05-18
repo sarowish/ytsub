@@ -3,10 +3,10 @@ use crate::channel::VideoType;
 use crate::input::InputMode;
 use crate::message::MessageType;
 use crate::search::SearchDirection;
-use crate::utils;
+use crate::{utils, OPTIONS, THEME};
 use tui::backend::Backend;
 use tui::layout::{Alignment, Constraint, Direction, Layout, Rect};
-use tui::style::{Color, Modifier, Style};
+use tui::style::{Color, Style};
 use tui::text::{Span, Spans};
 use tui::widgets::{
     Block, BorderType, Borders, Cell, Clear, List, ListItem, Paragraph, Row, Table, Wrap,
@@ -65,18 +65,14 @@ fn draw_channels<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
                     area.width as usize,
                 ))
                 .border_style(match app.selected {
-                    Selected::Channels => Style::default().fg(Color::Magenta),
+                    Selected::Channels => THEME.selected_block,
                     Selected::Videos => Style::default(),
                 }),
         )
-        .highlight_symbol(&app.options.highlight_symbol)
+        .highlight_symbol(&OPTIONS.highlight_symbol)
         .highlight_style(match app.selected {
-            Selected::Channels => Style::default()
-                .fg(Color::Magenta)
-                .add_modifier(Modifier::BOLD),
-            Selected::Videos => Style::default()
-                .fg(Color::Blue)
-                .add_modifier(Modifier::BOLD),
+            Selected::Channels => THEME.focused,
+            Selected::Videos => THEME.selected,
         });
     f.render_stateful_widget(channels, area, &mut app.channels.state);
 }
@@ -116,7 +112,7 @@ fn draw_videos<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
             ]);
 
             Row::new(columns).style(if video.watched {
-                Style::default().fg(Color::DarkGray)
+                THEME.watched
             } else {
                 Style::default()
             })
@@ -145,7 +141,7 @@ fn draw_videos<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
                 })
                 .border_style(match app.selected {
                     Selected::Channels => Style::default(),
-                    Selected::Videos => Style::default().fg(Color::Magenta),
+                    Selected::Videos => THEME.selected_block,
                 }),
         )
         .header(
@@ -153,11 +149,7 @@ fn draw_videos<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
                 Mode::Subscriptions => vec!["Title", "Length", "Date"],
                 Mode::LatestVideos => vec!["Channel", "Title", "Length", "Date"],
             })
-            .style(
-                Style::default()
-                    .fg(Color::Yellow)
-                    .add_modifier(Modifier::BOLD),
-            ),
+            .style(THEME.header),
         )
         .column_spacing(2)
         .widths(match app.mode {
@@ -173,16 +165,21 @@ fn draw_videos<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
                 Constraint::Min(30),
             ],
         })
-        .highlight_symbol(&app.options.highlight_symbol)
+        .highlight_symbol(&OPTIONS.highlight_symbol)
         .highlight_style({
-            let mut style = Style::default();
-            style = match app.selected {
-                Selected::Channels => style.fg(Color::Blue),
-                Selected::Videos => style.fg(Color::Magenta),
+            let mut style = match app.selected {
+                Selected::Channels => THEME.selected,
+                Selected::Videos => THEME.focused,
             };
             if let Some(video) = app.get_current_video() {
-                if !video.watched {
-                    style = style.add_modifier(Modifier::BOLD)
+                if video.watched {
+                    let overriding_style = match app.selected {
+                        Selected::Channels => THEME.selected_watched,
+                        Selected::Videos => THEME.focused_watched,
+                    };
+                    style = style.patch(overriding_style);
+                    style.add_modifier = overriding_style.add_modifier;
+                    style.sub_modifier = overriding_style.sub_modifier;
                 }
             }
             style
@@ -214,7 +211,7 @@ fn draw_video_info<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
     .block(
         Block::default()
             .borders(Borders::ALL)
-            .title(Span::styled("Video Info", Style::default().fg(Color::Cyan))),
+            .title(Span::styled("Video Info", THEME.title)),
     );
     f.render_widget(video_info, area);
 }
@@ -229,7 +226,7 @@ fn draw_footer<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
             Span::styled(
                 &app.input,
                 if app.no_search_pattern_match() {
-                    Style::default().fg(Color::Red)
+                    THEME.error
                 } else {
                     Style::default()
                 },
@@ -241,7 +238,7 @@ fn draw_footer<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
         ])),
         _ => Paragraph::new(match app.message.message_type {
             MessageType::Normal => Span::raw(&*app.message),
-            MessageType::Error => Span::styled(&*app.message, Style::default().fg(Color::Red)),
+            MessageType::Error => Span::styled(&*app.message, THEME.error),
         }),
     };
     f.render_widget(text, area);
@@ -325,11 +322,7 @@ fn gen_title<'a, T, S: State>(
     list: &StatefulList<T, S>,
     area_width: usize,
 ) -> Vec<Span<'a>> {
-    let style = Style::default()
-        .fg(Color::Cyan)
-        .add_modifier(Modifier::BOLD);
-
-    let title = Span::styled(title, style);
+    let title = Span::styled(title, THEME.title);
 
     let position = Span::styled(
         format!(
@@ -341,7 +334,7 @@ fn gen_title<'a, T, S: State>(
             },
             list.items.len()
         ),
-        style,
+        THEME.title,
     );
 
     let border_symbol = BorderType::line_symbols(BorderType::Plain).horizontal;
@@ -353,7 +346,7 @@ fn gen_title<'a, T, S: State>(
 
     if hide_flag {
         title_sections.push(Span::raw(border_symbol));
-        title_sections.push(Span::styled("[H]", style));
+        title_sections.push(Span::styled("[H]", THEME.title));
         required_space += 4;
     }
 

@@ -5,11 +5,13 @@ use std::io::{BufRead, BufReader, Write};
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use crate::CONFIG;
+
 const PACKAGE_NAME: &str = env!("CARGO_PKG_NAME");
 const INSTANCES_FILE: &str = "instances";
 const DATABASE_FILE: &str = "videos.db";
 
-fn get_config_dir() -> Result<PathBuf> {
+pub fn get_config_dir() -> Result<PathBuf> {
     let path = match dirs::config_dir() {
         Some(path) => path.join(PACKAGE_NAME),
         None => bail!("Couldn't find config directory"),
@@ -23,7 +25,7 @@ fn get_config_dir() -> Result<PathBuf> {
 fn get_data_dir() -> Result<PathBuf> {
     let path = match dirs::data_local_dir() {
         Some(path) => path.join(PACKAGE_NAME),
-        None => bail!("Couldn't find local  directory"),
+        None => bail!("Couldn't find local data directory"),
     };
     if !path.exists() {
         std::fs::create_dir_all(&path)?;
@@ -50,13 +52,13 @@ pub fn fetch_invidious_instances() -> Result<Vec<String>> {
         .collect())
 }
 
-fn get_instances_file() -> Result<PathBuf> {
+pub fn get_default_instances_file() -> Result<PathBuf> {
     Ok(get_config_dir()?.join(INSTANCES_FILE))
 }
 
 pub fn generate_instances_file() -> Result<()> {
     let instances = fetch_invidious_instances()?;
-    let instances_file_path = get_instances_file()?;
+    let instances_file_path = &CONFIG.options.instances;
     let mut file = File::create(instances_file_path.as_path())?;
     println!(
         "Generated \"{}\" with the following instances:",
@@ -70,7 +72,7 @@ pub fn generate_instances_file() -> Result<()> {
 }
 
 pub fn read_instances() -> Result<Vec<String>> {
-    let file = File::open(get_instances_file()?)?;
+    let file = File::open(&CONFIG.options.instances)?;
     let mut instances = Vec::new();
     for instance in BufReader::new(file).lines() {
         instances.push(instance?);
@@ -78,7 +80,7 @@ pub fn read_instances() -> Result<Vec<String>> {
     Ok(instances)
 }
 
-pub fn get_database_file() -> Result<PathBuf> {
+pub fn get_default_database_file() -> Result<PathBuf> {
     Ok(get_data_dir()?.join(DATABASE_FILE))
 }
 

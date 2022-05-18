@@ -30,6 +30,8 @@ tui = { version = "0.18.0", default-features = false, features = ['crossterm'] }
 ureq = { version = "2.4.0", features = ["json"] }
 unicode-width = "0.1.9"
 unicode-segmentation = "1.9.0"
+toml = "0.5.9"
+lazy_static = "1.4.0"
 
 [target.'cfg(unix)'.dependencies]
 nix = "0.24.1"

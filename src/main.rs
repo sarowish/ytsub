@@ -1,6 +1,8 @@
 mod app;
 mod channel;
 mod cli;
+mod commands;
+mod config;
 mod database;
 mod input;
 mod message;
@@ -8,13 +10,18 @@ mod search;
 mod ui;
 mod utils;
 
+use crate::commands::Command;
+use crate::config::keys::KeyBindings;
+use crate::config::options::Options;
+use crate::config::theme::Theme;
+use crate::config::Config;
 use anyhow::Result;
 use app::App;
 use channel::RefreshState;
 use clap::Parser;
-use cli::Options;
+use cli::Args;
 use crossterm::event;
-use crossterm::event::{Event, KeyCode, KeyModifiers};
+use crossterm::event::Event;
 use crossterm::execute;
 use crossterm::terminal::{
     disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
@@ -29,14 +36,35 @@ use tui::backend::CrosstermBackend;
 use tui::Terminal;
 use ui::draw;
 
+lazy_static::lazy_static! {
+    static ref CLAP_ARGS: Args = Args::parse();
+    static ref CONFIG: Config = match Config::new() {
+        Ok(config) => config,
+        Err(e) => {
+            eprintln!("{:?}", e);
+            std::process::exit(1);
+        }
+    };
+    static ref OPTIONS: &'static Options = &CONFIG.options;
+    static ref THEME: &'static Theme = &CONFIG.theme;
+    static ref KEY_BINDINGS: &'static KeyBindings = &CONFIG.key_bindings;
+}
+
 fn main() -> Result<()> {
-    let options = Options::parse();
-    if options.gen_instance_list {
+    if CLAP_ARGS.gen_instance_list {
         utils::generate_instances_file()?;
         return Ok(());
     }
 
     let (sync_io_tx, sync_io_rx) = std::sync::mpsc::channel();
+
+    let app = Arc::new(Mutex::new(App::new(sync_io_tx)?));
+
+    let cloned_app = app.clone();
+    std::thread::spawn(move || -> Result<()> {
+        async_io_loop(sync_io_rx, cloned_app)?;
+        Ok(())
+    });
 
     enable_raw_mode()?;
     let mut stdout = stdout();
@@ -44,15 +72,7 @@ fn main() -> Result<()> {
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
     terminal.clear()?;
-    let tick_rate = Duration::from_millis(options.tick_rate);
-
-    let app = Arc::new(Mutex::new(App::new(options, sync_io_tx)?));
-
-    let cloned_app = app.clone();
-    std::thread::spawn(move || -> Result<()> {
-        async_io_loop(sync_io_rx, cloned_app)?;
-        Ok(())
-    });
+    let tick_rate = Duration::from_millis(OPTIONS.tick_rate);
 
     let mut last_tick = Instant::now();
     loop {
@@ -80,10 +100,8 @@ fn main() -> Result<()> {
             if let Event::Key(key) = event::read()? {
                 let input_mode = app.lock().unwrap().input_mode.clone();
                 match input_mode {
-                    InputMode::Normal => match (key.code, key.modifiers) {
-                        (KeyCode::Char('q'), _) | (KeyCode::Char('c'), KeyModifiers::CONTROL) => {
-                            break
-                        }
+                    InputMode::Normal => match KEY_BINDINGS.get(&key) {
+                        Some(Command::Quit) => break,
                         _ => {
                             input::handle_key_normal_mode(key, &mut app.lock().unwrap());
                         }

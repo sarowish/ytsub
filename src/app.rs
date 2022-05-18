@@ -2,7 +2,7 @@ use crate::channel::{Channel, ListItem, RefreshState, Video, VideoType};
 use crate::input::InputMode;
 use crate::message::Message;
 use crate::search::{Search, SearchDirection, SearchState};
-use crate::{database, Options};
+use crate::{database, OPTIONS};
 use crate::{utils, IoEvent};
 use anyhow::{Context, Result};
 use rand::prelude::*;
@@ -27,7 +27,6 @@ pub struct App {
     pub input_mode: InputMode,
     pub input_idx: usize,
     pub cursor_position: u16,
-    pub options: Options,
     new_video_ids: HashSet<String>,
     search: Search,
     instance: Instance,
@@ -36,26 +35,22 @@ pub struct App {
 }
 
 impl App {
-    pub fn new(mut options: Options, io_tx: Sender<IoEvent>) -> Result<Self> {
-        if options.database_path.is_none() {
-            options.database_path = Some(utils::get_database_file()?);
-        }
+    pub fn new(io_tx: Sender<IoEvent>) -> Result<Self> {
         let mut app = Self {
             channels: StatefulList::with_items(Default::default()),
             videos: StatefulList::with_items(Default::default()),
             selected: Selected::Channels,
             mode: Mode::Subscriptions,
-            conn: Connection::open(options.database_path.as_ref().unwrap())?,
+            conn: Connection::open(OPTIONS.database.clone())?,
             message: Message::new(),
             input: Default::default(),
             input_mode: InputMode::Normal,
             input_idx: 0,
             cursor_position: 0,
             search: Default::default(),
-            instance: Instance::new(options.request_timeout)?,
-            options,
+            instance: Instance::new()?,
             new_video_ids: Default::default(),
-            hide_watched: false,
+            hide_watched: OPTIONS.hide_watched,
             io_tx,
         };
 
@@ -277,7 +272,7 @@ impl App {
                 "{}/watch?v={}",
                 "https://www.youtube.com", current_video.video_id
             );
-            let video_player = self.options.video_player_path.clone();
+            let video_player = &OPTIONS.video_player;
             let video_player_process = || {
                 std::process::Command::new(video_player)
                     .arg(url)
@@ -291,10 +286,7 @@ impl App {
             let res = video_player_process();
 
             if let Err(e) = res {
-                self.set_error_message(&format!(
-                    "couldn't run \"{}\": {}",
-                    self.options.video_player_path, e
-                ));
+                self.set_error_message(&format!("couldn't run \"{}\": {}", video_player, e));
             } else {
                 self.mark_as_watched();
             }
@@ -767,7 +759,7 @@ impl App {
     }
 
     pub fn refresh_failed_channels(&mut self) {
-        match Instance::new(self.options.request_timeout) {
+        match Instance::new() {
             Ok(instance) => self.instance = instance,
             Err(e) => {
                 self.set_error_message(&format!("Couldn't change instance: {}", e));
@@ -805,7 +797,7 @@ pub struct Instance {
 }
 
 impl Instance {
-    pub fn new(timeout: u64) -> Result<Self> {
+    pub fn new() -> Result<Self> {
         let invidious_instances = match utils::read_instances() {
             Ok(instances) => instances,
             Err(_) => {
@@ -815,7 +807,7 @@ impl Instance {
         let mut rng = thread_rng();
         let domain = invidious_instances[rng.gen_range(0..invidious_instances.len())].to_string();
         let agent = AgentBuilder::new()
-            .timeout(Duration::from_secs(timeout))
+            .timeout(Duration::from_secs(OPTIONS.request_timeout))
             .build();
         Ok(Self { domain, agent })
     }
@@ -966,7 +958,7 @@ pub enum Selected {
     Videos,
 }
 
-#[derive(Clone)]
+#[derive(PartialEq, Clone, Debug)]
 pub enum Mode {
     Subscriptions,
     LatestVideos,

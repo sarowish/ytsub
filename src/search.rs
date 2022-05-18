@@ -13,7 +13,7 @@ impl Default for SearchState {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(PartialEq, Debug, Clone)]
 pub enum SearchDirection {
     Forward,
     Backward,

@@ -1,4 +1,9 @@
-use crate::app::App;
+use crate::{
+    app::{App, Mode},
+    commands::Command,
+    search::SearchDirection,
+    KEY_BINDINGS,
+};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 #[derive(Clone)]
@@ -10,30 +15,32 @@ pub enum InputMode {
 }
 
 pub fn handle_key_normal_mode(key: KeyEvent, app: &mut App) {
-    match key.code {
-        KeyCode::Char('1') => app.set_mode_subs(),
-        KeyCode::Char('2') => app.set_mode_latest_videos(),
-        KeyCode::Char('j') | KeyCode::Down => app.on_down(),
-        KeyCode::Char('k') | KeyCode::Up => app.on_up(),
-        KeyCode::Char('h') | KeyCode::Left => app.on_left(),
-        KeyCode::Char('l') | KeyCode::Right => app.on_right(),
-        KeyCode::Char('g') => app.select_first(),
-        KeyCode::Char('G') => app.select_last(),
-        KeyCode::Char('c') => app.jump_to_channel(),
-        KeyCode::Char('t') => app.toggle_hide(),
-        KeyCode::Char('i') => app.prompt_for_subscription(),
-        KeyCode::Char('d') => app.prompt_for_unsubscribing(),
-        KeyCode::Char('/') => app.search_forward(),
-        KeyCode::Char('?') => app.search_backward(),
-        KeyCode::Char('n') => app.repeat_last_search(),
-        KeyCode::Char('N') => app.repeat_last_search_opposite(),
-        KeyCode::Char('r') => app.refresh_channel(),
-        KeyCode::Char('R') => app.refresh_channels(),
-        KeyCode::Char('F') => app.refresh_failed_channels(),
-        KeyCode::Char('o') => app.open_in_browser(),
-        KeyCode::Char('p') => app.play_video(),
-        KeyCode::Char('m') => app.toggle_watched(),
-        _ => {}
+    if let Some(command) = KEY_BINDINGS.get(&key) {
+        match command {
+            Command::SetMode(Mode::Subscriptions) => app.set_mode_subs(),
+            Command::SetMode(Mode::LatestVideos) => app.set_mode_latest_videos(),
+            Command::OnDown => app.on_down(),
+            Command::OnUp => app.on_up(),
+            Command::OnLeft => app.on_left(),
+            Command::OnRight => app.on_right(),
+            Command::SelectFirst => app.select_first(),
+            Command::SelectLast => app.select_last(),
+            Command::JumpToChannel => app.jump_to_channel(),
+            Command::ToggleHide => app.toggle_hide(),
+            Command::Subscribe => app.prompt_for_subscription(),
+            Command::Unsubscribe => app.prompt_for_unsubscribing(),
+            Command::Search(SearchDirection::Forward) => app.search_forward(),
+            Command::Search(SearchDirection::Backward) => app.search_backward(),
+            Command::RepeatLastSearch(false) => app.repeat_last_search(),
+            Command::RepeatLastSearch(true) => app.repeat_last_search_opposite(),
+            Command::RefreshChannel => app.refresh_channel(),
+            Command::RefreshChannels => app.refresh_channels(),
+            Command::RefreshFailedChannels => app.refresh_failed_channels(),
+            Command::OpenInBrowser => app.open_in_browser(),
+            Command::PlayVideo => app.play_video(),
+            Command::ToggleWatched => app.toggle_watched(),
+            _ => (),
+        }
     }
 }
 
