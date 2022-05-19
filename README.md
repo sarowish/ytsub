@@ -2,8 +2,7 @@
 
 ytsub is a subscriptions only tui youtube client that uses the invidious api.
 
-![subscriptions mode](screenshots/subscriptions.png)
-![latest videos mode](screenshots/latest_videos.png)
+![demo](https://user-images.githubusercontent.com/20581722/169398500-76b61e21-bff6-4286-aadb-8345eaab97a0.gif)
 
 ## Dependencies
 
