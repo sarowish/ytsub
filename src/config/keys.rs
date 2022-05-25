@@ -18,6 +18,7 @@ fn parse_binding(binding: &str) -> Result<KeyEvent> {
     let code = if let Some(token) = tokens.next() {
         match token {
             "backspace" => KeyCode::Backspace,
+            "space" => KeyCode::Char(' '),
             "enter" => KeyCode::Enter,
             "left" => KeyCode::Left,
             "right" => KeyCode::Right,

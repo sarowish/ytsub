@@ -121,7 +121,7 @@ fg = "Red"
 
 # Key Bindings
 
-# Valid key codes are backspace, enter, left, right, up, down, home, end
+# Valid key codes are backspace, space, enter, left, right, up, down, home, end
 # pageup, pagedown, tab, backtab, del, delete, insert, esc, escape and characters.
 
 # Valid modifiers are ctrl, shift and alt.
