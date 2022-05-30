@@ -4,13 +4,13 @@ mod cli;
 mod commands;
 mod config;
 mod database;
+mod help;
 mod input;
 mod message;
 mod search;
 mod ui;
 mod utils;
 
-use crate::commands::Command;
 use crate::config::keys::KeyBindings;
 use crate::config::options::Options;
 use crate::config::theme::Theme;
@@ -27,6 +27,7 @@ use crossterm::terminal::{
     disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
 };
 use futures_util::StreamExt;
+use help::HelpWindow;
 use input::InputMode;
 use std::io::stdout;
 use std::sync::{Arc, Mutex};
@@ -48,6 +49,7 @@ lazy_static::lazy_static! {
     static ref OPTIONS: &'static Options = &CONFIG.options;
     static ref THEME: &'static Theme = &CONFIG.theme;
     static ref KEY_BINDINGS: &'static KeyBindings = &CONFIG.key_bindings;
+    static ref HELP: HelpWindow<'static> = HelpWindow::new();
 }
 
 fn main() -> Result<()> {
@@ -98,18 +100,8 @@ fn main() -> Result<()> {
         let timeout = tick_rate.saturating_sub(last_tick.elapsed());
         if crossterm::event::poll(timeout)? {
             if let Event::Key(key) = event::read()? {
-                let input_mode = app.lock().unwrap().input_mode.clone();
-                match input_mode {
-                    InputMode::Normal => match KEY_BINDINGS.get(&key) {
-                        Some(Command::Quit) => break,
-                        _ => {
-                            input::handle_key_normal_mode(key, &mut app.lock().unwrap());
-                        }
-                    },
-                    InputMode::Confirmation => {
-                        input::handle_key_confirmation_mode(key, &mut app.lock().unwrap())
-                    }
-                    _ => input::handle_key_editing_mode(key, &mut app.lock().unwrap()),
+                if input::handle_event(key, &mut app.lock().unwrap()) {
+                    break;
                 }
             }
         }

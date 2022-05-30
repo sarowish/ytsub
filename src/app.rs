@@ -1,4 +1,5 @@
 use crate::channel::{Channel, ListItem, RefreshState, Video, VideoType};
+use crate::help::HelpWindowState;
 use crate::input::InputMode;
 use crate::message::Message;
 use crate::search::{Search, SearchDirection, SearchState};
@@ -27,6 +28,7 @@ pub struct App {
     pub input_mode: InputMode,
     pub input_idx: usize,
     pub cursor_position: u16,
+    pub help_window_state: HelpWindowState,
     new_video_ids: HashSet<String>,
     search: Search,
     instance: Instance,
@@ -52,6 +54,7 @@ impl App {
             new_video_ids: Default::default(),
             hide_watched: OPTIONS.hide_watched,
             io_tx,
+            help_window_state: HelpWindowState::new(),
         };
 
         database::initialize_db(&app.conn)?;
@@ -489,6 +492,10 @@ impl App {
     pub fn is_footer_active(&self) -> bool {
         !matches!(self.input_mode, InputMode::Normal | InputMode::Confirmation)
             || !self.message.is_empty()
+    }
+
+    pub fn toggle_help(&mut self) {
+        self.help_window_state.toggle();
     }
 
     pub fn prompt_for_subscription(&mut self) {

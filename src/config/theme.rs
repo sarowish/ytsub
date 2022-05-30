@@ -137,6 +137,7 @@ pub struct UserTheme {
     focused_watched: Option<UserStyle>,
     selected_block: Option<UserStyle>,
     error: Option<UserStyle>,
+    help: Option<UserStyle>,
 }
 
 pub struct Theme {
@@ -149,6 +150,7 @@ pub struct Theme {
     pub focused_watched: Style,
     pub selected_block: Style,
     pub error: Style,
+    pub help: Style,
 }
 
 impl Default for Theme {
@@ -171,6 +173,7 @@ impl Default for Theme {
             focused_watched: Style::default(),
             selected_block: Style::default().fg(Color::Magenta),
             error: Style::default().fg(Color::Red),
+            help: Style::default().fg(Color::Green),
         }
     }
 }
@@ -200,6 +203,7 @@ impl TryFrom<UserTheme> for Theme {
         set_theme_field!(focused_watched);
         set_theme_field!(selected_block);
         set_theme_field!(error);
+        set_theme_field!(help);
 
         Ok(theme)
     }

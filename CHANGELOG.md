@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 ### Added
 - Make theme, key bindings and options configurable through a configuration file.
+- `ctrl+h` opens a help window that shows the key bindings.
 
 ### Changed
 - `o` key binding opens the channel page in browser if the channels is the selected block.

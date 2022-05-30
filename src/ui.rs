@@ -1,9 +1,10 @@
 use crate::app::{App, Mode, Selected, State, StatefulList};
 use crate::channel::VideoType;
+use crate::help::HelpWindowState;
 use crate::input::InputMode;
 use crate::message::MessageType;
 use crate::search::SearchDirection;
-use crate::{utils, OPTIONS, THEME};
+use crate::{utils, HELP, OPTIONS, THEME};
 use tui::backend::Backend;
 use tui::layout::{Alignment, Constraint, Direction, Layout, Rect};
 use tui::style::{Color, Style};
@@ -33,6 +34,10 @@ pub fn draw<B: Backend>(f: &mut Frame<B>, app: &mut App) {
 
     if let InputMode::Confirmation = app.input_mode {
         draw_confirmation_window(f, app);
+    }
+
+    if app.help_window_state.show {
+        draw_help(f, &mut app.help_window_state);
     }
 }
 
@@ -288,6 +293,42 @@ fn draw_confirmation_window<B: Backend>(f: &mut Frame<B>, app: &App) {
     f.render_widget(text, chunks[0]);
     f.render_widget(yes, yes_area);
     f.render_widget(no, no_area);
+}
+
+fn draw_help<B: Backend>(f: &mut Frame<B>, help_window_state: &mut HelpWindowState) {
+    let window = popup_window(80, 70, f.size());
+    f.render_widget(Clear, window);
+
+    let width = std::cmp::max(window.width.saturating_sub(2), 1);
+
+    let help_entries = HELP
+        .iter()
+        .map(|(key, desc)| Spans::from(vec![Span::styled(key, THEME.help), Span::raw(*desc)]))
+        .collect::<Vec<Spans>>();
+
+    help_window_state.max_scroll = help_entries
+        .iter()
+        .map(|entry| 1 + entry.width().saturating_sub(1) as u16 / width)
+        .sum::<u16>()
+        .saturating_sub(window.height - 2);
+
+    if help_window_state.max_scroll < help_window_state.scroll {
+        help_window_state.scroll = help_window_state.max_scroll;
+    }
+
+    let mut help_text = Paragraph::new(help_entries)
+        .scroll((help_window_state.scroll, 0))
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title(Span::styled("Help", THEME.title)),
+        );
+
+    if window.width > 0 {
+        help_text = help_text.wrap(Wrap { trim: false });
+    }
+
+    f.render_widget(help_text, window);
 }
 
 fn popup_window(percent_x: u16, percent_y: u16, r: Rect) -> Rect {

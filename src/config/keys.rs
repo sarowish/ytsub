@@ -1,6 +1,4 @@
-use crate::app::Mode;
 use crate::commands::Command;
-use crate::search::SearchDirection;
 use anyhow::{Context, Result};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use serde::Deserialize;
@@ -69,8 +67,8 @@ impl Default for KeyBindings {
             };
         }
 
-        insert_binding!("1", Command::SetMode(Mode::Subscriptions));
-        insert_binding!("2", Command::SetMode(Mode::LatestVideos));
+        insert_binding!("1", Command::SetModeSubs);
+        insert_binding!("2", Command::SetModeLatestVideos);
         insert_binding!("j", Command::OnDown);
         insert_binding!("down", Command::OnDown);
         insert_binding!("k", Command::OnUp);
@@ -85,16 +83,17 @@ impl Default for KeyBindings {
         insert_binding!("t", Command::ToggleHide);
         insert_binding!("i", Command::Subscribe);
         insert_binding!("d", Command::Unsubscribe);
-        insert_binding!("/", Command::Search(SearchDirection::Forward));
-        insert_binding!("?", Command::Search(SearchDirection::Backward));
-        insert_binding!("n", Command::RepeatLastSearch(false));
-        insert_binding!("N", Command::RepeatLastSearch(true));
+        insert_binding!("/", Command::SearchForward);
+        insert_binding!("?", Command::SearchBackward);
+        insert_binding!("n", Command::RepeatLastSearch);
+        insert_binding!("N", Command::RepeatLastSearchOpposite);
         insert_binding!("r", Command::RefreshChannel);
         insert_binding!("R", Command::RefreshChannels);
         insert_binding!("F", Command::RefreshFailedChannels);
         insert_binding!("o", Command::OpenInBrowser);
         insert_binding!("p", Command::PlayVideo);
         insert_binding!("m", Command::ToggleWatched);
+        insert_binding!("ctrl-h", Command::ToggleHelp);
         insert_binding!("q", Command::Quit);
         insert_binding!("ctrl-c", Command::Quit);
 

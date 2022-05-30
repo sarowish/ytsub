@@ -1,9 +1,4 @@
-use crate::{
-    app::{App, Mode},
-    commands::Command,
-    search::SearchDirection,
-    KEY_BINDINGS,
-};
+use crate::{app::App, commands::Command, help::HelpWindowState, KEY_BINDINGS};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 #[derive(Clone)]
@@ -14,11 +9,24 @@ pub enum InputMode {
     Confirmation,
 }
 
-pub fn handle_key_normal_mode(key: KeyEvent, app: &mut App) {
+pub fn handle_event(key: KeyEvent, app: &mut App) -> bool {
+    match app.input_mode {
+        _ if app.help_window_state.show => {
+            return handle_key_help_mode(key, &mut app.help_window_state)
+        }
+        InputMode::Normal => return handle_key_normal_mode(key, app),
+        InputMode::Confirmation => handle_key_confirmation_mode(key, app),
+        _ => handle_key_editing_mode(key, app),
+    }
+
+    false
+}
+
+fn handle_key_normal_mode(key: KeyEvent, app: &mut App) -> bool {
     if let Some(command) = KEY_BINDINGS.get(&key) {
         match command {
-            Command::SetMode(Mode::Subscriptions) => app.set_mode_subs(),
-            Command::SetMode(Mode::LatestVideos) => app.set_mode_latest_videos(),
+            Command::SetModeSubs => app.set_mode_subs(),
+            Command::SetModeLatestVideos => app.set_mode_latest_videos(),
             Command::OnDown => app.on_down(),
             Command::OnUp => app.on_up(),
             Command::OnLeft => app.on_left(),
@@ -29,22 +37,41 @@ pub fn handle_key_normal_mode(key: KeyEvent, app: &mut App) {
             Command::ToggleHide => app.toggle_hide(),
             Command::Subscribe => app.prompt_for_subscription(),
             Command::Unsubscribe => app.prompt_for_unsubscribing(),
-            Command::Search(SearchDirection::Forward) => app.search_forward(),
-            Command::Search(SearchDirection::Backward) => app.search_backward(),
-            Command::RepeatLastSearch(false) => app.repeat_last_search(),
-            Command::RepeatLastSearch(true) => app.repeat_last_search_opposite(),
+            Command::SearchForward => app.search_forward(),
+            Command::SearchBackward => app.search_backward(),
+            Command::RepeatLastSearch => app.repeat_last_search(),
+            Command::RepeatLastSearchOpposite => app.repeat_last_search_opposite(),
             Command::RefreshChannel => app.refresh_channel(),
             Command::RefreshChannels => app.refresh_channels(),
             Command::RefreshFailedChannels => app.refresh_failed_channels(),
             Command::OpenInBrowser => app.open_in_browser(),
             Command::PlayVideo => app.play_video(),
             Command::ToggleWatched => app.toggle_watched(),
+            Command::ToggleHelp => app.toggle_help(),
+            Command::Quit => return true,
+        }
+    }
+
+    false
+}
+
+fn handle_key_help_mode(key: KeyEvent, help_window_state: &mut HelpWindowState) -> bool {
+    if let Some(command) = KEY_BINDINGS.get(&key) {
+        match command {
+            Command::OnDown => help_window_state.scroll_down(),
+            Command::OnUp => help_window_state.scroll_up(),
+            Command::SelectFirst => help_window_state.scroll_top(),
+            Command::SelectLast => help_window_state.scroll_bottom(),
+            Command::ToggleHelp => help_window_state.toggle(),
+            Command::Quit => return true,
             _ => (),
         }
     }
+
+    false
 }
 
-pub fn handle_key_confirmation_mode(key: KeyEvent, app: &mut App) {
+fn handle_key_confirmation_mode(key: KeyEvent, app: &mut App) {
     match key.code {
         KeyCode::Char('y') => app.unsubscribe(),
         KeyCode::Char('n') => app.input_mode = InputMode::Normal,
@@ -52,7 +79,7 @@ pub fn handle_key_confirmation_mode(key: KeyEvent, app: &mut App) {
     }
 }
 
-pub fn handle_key_editing_mode(key: KeyEvent, app: &mut App) {
+fn handle_key_editing_mode(key: KeyEvent, app: &mut App) {
     match (key.code, key.modifiers) {
         (KeyCode::Left, KeyModifiers::CONTROL) => app.move_cursor_one_word_left(),
         (KeyCode::Right, KeyModifiers::CONTROL) => app.move_cursor_one_word_right(),

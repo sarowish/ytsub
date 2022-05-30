@@ -118,6 +118,9 @@ fg = "Magenta"
 # Error message
 [error]
 fg = "Red"
+# Key bindings in the help window
+[help]
+fg = "Green"
 
 # Key Bindings
 
@@ -152,9 +155,10 @@ fg = "Red"
 "r" = "refresh_channel" # Refresh videos of the selected channel
 "R" = "refresh_channels" # Refresh videos of every channel
 "F" = "refresh_failed_channels" # Refresh videos of channels which their latest refresh was a failure
-"o" = "open_in_browser" # Open channel or video on browser
+"o" = "open_in_browser" # Open channel or video in browser
 "p" = "play_video" # Play selected video in a video player (default: mpv)
 "m" = "toggle_watched" # Mark/unmark selected video as watched
+"ctrl+h" = "toggle_help" # Toggle help window
 "q ctrl-c" = "quit" # Quit application
 ```
 
@@ -200,4 +204,5 @@ https://yt.artemislena.eu
 | `R`                  | refresh all channels                         |
 | `F`                  | retry refreshing failed channels             |
 | `m`                  | toggle watched/unwatched                     |
+| `ctrl+h`             | toggle help window                           |
 | `q`,`ctrl+c`         | quit application                             |

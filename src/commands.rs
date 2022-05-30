@@ -1,9 +1,7 @@
-use crate::app::Mode;
-use crate::search::SearchDirection;
-
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Command {
-    SetMode(Mode),
+    SetModeSubs,
+    SetModeLatestVideos,
     OnDown,
     OnUp,
     OnLeft,
@@ -14,14 +12,17 @@ pub enum Command {
     ToggleHide,
     Subscribe,
     Unsubscribe,
-    Search(SearchDirection),
-    RepeatLastSearch(bool),
+    SearchForward,
+    SearchBackward,
+    RepeatLastSearch,
+    RepeatLastSearchOpposite,
     RefreshChannel,
     RefreshChannels,
     RefreshFailedChannels,
     OpenInBrowser,
     PlayVideo,
     ToggleWatched,
+    ToggleHelp,
     Quit,
 }
 
@@ -30,8 +31,8 @@ impl TryFrom<&str> for Command {
 
     fn try_from(command: &str) -> Result<Self, Self::Error> {
         let command = match command {
-            "set_mode_subs" => Command::SetMode(Mode::Subscriptions),
-            "set_mode_latest_videos" => Command::SetMode(Mode::LatestVideos),
+            "set_mode_subs" => Command::SetModeSubs,
+            "set_mode_latest_videos" => Command::SetModeLatestVideos,
             "on_down" => Command::OnDown,
             "on_up" => Command::OnUp,
             "on_left" => Command::OnLeft,
@@ -42,16 +43,17 @@ impl TryFrom<&str> for Command {
             "toggle_hide" => Command::ToggleHide,
             "subscribe" => Command::Subscribe,
             "unsubscribe" => Command::Unsubscribe,
-            "search_forward" => Command::Search(SearchDirection::Forward),
-            "search_backward" => Command::Search(SearchDirection::Backward),
-            "repeat_last_search" => Command::RepeatLastSearch(false),
-            "repeat_last_search_opposite" => Command::RepeatLastSearch(true),
+            "search_forward" => Command::SearchForward,
+            "search_backward" => Command::SearchBackward,
+            "repeat_last_search" => Command::RepeatLastSearch,
+            "repeat_last_search_opposite" => Command::RepeatLastSearchOpposite,
             "refresh_channel" => Command::RefreshChannel,
             "refresh_channels" => Command::RefreshChannels,
             "refresh_failed_channels" => Command::RefreshFailedChannels,
             "open_in_browser" => Command::OpenInBrowser,
             "play_video" => Command::PlayVideo,
             "toggle_watched" => Command::ToggleWatched,
+            "toggle_help" => Command::ToggleHelp,
             "quit" => Command::Quit,
             _ => anyhow::bail!("\"{}\" is an invalid command", command),
         };
