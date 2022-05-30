@@ -29,11 +29,12 @@ use crossterm::terminal::{
 use futures_util::StreamExt;
 use help::HelpWindow;
 use input::InputMode;
-use std::io::stdout;
+use std::io;
+use std::panic;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use std::time::Instant;
-use tui::backend::CrosstermBackend;
+use tui::backend::{Backend, CrosstermBackend};
 use tui::Terminal;
 use ui::draw;
 
@@ -68,12 +69,32 @@ fn main() -> Result<()> {
         Ok(())
     });
 
+    let default_hook = panic::take_hook();
+
+    panic::set_hook(Box::new(move |info| {
+        reset_terminal().unwrap();
+        default_hook(info);
+    }));
+
     enable_raw_mode()?;
-    let mut stdout = stdout();
+    let mut stdout = io::stdout();
     execute!(stdout, EnterAlternateScreen)?;
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
     terminal.clear()?;
+
+    let res = run_tui(&mut terminal, app);
+
+    reset_terminal()?;
+
+    if let Err(e) = res {
+        eprintln!("{:?}", e);
+    }
+
+    Ok(())
+}
+
+fn run_tui<B: Backend>(terminal: &mut Terminal<B>, app: Arc<Mutex<App>>) -> Result<()> {
     let tick_rate = Duration::from_millis(OPTIONS.tick_rate);
 
     let mut last_tick = Instant::now();
@@ -109,8 +130,14 @@ fn main() -> Result<()> {
             last_tick = Instant::now();
         }
     }
+
+    Ok(())
+}
+
+fn reset_terminal() -> Result<()> {
     disable_raw_mode()?;
-    execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
+    execute!(io::stdout(), LeaveAlternateScreen)?;
+
     Ok(())
 }
 
