@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Reset the terminal properly when the app panics or an error is propagated
+- Don't show an incorrect error message after aborting from search and trying to repeat the latest search.
 
 ## [0.1.1] - 2022-05-13
 ### Fixed

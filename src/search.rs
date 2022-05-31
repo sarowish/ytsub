@@ -97,9 +97,12 @@ impl Search {
         self.state = SearchState::NotSearching;
         self.recovery_index = None;
         self.matches.clear();
+
+        let pattern = std::mem::take(&mut self.pattern);
+
         if !abort {
-            self.last_search = Some((std::mem::take(&mut self.pattern), self.direction.clone()))
-        };
+            self.last_search = Some((pattern, self.direction.clone()))
+        }
     }
 
     pub fn recover_item<T, S: State>(&mut self, list: &mut StatefulList<T, S>) {
