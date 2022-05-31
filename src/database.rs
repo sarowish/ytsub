@@ -154,7 +154,7 @@ pub fn get_channels(conn: &Connection) -> Result<Vec<Channel>> {
     let mut stmt = conn.prepare(
         "SELECT channel_id, channel_name
         FROM channels
-        ORDER BY channel_name ASC
+        ORDER BY channel_name COLLATE NOCASE ASC
         ",
     )?;
 
