@@ -10,7 +10,7 @@ use self::{
 use crate::{utils, CLAP_ARGS};
 use anyhow::Result;
 use serde::Deserialize;
-use std::fs;
+use std::{fs, path::PathBuf};
 
 const CONFIG_FILE: &str = "config.toml";
 
@@ -33,13 +33,13 @@ pub struct Config {
 
 impl Config {
     pub fn new() -> Result<Self> {
-        let config_file = match &CLAP_ARGS.config {
-            Some(path) => path.clone(),
+        let config_file = match CLAP_ARGS.value_of("config") {
+            Some(path) => PathBuf::from(path),
             None => utils::get_config_dir()?.join(CONFIG_FILE),
         };
 
         let mut config = match fs::read_to_string(&config_file) {
-            Ok(config_str) if !CLAP_ARGS.no_config => {
+            Ok(config_str) if !CLAP_ARGS.is_present("no_config") => {
                 Self::try_from(toml::from_str::<UserConfig>(&config_str)?)?
             }
             _ => Self::default(),

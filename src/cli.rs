@@ -1,35 +1,70 @@
-use std::path::PathBuf;
+use clap::{Arg, ArgMatches, Command};
 
-use clap::Parser;
-
-#[derive(Parser)]
-#[clap(about, version)]
-pub struct Args {
-    /// Path to configuration file
-    #[clap(short, long, parse(from_os_str), value_name = "FILE")]
-    pub config: Option<PathBuf>,
-    /// Ignore configuration file
-    #[clap(short, long)]
-    pub no_config: bool,
-    /// Path to database file
-    #[clap(short, long, parse(from_os_str), value_name = "FILE")]
-    pub database: Option<PathBuf>,
-    /// Path to instances file
-    #[clap(short, long, parse(from_os_str), value_name = "FILE")]
-    pub instances: Option<PathBuf>,
-    /// Generate invidious instances file
-    #[clap(short, long)]
-    pub gen_instance_list: bool,
-    /// Tick rate in milliseconds
-    #[clap(short, long)]
-    pub tick_rate: Option<u64>,
-    /// Timeout in secs
-    #[clap(short, long)]
-    pub request_timeout: Option<u64>,
-    /// Symbol to highlight selected items
-    #[clap(long, value_name = "SYMBOL")]
-    pub highlight_symbol: Option<String>,
-    /// Path to the video player
-    #[clap(long, value_name = "PATH")]
-    pub video_player: Option<String>,
+pub fn get_matches() -> ArgMatches {
+    Command::new(env!("CARGO_PKG_NAME"))
+        .version(env!("CARGO_PKG_VERSION"))
+        .about(env!("CARGO_PKG_DESCRIPTION"))
+        .arg(
+            Arg::new("config")
+                .short('c')
+                .long("config")
+                .help("Path to configuration file")
+                .value_name("FILE"),
+        )
+        .arg(
+            Arg::new("no_config")
+                .short('n')
+                .long("no-config")
+                .help("Ignore configuration file")
+                .conflicts_with("config"),
+        )
+        .arg(
+            Arg::new("database")
+                .short('d')
+                .long("database")
+                .help("Path to database file")
+                .value_name("FILE"),
+        )
+        .arg(
+            Arg::new("instances")
+                .short('s')
+                .long("instances")
+                .help("Path to instances file")
+                .value_name("FILE"),
+        )
+        .arg(
+            Arg::new("gen_instances_list")
+                .short('g')
+                .long("gen-instances")
+                .help("Generate Invidious instances file"),
+        )
+        .arg(
+            Arg::new("tick_rate")
+                .short('t')
+                .long("tick-rate")
+                .help("Tick rate in milliseconds")
+                .value_name("TICK RATE")
+                .validator(|s| s.parse::<u64>()),
+        )
+        .arg(
+            Arg::new("request_timeout")
+                .short('r')
+                .long("request-timeout")
+                .help("Timeout in seconds")
+                .value_name("TIMEOUT")
+                .validator(|s| s.parse::<u64>()),
+        )
+        .arg(
+            Arg::new("highlight_symbol")
+                .long("highlight-symbol")
+                .help("Symbol to highlight selected items")
+                .value_name("SYMBOL"),
+        )
+        .arg(
+            Arg::new("video_player")
+                .long("video-player")
+                .help("Path to video player")
+                .value_name("VIDEO PLAYER"),
+        )
+        .get_matches()
 }

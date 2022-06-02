@@ -18,8 +18,7 @@ use crate::config::Config;
 use anyhow::Result;
 use app::App;
 use channel::RefreshState;
-use clap::Parser;
-use cli::Args;
+use clap::ArgMatches;
 use crossterm::event;
 use crossterm::event::Event;
 use crossterm::execute;
@@ -39,7 +38,7 @@ use tui::Terminal;
 use ui::draw;
 
 lazy_static::lazy_static! {
-    static ref CLAP_ARGS: Args = Args::parse();
+    static ref CLAP_ARGS: ArgMatches = cli::get_matches();
     static ref CONFIG: Config = match Config::new() {
         Ok(config) => config,
         Err(e) => {
@@ -54,7 +53,7 @@ lazy_static::lazy_static! {
 }
 
 fn main() -> Result<()> {
-    if CLAP_ARGS.gen_instance_list {
+    if CLAP_ARGS.is_present("gen_instances_list") {
         utils::generate_instances_file()?;
         return Ok(());
     }

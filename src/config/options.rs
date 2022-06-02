@@ -25,27 +25,27 @@ pub struct Options {
 
 impl Options {
     pub fn override_with_clap_args(&mut self) {
-        if let Some(database) = &CLAP_ARGS.database {
-            self.database = database.to_path_buf();
+        if let Some(database) = CLAP_ARGS.value_of("database") {
+            self.database = PathBuf::from(database);
         }
 
-        if let Some(instances) = &CLAP_ARGS.instances {
-            self.instances = instances.to_path_buf();
+        if let Some(instances) = CLAP_ARGS.value_of("instances") {
+            self.instances = PathBuf::from(instances);
         }
 
-        if let Some(tick_rate) = CLAP_ARGS.tick_rate {
-            self.tick_rate = tick_rate;
+        if let Some(tick_rate) = CLAP_ARGS.value_of("tick_rate") {
+            self.tick_rate = tick_rate.parse().unwrap();
         }
 
-        if let Some(request_timeout) = CLAP_ARGS.request_timeout {
-            self.request_timeout = request_timeout;
+        if let Some(request_timeout) = CLAP_ARGS.value_of("instances") {
+            self.request_timeout = request_timeout.parse().unwrap();
         }
 
-        if let Some(highlight_symbol) = &CLAP_ARGS.highlight_symbol {
+        if let Some(highlight_symbol) = CLAP_ARGS.value_of("highlight_symbol") {
             self.highlight_symbol = highlight_symbol.to_string();
         }
 
-        if let Some(video_player) = &CLAP_ARGS.video_player {
+        if let Some(video_player) = CLAP_ARGS.value_of("video_player") {
             self.video_player = video_player.to_string();
         }
     }
