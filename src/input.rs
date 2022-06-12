@@ -37,6 +37,7 @@ fn handle_key_normal_mode(key: KeyEvent, app: &mut App) -> bool {
             Command::ToggleHide => app.toggle_hide(),
             Command::Subscribe => app.prompt_for_subscription(),
             Command::Unsubscribe => app.prompt_for_unsubscribing(),
+            Command::DeleteVideo => app.delete_selected_video(),
             Command::SearchForward => app.search_forward(),
             Command::SearchBackward => app.search_backward(),
             Command::RepeatLastSearch => app.repeat_last_search(),

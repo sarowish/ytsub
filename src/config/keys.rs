@@ -83,6 +83,7 @@ impl Default for KeyBindings {
         insert_binding!("t", Command::ToggleHide);
         insert_binding!("i", Command::Subscribe);
         insert_binding!("d", Command::Unsubscribe);
+        insert_binding!("D", Command::DeleteVideo);
         insert_binding!("/", Command::SearchForward);
         insert_binding!("?", Command::SearchBackward);
         insert_binding!("n", Command::RepeatLastSearch);

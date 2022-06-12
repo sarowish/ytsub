@@ -2,7 +2,7 @@ use crate::KEY_BINDINGS;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use std::ops::{Deref, DerefMut};
 
-const DESCRIPTIONS_LEN: usize = 24;
+const DESCRIPTIONS_LEN: usize = 25;
 const DESCRIPTIONS: [&str; DESCRIPTIONS_LEN] = [
     "Switch to subscriptions mode",
     "Switch to latest videos mode",
@@ -16,6 +16,7 @@ const DESCRIPTIONS: [&str; DESCRIPTIONS_LEN] = [
     "Hide/unhide watched videos",
     "Subscribe",
     "Unsubscribe",
+    "Delete the selected video from database",
     "Search Forward",
     "Search backward",
     "Repeat last search",

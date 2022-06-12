@@ -107,6 +107,20 @@ impl App {
         }
     }
 
+    pub fn delete_selected_video(&mut self) {
+        if let Some(video) = self.get_current_video() {
+            if let Err(e) = database::delete_video(&self.conn, &video.video_id) {
+                self.set_error_message(&e.to_string());
+            }
+
+            if self.videos.items.len() == 1 {
+                self.videos.state.select(None);
+            }
+
+            self.load_videos();
+        }
+    }
+
     fn move_channel_to_top(&mut self, channel_id: &str) {
         let id_of_current_channel = self
             .get_current_channel()

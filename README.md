@@ -148,6 +148,7 @@ fg = "Green"
 "t" = "toggle_hide" # Hide/unhide watched videos
 "i" = "subscribe" # Enter editing mode to enter channel id or url
 "d" = "unsubscribe" # Open confirmation window to unsubcribe from the selected channel
+"D" = "delete_video" # Delete the selected video from database
 "/" = "search_forward" # Enter editing mode to make a forward search
 "?" = "search_backward" # Enter editing mode to make a backward search
 "n" = "repeat_last_search" # Search with the latest pattern and direction
@@ -196,6 +197,7 @@ https://yt.artemislena.eu
 | `t`                  | toggle hide                                  |
 | `i`                  | subscribe                                    |
 | `d`                  | unsubscribe                                  |
+| `D`                  | delete selected video                        |
 | `/`                  | search forward                               |
 | `?`                  | search backward                              |
 | `n`                  | repeat last search                           |
