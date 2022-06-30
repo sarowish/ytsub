@@ -1,20 +1,17 @@
 use crate::app::{State, StatefulList};
 use std::fmt::Display;
 
+#[derive(Default)]
 pub enum SearchState {
+    #[default]
     NotSearching,
     PoppedKey,
     PushedKey,
 }
 
-impl Default for SearchState {
-    fn default() -> Self {
-        SearchState::NotSearching
-    }
-}
-
-#[derive(PartialEq, Debug, Clone)]
+#[derive(Default, PartialEq, Debug, Clone)]
 pub enum SearchDirection {
+    #[default]
     Forward,
     Backward,
 }
@@ -25,12 +22,6 @@ impl SearchDirection {
             SearchDirection::Forward => SearchDirection::Backward,
             SearchDirection::Backward => SearchDirection::Forward,
         }
-    }
-}
-
-impl Default for SearchDirection {
-    fn default() -> Self {
-        SearchDirection::Forward
     }
 }
 
