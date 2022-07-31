@@ -129,6 +129,11 @@ pub fn add_videos(conn: &Connection, channel_id: &str, videos: &[Video]) -> Resu
     Ok(new_video_count)
 }
 
+pub fn delete_video(conn: &Connection, video_id: &str) -> Result<()> {
+    conn.execute("DELETE FROM videos WHERE video_id=?1", params![video_id])?;
+    Ok(())
+}
+
 pub fn get_newly_inserted_video_ids(
     conn: &Connection,
     channel_id: &str,
