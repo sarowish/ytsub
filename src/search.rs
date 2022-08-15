@@ -9,7 +9,7 @@ pub enum SearchState {
     PushedKey,
 }
 
-#[derive(Default, PartialEq, Debug, Clone)]
+#[derive(Default, PartialEq, Eq, Debug, Clone)]
 pub enum SearchDirection {
     #[default]
     Forward,

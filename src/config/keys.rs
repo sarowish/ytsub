@@ -52,7 +52,7 @@ fn parse_binding(binding: &str) -> Result<KeyEvent> {
     Ok(KeyEvent::new(code, modifiers))
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Eq, Debug)]
 pub struct KeyBindings {
     pub key_bindings: HashMap<KeyEvent, Command>,
 }

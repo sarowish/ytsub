@@ -1030,7 +1030,7 @@ pub enum Selected {
     Videos,
 }
 
-#[derive(PartialEq, Clone, Debug)]
+#[derive(PartialEq, Eq, Clone, Debug)]
 pub enum Mode {
     Subscriptions,
     LatestVideos,
