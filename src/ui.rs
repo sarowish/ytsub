@@ -1,6 +1,7 @@
 use crate::app::{App, Mode, Selected, State, StatefulList};
 use crate::channel::VideoType;
 use crate::help::HelpWindowState;
+use crate::import::Subscriptions;
 use crate::input::InputMode;
 use crate::message::MessageType;
 use crate::search::SearchDirection;
@@ -38,6 +39,10 @@ pub fn draw<B: Backend>(f: &mut Frame<B>, app: &mut App) {
 
     if app.help_window_state.show {
         draw_help(f, &mut app.help_window_state);
+    }
+
+    if let InputMode::Import = app.input_mode {
+        draw_import_window(f, &mut app.import_state);
     }
 }
 
@@ -250,7 +255,7 @@ fn draw_footer<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
 }
 
 fn draw_confirmation_window<B: Backend>(f: &mut Frame<B>, app: &App) {
-    let window = popup_window(50, 15, f.size());
+    let window = popup_window_from_percentage(50, 15, f.size());
     f.render_widget(Clear, window);
     f.render_widget(Block::default().borders(Borders::ALL), window);
 
@@ -296,7 +301,7 @@ fn draw_confirmation_window<B: Backend>(f: &mut Frame<B>, app: &App) {
 }
 
 fn draw_help<B: Backend>(f: &mut Frame<B>, help_window_state: &mut HelpWindowState) {
-    let window = popup_window(80, 70, f.size());
+    let window = popup_window_from_percentage(80, 70, f.size());
     f.render_widget(Clear, window);
 
     let width = std::cmp::max(window.width.saturating_sub(2), 1);
@@ -331,29 +336,126 @@ fn draw_help<B: Backend>(f: &mut Frame<B>, help_window_state: &mut HelpWindowSta
     f.render_widget(help_text, window);
 }
 
-fn popup_window(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
+fn draw_import_window<B: Backend>(f: &mut Frame<B>, import_state: &mut Subscriptions) {
+    const VER_MARGIN: u16 = 6;
+    const RIGHT_PADDING: u16 = 4;
+
+    let item_texts: Vec<Span> = import_state
+        .items
+        .iter()
+        .map(|entry| entry.to_string())
+        .map(Span::raw)
+        .collect();
+
+    let help_text = vec![Spans::from(vec![
+        Span::styled("a", THEME.help),
+        Span::raw(" - Select all, "),
+        Span::styled("z", THEME.help),
+        Span::raw(" - Deselect all, "),
+        Span::styled("<space>", THEME.help),
+        Span::raw(" - Toggle, "),
+        Span::styled("<enter>", THEME.help),
+        Span::raw(" - Import"),
+    ])];
+    let help_text_width = help_text.iter().map(|t| t.width()).sum();
+    let help_text_height = 1 + help_text_width as u16 / f.size().width;
+
+    let max_width = item_texts
+        .iter()
+        .map(|text| text.width())
+        .max()
+        .unwrap()
+        .max(help_text_width) as u16
+        + RIGHT_PADDING;
+
+    let frame_height = f.size().height as u16;
+    let max_height = if frame_height <= item_texts.len() as u16 + VER_MARGIN + 3 {
+        frame_height.saturating_sub(VER_MARGIN)
+    } else {
+        item_texts.len() as u16 + 3
+    }
+    .max(4 + VER_MARGIN);
+
+    let window = popup_window_from_dimensions(max_height, max_width, f.size());
+    f.render_widget(Clear, window);
+    f.render_widget(
+        Block::default().borders(Borders::ALL).title(gen_title(
+            "Import".to_string(),
+            false,
+            import_state,
+            window.width.into(),
+        )),
+        window,
+    );
+
+    let (entry_area, help_area) = {
+        let chunks = Layout::default()
+            .constraints([Constraint::Min(1), Constraint::Length(help_text_height)])
+            .direction(Direction::Vertical)
+            .margin(1)
+            .split(window);
+        (chunks[0], chunks[1])
+    };
+
+    let mut help_widget = Paragraph::new(help_text);
+    if window.width > 0 {
+        help_widget = help_widget.wrap(Wrap { trim: false });
+    }
+
+    let list = item_texts
+        .into_iter()
+        .map(ListItem::new)
+        .collect::<Vec<ListItem>>();
+
+    let w = List::new(list)
+        .highlight_symbol(&OPTIONS.highlight_symbol)
+        .highlight_style(THEME.focused);
+
+    f.render_stateful_widget(w, entry_area, &mut import_state.state);
+    f.render_widget(help_widget, help_area);
+}
+
+fn popup_window_from_dimensions(height: u16, width: u16, r: Rect) -> Rect {
+    let hor = [
+        Constraint::Length(r.width.saturating_sub(width) / 2),
+        Constraint::Length(width),
+        Constraint::Min(1),
+    ];
+
+    let ver = [
+        Constraint::Length(r.height.saturating_sub(height) / 2),
+        Constraint::Length(height),
+        Constraint::Min(1),
+    ];
+
+    popup_window(&hor, &ver, r)
+}
+
+fn popup_window_from_percentage(hor_percent: u16, ver_percent: u16, r: Rect) -> Rect {
+    let ver = [
+        Constraint::Percentage((100 - ver_percent) / 2),
+        Constraint::Percentage(ver_percent),
+        Constraint::Percentage((100 - ver_percent) / 2),
+    ];
+
+    let hor = [
+        Constraint::Percentage((100 - hor_percent) / 2),
+        Constraint::Percentage(hor_percent),
+        Constraint::Percentage((100 - hor_percent) / 2),
+    ];
+
+    popup_window(&hor, &ver, r)
+}
+
+fn popup_window(hor_constraints: &[Constraint], ver_constraints: &[Constraint], r: Rect) -> Rect {
     let popup_layout = Layout::default()
         .direction(Direction::Vertical)
-        .constraints(
-            [
-                Constraint::Percentage((100 - percent_y) / 2),
-                Constraint::Percentage(percent_y),
-                Constraint::Percentage((100 - percent_y) / 2),
-            ]
-            .as_ref(),
-        )
+        .constraints(ver_constraints)
         .split(r);
 
     Layout::default()
         .direction(Direction::Horizontal)
-        .constraints(
-            [
-                Constraint::Percentage((100 - percent_x) / 2),
-                Constraint::Percentage(percent_x),
-                Constraint::Percentage((100 - percent_x) / 2),
-            ]
-            .as_ref(),
-        )
+        .constraints(hor_constraints)
         .split(popup_layout[1])[1]
 }
 

@@ -1,5 +1,6 @@
-use crate::channel::{Channel, ListItem, RefreshState, Video, VideoType};
+use crate::channel::{Channel, ListItem, Video, VideoType};
 use crate::help::HelpWindowState;
+use crate::import::{self, ImportItemState};
 use crate::input::InputMode;
 use crate::message::Message;
 use crate::search::{Search, SearchDirection, SearchState};
@@ -10,6 +11,7 @@ use rand::prelude::*;
 use rusqlite::Connection;
 use serde_json::Value;
 use std::collections::HashSet;
+use std::path::PathBuf;
 use std::sync::mpsc::Sender;
 use std::time::Duration;
 use tui::widgets::{ListState, TableState};
@@ -29,6 +31,7 @@ pub struct App {
     pub input_idx: usize,
     pub cursor_position: u16,
     pub help_window_state: HelpWindowState,
+    pub import_state: import::Subscriptions,
     new_video_ids: HashSet<String>,
     search: Search,
     instance: Instance,
@@ -55,6 +58,7 @@ impl App {
             hide_watched: OPTIONS.hide_watched,
             io_tx,
             help_window_state: HelpWindowState::new(),
+            import_state: import::Subscriptions::default(),
         };
 
         database::initialize_db(&app.conn)?;
@@ -162,29 +166,11 @@ impl App {
         self.instance.clone()
     }
 
-    fn get_channel_by_id(&mut self, channel_id: &str) -> Option<&mut Channel> {
-        self.channels
-            .find_by_id(channel_id)
-            .map(|index| &mut self.channels.items[index])
-    }
-
     fn find_channel_by_name(&mut self, channel_name: &str) -> Option<usize> {
         self.channels
             .items
             .iter()
             .position(|channel| channel.channel_name == channel_name)
-    }
-
-    pub fn start_refreshing_channel(&mut self, channel_id: &str) {
-        self.get_channel_by_id(channel_id).unwrap().refresh_state = RefreshState::Refreshing;
-    }
-
-    pub fn complete_refreshing_channel(&mut self, channel_id: &str) {
-        self.get_channel_by_id(channel_id).unwrap().refresh_state = RefreshState::Completed;
-    }
-
-    pub fn refresh_failed(&mut self, channel_id: &str) {
-        self.get_channel_by_id(channel_id).unwrap().refresh_state = RefreshState::Failed;
     }
 
     pub fn get_current_channel(&self) -> Option<&Channel> {
@@ -504,7 +490,7 @@ impl App {
     }
 
     pub fn is_footer_active(&self) -> bool {
-        !matches!(self.input_mode, InputMode::Normal | InputMode::Confirmation)
+        matches!(self.input_mode, InputMode::Search | InputMode::Subscribe)
             || !self.message.is_empty()
     }
 
@@ -758,6 +744,60 @@ impl App {
         self.finalize_search(true);
     }
 
+    pub fn select_channels_to_import(
+        &mut self,
+        path: PathBuf,
+        format: import::Format,
+    ) -> Result<()> {
+        let mut import_state = match format {
+            import::Format::YoutubeCsv => import::YoutubeCsv::read_subscriptions(path),
+            import::Format::NewPipe => import::NewPipe::read_subscriptions(path),
+        }
+        .with_context(|| "Failed to import")?;
+
+        import_state.items = import_state
+            .items
+            .drain(..)
+            .filter(|entry| self.channels.find_by_id(&entry.channel_id).is_none())
+            .collect::<Vec<ImportItemState>>();
+
+        if import_state.items.is_empty() {
+            self.set_message_with_default_duration(
+                "Already subscribed to all the channels in the file",
+            );
+            return Ok(());
+        }
+
+        self.import_state = import_state;
+
+        self.input_mode = InputMode::Import;
+
+        Ok(())
+    }
+
+    pub fn import_subscriptions(&mut self) {
+        self.import_state.items = self
+            .import_state
+            .items
+            .drain(..)
+            .filter(|entry| entry.selected)
+            .collect();
+
+        if self.import_state.items.is_empty() {
+            self.input_mode = InputMode::Normal;
+            return;
+        }
+
+        self.subscribe_to_channels();
+    }
+
+    pub fn export_subscriptions(&mut self, path: PathBuf, format: import::Format) -> Result<()> {
+        match format {
+            import::Format::YoutubeCsv => import::YoutubeCsv::export(&self.channels.items, path),
+            import::Format::NewPipe => import::NewPipe::export(&self.channels.items, path),
+        }
+    }
+
     fn dispatch(&mut self, action: IoEvent) {
         if let Err(e) = self.io_tx.send(action) {
             self.set_error_message(&format!("Error from dispatch: {}", e));
@@ -766,6 +806,10 @@ impl App {
 
     pub fn subscribe_to_channel(&mut self, channel_id: String) {
         self.dispatch(IoEvent::SubscribeToChannel(channel_id));
+    }
+
+    pub fn subscribe_to_channels(&mut self) {
+        self.dispatch(IoEvent::SubscribeToChannels);
     }
 
     pub fn refresh_channel(&mut self) {
@@ -779,14 +823,17 @@ impl App {
         self.dispatch(IoEvent::RefreshChannels(false));
     }
 
+    pub fn change_instance(&mut self) -> Result<()> {
+        self.instance = Instance::new()?;
+        Ok(())
+    }
+
     pub fn refresh_failed_channels(&mut self) {
-        match Instance::new() {
-            Ok(instance) => self.instance = instance,
-            Err(e) => {
-                self.set_error_message(&format!("Couldn't change instance: {}", e));
-                return;
-            }
+        if let Err(e) = self.change_instance() {
+            self.set_error_message(&format!("Couldn't change instance: {}", e));
+            return;
         }
+
         self.dispatch(IoEvent::RefreshChannels(true));
     }
 
@@ -891,7 +938,7 @@ pub struct StatefulList<T, S: State> {
 }
 
 impl<T, S: State + Default> StatefulList<T, S> {
-    fn with_items(items: Vec<T>) -> StatefulList<T, S> {
+    pub fn with_items(items: Vec<T>) -> StatefulList<T, S> {
         StatefulList {
             state: Default::default(),
             items,
@@ -906,7 +953,7 @@ impl<T, S: State + Default> StatefulList<T, S> {
         })
     }
 
-    fn next(&mut self) {
+    pub fn next(&mut self) {
         let i = match self.state.selected() {
             Some(i) => {
                 if i >= self.items.len() - 1 {
@@ -920,7 +967,7 @@ impl<T, S: State + Default> StatefulList<T, S> {
         self.select_with_index(i);
     }
 
-    fn previous(&mut self) {
+    pub fn previous(&mut self) {
         let i = match self.state.selected() {
             Some(i) => {
                 if i == 0 {
@@ -934,11 +981,11 @@ impl<T, S: State + Default> StatefulList<T, S> {
         self.select_with_index(i);
     }
 
-    fn select_first(&mut self) {
+    pub fn select_first(&mut self) {
         self.select_with_index(0);
     }
 
-    fn select_last(&mut self) {
+    pub fn select_last(&mut self) {
         self.select_with_index(self.items.len().checked_sub(1).unwrap_or_default());
     }
 
@@ -963,8 +1010,12 @@ impl<T, S: State + Default> StatefulList<T, S> {
 }
 
 impl<T: ListItem, S: State> StatefulList<T, S> {
-    fn find_by_id(&mut self, id: &str) -> Option<usize> {
+    pub fn find_by_id(&mut self, id: &str) -> Option<usize> {
         self.items.iter().position(|item| item.id() == id)
+    }
+
+    pub fn get_mut_by_id(&mut self, id: &str) -> Option<&mut T> {
+        self.find_by_id(id).map(|index| &mut self.items[index])
     }
 }
 

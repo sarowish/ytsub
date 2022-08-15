@@ -28,20 +28,25 @@ cargo install ytsub --features bundled_sqlite
 
 ```
 USAGE:
-    ytsub [OPTIONS]
+    ytsub [OPTIONS] [SUBCOMMAND]
 
 OPTIONS:
-    -c, --config <FILE>                        Path to configuration file
-    -d, --database <FILE>                      Path to database file
-    -g, --gen-instance-list                    Generate invidious instances file
-    -h, --help                                 Print help information
-        --highlight-symbol <SYMBOL>            Symbol to highlight selected items
-    -i, --instances <FILE>                     Path to instances file
-    -n, --no-config                            Ignore configuration file
-    -r, --request-timeout <REQUEST_TIMEOUT>    Timeout in secs
-    -t, --tick-rate <TICK_RATE>                Tick rate in milliseconds
-    -V, --version                              Print version information
-        --video-player <PATH>                  Path to the video player
+    -c, --config <FILE>                  Path to configuration file
+    -d, --database <FILE>                Path to database file
+    -g, --gen-instances                  Generate Invidious instances file
+    -h, --help                           Print help information
+        --highlight-symbol <SYMBOL>      Symbol to highlight selected items
+    -n, --no-config                      Ignore configuration file
+    -r, --request-timeout <TIMEOUT>      Timeout in seconds
+    -s, --instances <FILE>               Path to instances file
+    -t, --tick-rate <TICK RATE>          Tick rate in milliseconds
+    -V, --version                        Print version information
+        --video-player <VIDEO PLAYER>    Path to video player
+
+SUBCOMMANDS:
+    export    Export subscriptions
+    help      Print this message or the help of the given subcommand(s)
+    import    Import subscriptions
 ```
 
 ## Configuration

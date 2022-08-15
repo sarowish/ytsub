@@ -7,6 +7,7 @@ pub enum InputMode {
     Subscribe,
     Search,
     Confirmation,
+    Import,
 }
 
 pub fn handle_event(key: KeyEvent, app: &mut App) -> bool {
@@ -16,6 +17,7 @@ pub fn handle_event(key: KeyEvent, app: &mut App) -> bool {
         }
         InputMode::Normal => return handle_key_normal_mode(key, app),
         InputMode::Confirmation => handle_key_confirmation_mode(key, app),
+        InputMode::Import => return handle_key_import_mode(key, app),
         _ => handle_key_editing_mode(key, app),
     }
 
@@ -78,6 +80,29 @@ fn handle_key_confirmation_mode(key: KeyEvent, app: &mut App) {
         KeyCode::Char('n') => app.input_mode = InputMode::Normal,
         _ => (),
     }
+}
+
+fn handle_key_import_mode(key: KeyEvent, app: &mut App) -> bool {
+    if let Some(command) = KEY_BINDINGS.get(&key) {
+        match command {
+            Command::OnDown => app.import_state.next(),
+            Command::OnUp => app.import_state.previous(),
+            Command::SelectFirst => app.import_state.select_first(),
+            Command::SelectLast => app.import_state.select_last(),
+            Command::Quit => return true,
+            _ => (),
+        }
+    } else {
+        match key.code {
+            KeyCode::Char(' ') => app.import_state.toggle(),
+            KeyCode::Char('a') => app.import_state.select_all(),
+            KeyCode::Char('z') => app.import_state.deselect_all(),
+            KeyCode::Enter => app.import_subscriptions(),
+            _ => (),
+        }
+    }
+
+    false
 }
 
 fn handle_key_editing_mode(key: KeyEvent, app: &mut App) {

@@ -66,5 +66,43 @@ pub fn get_matches() -> ArgMatches {
                 .help("Path to video player")
                 .value_name("VIDEO PLAYER"),
         )
+        .subcommand(
+            Command::new("import")
+                .about("Import subscriptions")
+                .arg(
+                    Arg::new("format")
+                        .short('f')
+                        .long("format")
+                        .help("Format of the import file")
+                        .value_name("FORMAT")
+                        .default_value("youtube_csv")
+                        .possible_values(["youtube_csv", "newpipe"]),
+                )
+                .arg(
+                    Arg::new("source")
+                        .help("Path to the import file")
+                        .value_name("FILE")
+                        .required(true),
+                ),
+        )
+        .subcommand(
+            Command::new("export")
+                .about("Export subscriptions")
+                .arg(
+                    Arg::new("format")
+                        .short('f')
+                        .long("format")
+                        .help("Format of the export file")
+                        .value_name("FORMAT")
+                        .default_value("youtube_csv")
+                        .possible_values(["youtube_csv", "newpipe"]),
+                )
+                .arg(
+                    Arg::new("target")
+                        .help("Path to the export file")
+                        .value_name("FILE")
+                        .required(true),
+                ),
+        )
         .get_matches()
 }

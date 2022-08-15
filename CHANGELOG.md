@@ -6,7 +6,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Added
-`D` key binding deletes the selected video from database.
+- `D` key binding deletes the selected video from database.
+- Add import and export subcommands.
 
 ### Changed
 - Ignore case when sorting channels list
