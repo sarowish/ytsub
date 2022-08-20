@@ -18,10 +18,32 @@ cargo build --features bundled_sqlite
 
 ## Installation
 
+### Cargo
+
 ```bash
 cargo install ytsub
+
 # or
 cargo install ytsub --features bundled_sqlite
+```
+
+### Arch Linux
+
+`ytsub` is available in the AUR as
+[stable source package](https://aur.archlinux.org/packages/ytsub),
+[stable binary package](https://aur.archlinux.org/packages/ytsub-bin) and
+[latest development package](https://aur.archlinux.org/packages/ytsub-git).
+You can install it using your preferred AUR helper.
+
+```bash
+# stable source package
+paru -S ytsub
+
+# stable binary package
+paru -S ytsub-bin
+
+# latest development package
+paru -S ytsub-git
 ```
 
 ## Usage
