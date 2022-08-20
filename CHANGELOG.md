@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add import and export subcommands.
 
 ### Changed
+- Use rss if the number of channels exceeds 125.
+
+### Changed
 - Ignore case when sorting channels list
 
 ## [0.2.0] - 2022-05-31

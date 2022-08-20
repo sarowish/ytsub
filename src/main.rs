@@ -7,6 +7,7 @@ mod database;
 mod help;
 mod import;
 mod input;
+mod invidious;
 mod message;
 mod search;
 mod ui;
@@ -201,11 +202,11 @@ async fn subscribe_to_channel(app: &Arc<Mutex<App>>, channel_id: String) {
     app.lock().unwrap().set_message("Subscribing to channel");
     let app = app.clone();
     tokio::task::spawn(async move {
-        let videos_json = instance.get_videos_of_channel(&channel_id);
-        match videos_json {
-            Ok(videos_json) => {
+        let channel_feed = instance.get_videos_of_channel(&channel_id);
+        match channel_feed {
+            Ok(channel_feed) => {
                 app.lock().unwrap().message.clear_message();
-                app.lock().unwrap().add_channel(videos_json);
+                app.lock().unwrap().add_channel(channel_feed);
             }
             Err(e) => {
                 app.lock()
@@ -245,10 +246,14 @@ async fn subscribe_to_channels(app: &Arc<Mutex<App>>) -> Result<()> {
         let app = app.clone();
         let count = count.clone();
         tokio::task::spawn(async move {
-            let videos_json = instance.get_videos_of_channel(&channel_id);
-            match videos_json {
-                Ok(videos_json) => {
-                    app.lock().unwrap().add_channel(videos_json);
+            let channel_feed = if total > 125 {
+                instance.get_rss_feed_of_channel(&channel_id)
+            } else {
+                instance.get_videos_of_channel(&channel_id)
+            };
+            match channel_feed {
+                Ok(channel_feed) => {
+                    app.lock().unwrap().add_channel(channel_feed);
                     {
                         let mut app = app.lock().unwrap();
                         let idx = app.import_state.find_by_id(&channel_id).unwrap();
@@ -323,8 +328,8 @@ async fn refresh_channel(app: &Arc<Mutex<App>>, channel_id: String) {
     app.lock().unwrap().set_message("Refreshing channel");
     let app = app.clone();
     tokio::task::spawn(async move {
-        let videos_json = match instance.get_latest_videos_of_channel(&channel_id) {
-            Ok(videos) => videos,
+        let channel_feed = match instance.get_latest_videos_of_channel(&channel_id) {
+            Ok(channel_feed) => channel_feed,
             Err(_) => {
                 app.lock()
                     .unwrap()
@@ -340,7 +345,7 @@ async fn refresh_channel(app: &Arc<Mutex<App>>, channel_id: String) {
         };
         {
             let mut app = app.lock().unwrap();
-            app.add_videos(videos_json, &channel_id);
+            app.add_videos(channel_feed);
             app.channels
                 .get_mut_by_id(&channel_id)
                 .unwrap()
@@ -386,11 +391,15 @@ async fn refresh_channels(app: &Arc<Mutex<App>>, refresh_failed: bool) -> Result
         let app = app.clone();
         let count = count.clone();
         tokio::task::spawn(async move {
-            let videos_json = instance.get_latest_videos_of_channel(&channel_id);
-            match videos_json {
-                Ok(videos_json) => {
+            let channel_feed = if total > 125 {
+                instance.get_rss_feed_of_channel(&channel_id)
+            } else {
+                instance.get_latest_videos_of_channel(&channel_id)
+            };
+            match channel_feed {
+                Ok(channel_feed) => {
                     let mut app = app.lock().unwrap();
-                    app.add_videos(videos_json, &channel_id);
+                    app.add_videos(channel_feed);
                     app.channels
                         .get_mut_by_id(&channel_id)
                         .unwrap()

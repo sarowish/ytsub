@@ -2,22 +2,20 @@ use crate::channel::{Channel, ListItem, Video, VideoType};
 use crate::help::HelpWindowState;
 use crate::import::{self, ImportItemState};
 use crate::input::InputMode;
+use crate::invidious::ChannelFeed;
+use crate::invidious::Instance;
 use crate::message::Message;
 use crate::search::{Search, SearchDirection, SearchState};
+use crate::IoEvent;
 use crate::{database, OPTIONS};
-use crate::{utils, IoEvent};
 use anyhow::{Context, Result};
-use rand::prelude::*;
 use rusqlite::Connection;
-use serde_json::Value;
 use std::collections::HashSet;
 use std::path::PathBuf;
 use std::sync::mpsc::Sender;
-use std::time::Duration;
 use tui::widgets::{ListState, TableState};
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
-use ureq::{Agent, AgentBuilder};
 
 pub struct App {
     pub channels: StatefulList<Channel, ListState>,
@@ -69,32 +67,26 @@ impl App {
         Ok(app)
     }
 
-    pub fn add_channel(&mut self, mut videos_json: Value) {
-        let channel_id: String = videos_json
-            .get("authorId")
-            .unwrap()
-            .as_str()
-            .unwrap()
-            .to_string();
-        let channel_name: String = videos_json
-            .get("author")
-            .unwrap()
-            .as_str()
-            .unwrap()
-            .to_string();
-        let channel = Channel::new(channel_id.clone(), channel_name);
+    pub fn add_channel(&mut self, channel_feed: ChannelFeed) {
+        let channel = Channel::new(
+            channel_feed.channel_id.clone().unwrap(),
+            channel_feed.channel_title.clone().unwrap(),
+        );
+
         if let Err(e) = database::create_channel(&self.conn, &channel) {
             self.set_error_message(&e.to_string());
             return;
         };
         self.channels.items.push(channel);
-        let latest_videos = videos_json["latestVideos"].take();
-        self.add_videos(latest_videos, &channel_id);
+        self.add_videos(channel_feed);
     }
 
-    pub fn add_videos(&mut self, videos_json: Value, channel_id: &str) {
-        let videos: Vec<Video> = Video::vec_from_json(videos_json);
-        let new_video_count = match database::add_videos(&self.conn, channel_id, &videos) {
+    pub fn add_videos(&mut self, channel_feed: ChannelFeed) {
+        let new_video_count = match database::add_videos(
+            &self.conn,
+            channel_feed.channel_id.as_ref().unwrap(),
+            &channel_feed.videos,
+        ) {
             Ok(new_video_count) => new_video_count,
             Err(e) => {
                 self.set_error_message(&e.to_string());
@@ -102,10 +94,13 @@ impl App {
             }
         };
         if new_video_count > 0 {
-            self.move_channel_to_top(channel_id);
-            let ids =
-                database::get_newly_inserted_video_ids(&self.conn, channel_id, new_video_count)
-                    .unwrap_or_default();
+            self.move_channel_to_top(channel_feed.channel_id.as_ref().unwrap());
+            let ids = database::get_newly_inserted_video_ids(
+                &self.conn,
+                &channel_feed.channel_id.unwrap(),
+                new_video_count,
+            )
+            .unwrap_or_default();
             self.new_video_ids.extend(ids);
             self.reload_videos();
         }
@@ -855,55 +850,6 @@ impl App {
 
     pub fn clear_message_after_duration(&mut self, duration_seconds: u64) {
         self.dispatch(IoEvent::ClearMessage(duration_seconds));
-    }
-}
-
-#[derive(Clone)]
-pub struct Instance {
-    pub domain: String,
-    agent: Agent,
-}
-
-impl Instance {
-    pub fn new() -> Result<Self> {
-        let invidious_instances = match utils::read_instances() {
-            Ok(instances) => instances,
-            Err(_) => {
-                utils::fetch_invidious_instances().with_context(|| "No instances available")?
-            }
-        };
-        let mut rng = thread_rng();
-        let domain = invidious_instances[rng.gen_range(0..invidious_instances.len())].to_string();
-        let agent = AgentBuilder::new()
-            .timeout(Duration::from_secs(OPTIONS.request_timeout))
-            .build();
-        Ok(Self { domain, agent })
-    }
-
-    pub fn get_videos_of_channel(&self, channel_id: &str) -> Result<Value> {
-        let url = format!("{}/api/v1/channels/{}", self.domain, channel_id);
-        Ok(self
-            .agent
-            .get(&url)
-            .query(
-                "fields",
-                "author,authorId,latestVideos(title,videoId,published,lengthSeconds,isUpcoming,premiereTimestamp)",
-            )
-            .call()?
-            .into_json()?)
-    }
-
-    pub fn get_latest_videos_of_channel(&self, channel_id: &str) -> Result<Value> {
-        let url = format!("{}/api/v1/channels/latest/{}", self.domain, channel_id);
-        Ok(self
-            .agent
-            .get(&url)
-            .query(
-                "fields",
-                "title,videoId,published,lengthSeconds,isUpcoming,premiereTimestamp",
-            )
-            .call()?
-            .into_json()?)
     }
 }
 

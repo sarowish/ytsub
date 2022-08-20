@@ -117,7 +117,11 @@ fn draw_videos<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
                     video.title,
                     if video.new { "[N]" } else { "" }
                 ))),
-                Cell::from(Span::raw(utils::as_hhmmss(video.length))),
+                Cell::from(Span::raw(if let Some(length) = video.length {
+                    utils::as_hhmmss(length)
+                } else {
+                    String::new()
+                })),
                 Cell::from(Span::raw(&video.published_text)),
             ]);
 
@@ -214,7 +218,11 @@ fn draw_video_info<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
         Spans::from(format!("title: {}", current_video.title)),
         Spans::from(format!(
             "length: {}",
-            utils::as_hhmmss(current_video.length)
+            if let Some(length) = current_video.length {
+                utils::as_hhmmss(length)
+            } else {
+                String::new()
+            }
         )),
         Spans::from(format!("date: {}", current_video.published_text)),
     ])
