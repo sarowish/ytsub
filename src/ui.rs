@@ -257,6 +257,7 @@ fn draw_footer<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
         _ => Paragraph::new(match app.message.message_type {
             MessageType::Normal => Span::raw(&*app.message),
             MessageType::Error => Span::styled(&*app.message, THEME.error),
+            MessageType::Warning => Span::styled(&*app.message, THEME.warning),
         }),
     };
     f.render_widget(text, area);

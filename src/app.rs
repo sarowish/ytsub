@@ -757,9 +757,7 @@ impl App {
             .collect::<Vec<ImportItemState>>();
 
         if import_state.items.is_empty() {
-            self.set_message_with_default_duration(
-                "Already subscribed to all the channels in the file",
-            );
+            self.set_warning_message("Already subscribed to all the channels in the file");
             return Ok(());
         }
 
@@ -845,6 +843,12 @@ impl App {
     pub fn set_error_message(&mut self, message: &str) {
         const DEFAULT_DURATION: u64 = 5;
         self.message.set_error_message(message);
+        self.clear_message_after_duration(DEFAULT_DURATION);
+    }
+
+    pub fn set_warning_message(&mut self, message: &str) {
+        const DEFAULT_DURATION: u64 = 5;
+        self.message.set_warning_message(message);
         self.clear_message_after_duration(DEFAULT_DURATION);
     }
 

@@ -4,6 +4,7 @@ use tokio_util::sync::CancellationToken;
 pub enum MessageType {
     Normal,
     Error,
+    Warning,
 }
 
 pub struct Message {
@@ -31,6 +32,11 @@ impl Message {
     pub fn set_error_message(&mut self, message: &str) {
         self.set_message(message);
         self.message_type = MessageType::Error;
+    }
+
+    pub fn set_warning_message(&mut self, message: &str) {
+        self.set_message(message);
+        self.message_type = MessageType::Warning;
     }
 
     pub fn clear_message(&mut self) {

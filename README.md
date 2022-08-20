@@ -123,6 +123,9 @@ fg = "Magenta"
 # Error message
 [error]
 fg = "Red"
+# Warning message
+[warning]
+fg = "Yellow"
 # Key bindings in the help window
 [help]
 fg = "Green"
