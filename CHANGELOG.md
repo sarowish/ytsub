@@ -13,6 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Use rss if the number of channels exceeds 125.
 
+### Fixed
+- Mark new videos correctly.
+
 ### Changed
 - Ignore case when sorting channels list
 

@@ -81,28 +81,51 @@ impl App {
         self.add_videos(channel_feed);
     }
 
-    pub fn add_videos(&mut self, channel_feed: ChannelFeed) {
-        let new_video_count = match database::add_videos(
+    pub fn add_videos(&mut self, mut channel_feed: ChannelFeed) {
+        let present_videos: Vec<Video> =
+            match database::get_videos(&self.conn, channel_feed.channel_id.as_ref().unwrap()) {
+                Ok(videos) => videos,
+                Err(e) => {
+                    self.set_error_message(&e.to_string());
+                    return;
+                }
+            };
+
+        let mut videos = Vec::new();
+        let mut added_new_video = false;
+
+        for video in channel_feed.videos.drain(..) {
+            if let Some(p_video) = present_videos
+                .iter()
+                .find(|p_video| p_video.video_id == video.video_id)
+            {
+                if p_video.length.is_none() && video.length.is_some()
+                    || matches!(p_video.length, Some(length) if length == 0)
+                        && matches!(video.length, Some(length) if length != 0)
+                {
+                    videos.push(video);
+                }
+            } else {
+                self.new_video_ids.insert(video.video_id.clone());
+                videos.push(video);
+                added_new_video = true;
+            }
+        }
+
+        if let Err(e) = database::add_videos(
             &self.conn,
             channel_feed.channel_id.as_ref().unwrap(),
-            &channel_feed.videos,
+            &videos,
         ) {
-            Ok(new_video_count) => new_video_count,
-            Err(e) => {
-                self.set_error_message(&e.to_string());
-                return;
-            }
-        };
-        if new_video_count > 0 {
+            self.set_error_message(&e.to_string());
+            return;
+        }
+
+        if added_new_video {
             self.move_channel_to_top(channel_feed.channel_id.as_ref().unwrap());
-            let ids = database::get_newly_inserted_video_ids(
-                &self.conn,
-                &channel_feed.channel_id.unwrap(),
-                new_video_count,
-            )
-            .unwrap_or_default();
-            self.new_video_ids.extend(ids);
             self.reload_videos();
+        } else if !videos.is_empty() {
+            self.load_videos();
         }
     }
 

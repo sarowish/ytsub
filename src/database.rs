@@ -75,7 +75,7 @@ pub fn delete_channel(conn: &Connection, channel_id: &str) -> Result<()> {
     Ok(())
 }
 
-pub fn add_videos(conn: &Connection, channel_id: &str, videos: &[Video]) -> Result<usize> {
+pub fn add_videos(conn: &Connection, channel_id: &str, videos: &[Video]) -> Result<()> {
     let columns = [
         "video_id",
         "channel_id",
@@ -116,43 +116,20 @@ pub fn add_videos(conn: &Connection, channel_id: &str, videos: &[Video]) -> Resu
     }
 
     let query = format!(
-        "INSERT INTO videos ({})
+        "INSERT OR REPLACE INTO videos ({})
         VALUES {}
-        ON CONFLICT (video_id) DO UPDATE
-        SET length=excluded.length, published=excluded.published
-        WHERE length=0 AND excluded.length!=0
         ",
         columns_str, values_string
     );
-    let new_video_count = conn.execute(&query, videos_values.as_slice())?;
 
-    Ok(new_video_count)
+    conn.execute(&query, videos_values.as_slice())?;
+
+    Ok(())
 }
 
 pub fn delete_video(conn: &Connection, video_id: &str) -> Result<()> {
     conn.execute("DELETE FROM videos WHERE video_id=?1", params![video_id])?;
     Ok(())
-}
-
-pub fn get_newly_inserted_video_ids(
-    conn: &Connection,
-    channel_id: &str,
-    new_video_count: usize,
-) -> Result<Vec<String>> {
-    let mut stmt = conn.prepare(
-        "SELECT video_id
-        FROM videos
-        WHERE channel_id=?1
-        ORDER BY published DESC
-        LIMIT ?2
-        ",
-    )?;
-    let mut video_ids = Vec::new();
-    for video in stmt.query_map(params![channel_id, new_video_count], |row| row.get(0))? {
-        video_ids.push(video?);
-    }
-
-    Ok(video_ids)
 }
 
 pub fn get_channels(conn: &Connection) -> Result<Vec<Channel>> {
