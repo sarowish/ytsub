@@ -349,7 +349,7 @@ async fn refresh_channel(app: &Arc<Mutex<App>>, channel_id: String) {
             app.channels
                 .get_mut_by_id(&channel_id)
                 .unwrap()
-                .refresh_state = RefreshState::Completed;
+                .on_refresh_completed();
             let elapsed = now.elapsed();
             app.set_message_with_default_duration(&format!("Refreshed in {:?}", elapsed));
         }
@@ -361,7 +361,10 @@ async fn refresh_channels(app: &Arc<Mutex<App>>, refresh_failed: bool) -> Result
 
     let mut channel_ids = Vec::new();
     for channel in &mut app.lock().unwrap().channels.items {
-        if refresh_failed && !matches!(channel.refresh_state, RefreshState::Failed) {
+        if refresh_failed && !matches!(channel.refresh_state, RefreshState::Failed)
+            || matches!(channel.last_refreshed,
+                        Some(time) if time.elapsed() < Duration::from_secs(600))
+        {
             continue;
         }
         channel.set_to_be_refreshed();
@@ -369,6 +372,12 @@ async fn refresh_channels(app: &Arc<Mutex<App>>, refresh_failed: bool) -> Result
     }
 
     if channel_ids.is_empty() {
+        {
+            let mut app = app.lock().unwrap();
+            if !app.channels.items.is_empty() {
+                app.set_warning_message("All the channels have been recently refreshed");
+            }
+        }
         return Ok(());
     }
 
@@ -403,7 +412,7 @@ async fn refresh_channels(app: &Arc<Mutex<App>>, refresh_failed: bool) -> Result
                     app.channels
                         .get_mut_by_id(&channel_id)
                         .unwrap()
-                        .refresh_state = RefreshState::Completed;
+                        .on_refresh_completed();
                     *count.lock().unwrap() += 1;
                     app.set_message(&format!(
                         "Refreshing Channels: {}/{}",

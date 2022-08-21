@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `D` key binding deletes the selected video from database.
 - Add import and export subcommands.
 - Classify some messages as warning.
+- Skip recently refreshed channels.
 
 ### Changed
 - Use rss if the number of channels exceeds 125.

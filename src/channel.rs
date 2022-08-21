@@ -2,6 +2,7 @@ use chrono::DateTime;
 use serde::{de, Deserialize};
 use serde_json::Value;
 use std::fmt::Display;
+use std::time::Instant;
 
 pub enum RefreshState {
     ToBeRefreshed,
@@ -19,6 +20,7 @@ pub struct Channel {
     pub channel_name: String,
     pub refresh_state: RefreshState,
     pub new_video: bool,
+    pub last_refreshed: Option<Instant>,
 }
 
 impl Channel {
@@ -28,11 +30,17 @@ impl Channel {
             channel_name,
             refresh_state: RefreshState::Completed,
             new_video: false,
+            last_refreshed: None,
         }
     }
 
     pub fn set_to_be_refreshed(&mut self) {
         self.refresh_state = RefreshState::ToBeRefreshed;
+    }
+
+    pub fn on_refresh_completed(&mut self) {
+        self.refresh_state = RefreshState::Completed;
+        self.last_refreshed = Some(Instant::now());
     }
 }
 
