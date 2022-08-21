@@ -12,13 +12,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Skip recently refreshed channels.
 
 ### Changed
+- Ignore case when sorting channels list
 - Use rss if the number of channels exceeds 125.
 
 ### Fixed
 - Mark new videos correctly.
-
-### Changed
-- Ignore case when sorting channels list
 
 ## [0.2.0] - 2022-05-31
 ### Added
