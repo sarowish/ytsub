@@ -375,7 +375,11 @@ async fn refresh_channels(app: &Arc<Mutex<App>>, refresh_failed: bool) -> Result
         {
             let mut app = app.lock().unwrap();
             if !app.channels.items.is_empty() {
-                app.set_warning_message("All the channels have been recently refreshed");
+                app.set_warning_message(if refresh_failed {
+                    "There are no channels to retry refreshing"
+                } else {
+                    "All the channels have been recently refreshed"
+                });
             }
         }
         return Ok(());
