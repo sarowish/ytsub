@@ -130,16 +130,12 @@ impl App {
     }
 
     pub fn delete_selected_video(&mut self) {
-        if let Some(video) = self.get_current_video() {
-            if let Err(e) = database::delete_video(&self.conn, &video.video_id) {
+        if let Some(idx) = self.videos.state.selected() {
+            if let Err(e) = database::delete_video(&self.conn, &self.videos.items[idx].video_id) {
                 self.set_error_message(&e.to_string());
             }
-
-            if self.videos.items.len() == 1 {
-                self.videos.state.select(None);
-            }
-
-            self.load_videos();
+            self.videos.items.remove(idx);
+            self.videos.check_bounds();
         }
     }
 
@@ -544,17 +540,11 @@ impl App {
     }
 
     pub fn unsubscribe(&mut self) {
-        if let Some(index) = self.channels.state.selected() {
-            let channel_id = &self.get_current_channel().unwrap().channel_id;
-            database::delete_channel(&self.conn, channel_id).unwrap();
+        if let Some(idx) = self.channels.state.selected() {
+            database::delete_channel(&self.conn, &self.channels.items[idx].channel_id).unwrap();
             self.input_mode = InputMode::Normal;
-            self.channels.items.remove(index);
-            let length = self.channels.items.len();
-            if length == 0 {
-                self.channels.state.select(None);
-            } else if index == length {
-                self.channels.previous();
-            }
+            self.channels.items.remove(idx);
+            self.channels.check_bounds();
             self.on_change_channel();
         }
     }
@@ -978,6 +968,16 @@ impl<T, S: State + Default> StatefulList<T, S> {
         match self.state.selected() {
             Some(i) => Some(&mut self.items[i]),
             None => None,
+        }
+    }
+
+    fn check_bounds(&mut self) {
+        if let Some(idx) = self.state.selected() {
+            if self.items.is_empty() {
+                self.state.select(None);
+            } else if idx >= self.items.len() {
+                self.select_last();
+            }
         }
     }
 }
