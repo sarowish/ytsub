@@ -1,17 +1,7 @@
-use crate::{
-    app::StatefulList,
-    channel::{Channel, ListItem, RefreshState},
-};
+use crate::channel::{Channel, ListItem, RefreshState};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use std::{
-    fmt::Display,
-    fs::File,
-    io::BufReader,
-    ops::{Deref, DerefMut},
-    path::PathBuf,
-};
-use tui::widgets::ListState;
+use std::{fmt::Display, fs::File, io::BufReader, path::PathBuf};
 
 pub enum Format {
     YoutubeCsv,
@@ -44,7 +34,7 @@ pub struct YoutubeCsv {
 }
 
 impl YoutubeCsv {
-    pub fn read_subscriptions(path: PathBuf) -> Result<Subscriptions> {
+    pub fn read_subscriptions(path: PathBuf) -> Result<Vec<ImportItem>> {
         let file = File::open(path)?;
         let mut rdr = csv::Reader::from_reader(file);
 
@@ -54,7 +44,7 @@ impl YoutubeCsv {
             subscriptions.push(record?);
         }
 
-        Ok(Subscriptions::new(&subscriptions))
+        Ok(subscriptions.into_iter().map(ImportItem::from).collect())
     }
 
     pub fn export(channels: &[Channel], path: PathBuf) -> Result<()> {
@@ -118,13 +108,17 @@ impl NewPipe {
         }
     }
 
-    pub fn read_subscriptions(path: PathBuf) -> Result<Subscriptions> {
+    pub fn read_subscriptions(path: PathBuf) -> Result<Vec<ImportItem>> {
         let file = File::open(path)?;
         let rdr = BufReader::new(file);
 
         let newpipe: NewPipe = serde_json::from_reader(rdr)?;
 
-        Ok(Subscriptions::new(&newpipe.subscriptions))
+        Ok(newpipe
+            .subscriptions
+            .into_iter()
+            .map(ImportItem::from)
+            .collect())
     }
 
     pub fn export(channels: &[Channel], path: PathBuf) -> Result<()> {
@@ -152,105 +146,37 @@ impl Import for NewPipeInner {
     }
 }
 
-pub struct Subscriptions(StatefulList<ImportItemState, ListState>);
-
-impl Subscriptions {
-    pub fn new<T: Import>(subs: &[T]) -> Self {
-        let subs = subs
-            .iter()
-            .map(|sub| ImportItemState::new(sub.channel_title(), sub.channel_id()))
-            .collect();
-
-        let mut list = StatefulList::with_items(subs);
-        list.select_first();
-
-        Self(list)
-    }
-
-    pub fn toggle(&mut self) {
-        if let Some(idx) = self.state.selected() {
-            self.items[idx].toggle();
-        }
-    }
-
-    pub fn select_all(&mut self) {
-        for entry in self.items.iter_mut() {
-            entry.selected = true;
-        }
-    }
-
-    pub fn deselect_all(&mut self) {
-        for entry in self.items.iter_mut() {
-            entry.selected = false;
-        }
-    }
-}
-
-impl Default for Subscriptions {
-    fn default() -> Self {
-        Self(StatefulList::with_items(Default::default()))
-    }
-}
-
-impl Deref for Subscriptions {
-    type Target = StatefulList<ImportItemState, ListState>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl DerefMut for Subscriptions {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-
-pub struct ImportItemState {
-    pub selected: bool,
+pub struct ImportItem {
     pub sub_state: RefreshState,
     pub channel_title: String,
     pub channel_id: String,
 }
 
-impl ImportItemState {
-    pub fn new(channel_title: String, channel_id: String) -> Self {
+impl<T: Import> From<T> for ImportItem {
+    fn from(item: T) -> Self {
         Self {
-            selected: true,
             sub_state: RefreshState::Completed,
-            channel_title,
-            channel_id,
+            channel_title: item.channel_title(),
+            channel_id: item.channel_id(),
         }
-    }
-
-    pub fn toggle(&mut self) {
-        self.selected = !self.selected;
     }
 }
 
-impl ListItem for ImportItemState {
+impl ListItem for ImportItem {
     fn id(&self) -> &str {
         &self.channel_id
     }
 }
 
-impl Display for ImportItemState {
+impl Display for ImportItem {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
             "{} {}",
-            {
-                if let RefreshState::Completed = self.sub_state {
-                    format!("[{}]", if self.selected { "*" } else { " " })
-                } else {
-                    match self.sub_state {
-                        RefreshState::ToBeRefreshed => "□",
-                        RefreshState::Refreshing => "■",
-                        RefreshState::Completed => "",
-                        RefreshState::Failed => "✗",
-                    }
-                    .to_string()
-                }
+            match self.sub_state {
+                RefreshState::ToBeRefreshed => "□",
+                RefreshState::Refreshing => "■",
+                _ => "",
             },
             self.channel_title
         )

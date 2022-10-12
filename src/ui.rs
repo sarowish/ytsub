@@ -1,11 +1,11 @@
-use crate::app::{App, Mode, Selected, State, StatefulList};
+use crate::app::{App, Mode, Selected, SelectionList, State, StatefulList};
 use crate::channel::VideoType;
 use crate::help::HelpWindowState;
-use crate::import::Subscriptions;
 use crate::input::InputMode;
 use crate::message::MessageType;
 use crate::search::SearchDirection;
 use crate::{utils, HELP, OPTIONS, THEME};
+use std::fmt::Display;
 use tui::backend::Backend;
 use tui::layout::{Alignment, Constraint, Direction, Layout, Rect};
 use tui::style::{Color, Style};
@@ -33,16 +33,29 @@ pub fn draw<B: Backend>(f: &mut Frame<B>, app: &mut App) {
         draw_footer(f, app, footer);
     }
 
-    if let InputMode::Confirmation = app.input_mode {
-        draw_confirmation_window(f, app);
-    }
+    let input_mode = if matches!(
+        app.input_mode,
+        InputMode::Search | InputMode::TagCreation | InputMode::TagRenaming
+    ) {
+        &app.prev_input_mode
+    } else {
+        &app.input_mode
+    };
 
-    if app.help_window_state.show {
-        draw_help(f, &mut app.help_window_state);
-    }
-
-    if let InputMode::Import = app.input_mode {
-        draw_import_window(f, &mut app.import_state);
+    match input_mode {
+        InputMode::Normal if app.help_window_state.show => draw_help(f, &mut app.help_window_state),
+        InputMode::Confirmation => draw_confirmation_window(f, app),
+        InputMode::Import => {
+            draw_list_with_help(f, "Import".to_string(), &mut app.import_state, &HELP.import)
+        }
+        InputMode::Tag => draw_list_with_help(f, "Tags".to_string(), &mut app.tags, &HELP.tag),
+        InputMode::ChannelSelection => draw_list_with_help(
+            f,
+            app.tags.get_selected().unwrap().item.clone(),
+            &mut app.channel_selection,
+            &HELP.channel_selection,
+        ),
+        _ => (),
     }
 }
 
@@ -64,14 +77,18 @@ fn draw_channels<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
         .map(Span::raw)
         .map(ListItem::new)
         .collect::<Vec<ListItem>>();
+
+    let selected_tags = app.tags.get_selected_items();
+
     let channels = List::new(channels)
         .block(
             Block::default()
                 .borders(Borders::ALL)
                 .title(gen_title(
-                    "Channels".into(),
+                    "Channels".to_string(),
                     false,
                     &app.channels,
+                    Some(selected_tags),
                     area.width as usize,
                 ))
                 .border_style(match app.selected {
@@ -137,10 +154,13 @@ fn draw_videos<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
             Block::default()
                 .borders(Borders::ALL)
                 .title(if let Mode::LatestVideos = app.mode {
+                    let selected_tags = app.tags.get_selected_items();
+
                     gen_title(
                         "Latest Videos".into(),
                         app.hide_watched,
                         &app.videos,
+                        Some(selected_tags),
                         video_area.width.into(),
                     )
                 } else if let Some(channel) = app.get_current_channel() {
@@ -148,6 +168,7 @@ fn draw_videos<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
                         channel.channel_name.clone(),
                         app.hide_watched,
                         &app.videos,
+                        None,
                         video_area.width.into(),
                     )
                 } else {
@@ -250,6 +271,10 @@ fn draw_footer<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
                 },
             ),
         ])),
+        InputMode::TagCreation | InputMode::TagRenaming => Paragraph::new(Spans::from(vec![
+            Span::raw("Tag name: "),
+            Span::raw(&app.input),
+        ])),
         InputMode::Subscribe => Paragraph::new(Spans::from(vec![
             Span::raw("Enter channel id or url: "),
             Span::raw(&app.input),
@@ -345,35 +370,39 @@ fn draw_help<B: Backend>(f: &mut Frame<B>, help_window_state: &mut HelpWindowSta
     f.render_widget(help_text, window);
 }
 
-fn draw_import_window<B: Backend>(f: &mut Frame<B>, import_state: &mut Subscriptions) {
+fn draw_list_with_help<T: crate::channel::ListItem + Display, B: Backend>(
+    f: &mut Frame<B>,
+    title: String,
+    list: &mut SelectionList<T>,
+    help_entries: &[(String, &str)],
+) {
     const VER_MARGIN: u16 = 6;
     const RIGHT_PADDING: u16 = 4;
 
-    let item_texts: Vec<Span> = import_state
+    let item_texts: Vec<Span> = list
         .items
         .iter()
         .map(|entry| entry.to_string())
         .map(Span::raw)
         .collect();
 
-    let help_text = vec![Spans::from(vec![
-        Span::styled("a", THEME.help),
-        Span::raw(" - Select all, "),
-        Span::styled("z", THEME.help),
-        Span::raw(" - Deselect all, "),
-        Span::styled("<space>", THEME.help),
-        Span::raw(" - Toggle, "),
-        Span::styled("<enter>", THEME.help),
-        Span::raw(" - Import"),
-    ])];
-    let help_text_width = help_text.iter().map(|t| t.width()).sum();
+    let mut spans = Vec::new();
+
+    for entry in help_entries {
+        spans.push(Span::styled(entry.0.clone(), THEME.help));
+        spans.push(Span::raw(entry.1));
+    }
+
+    let help_text = Spans::from(spans);
+
+    let help_text_width = help_text.width();
     let help_text_height = 1 + help_text_width as u16 / f.size().width;
 
     let max_width = item_texts
         .iter()
         .map(|text| text.width())
         .max()
-        .unwrap()
+        .unwrap_or(0)
         .max(help_text_width) as u16
         + RIGHT_PADDING;
 
@@ -389,9 +418,10 @@ fn draw_import_window<B: Backend>(f: &mut Frame<B>, import_state: &mut Subscript
     f.render_widget(Clear, window);
     f.render_widget(
         Block::default().borders(Borders::ALL).title(gen_title(
-            "Import".to_string(),
+            title,
             false,
-            import_state,
+            list,
+            None,
             window.width.into(),
         )),
         window,
@@ -411,16 +441,16 @@ fn draw_import_window<B: Backend>(f: &mut Frame<B>, import_state: &mut Subscript
         help_widget = help_widget.wrap(Wrap { trim: false });
     }
 
-    let list = item_texts
+    let list_items = item_texts
         .into_iter()
         .map(ListItem::new)
         .collect::<Vec<ListItem>>();
 
-    let w = List::new(list)
+    let w = List::new(list_items)
         .highlight_symbol(&OPTIONS.highlight_symbol)
         .highlight_style(THEME.focused);
 
-    f.render_stateful_widget(w, entry_area, &mut import_state.state);
+    f.render_stateful_widget(w, entry_area, &mut list.state);
     f.render_widget(help_widget, help_area);
 }
 
@@ -472,6 +502,7 @@ fn gen_title<'a, T, S: State>(
     title: String,
     hide_flag: bool,
     list: &StatefulList<T, S>,
+    tags: Option<Vec<&String>>,
     area_width: usize,
 ) -> Vec<Span<'a>> {
     let title = Span::styled(title, THEME.title);
@@ -493,13 +524,38 @@ fn gen_title<'a, T, S: State>(
     const MIN_GAP: usize = 2;
     let mut required_space = title.width() + position.width() + 2 + MIN_GAP;
 
-    let mut title_sections = Vec::with_capacity(5);
+    let mut title_sections = Vec::with_capacity(7);
     title_sections.push(title);
 
     if hide_flag {
         title_sections.push(Span::raw(border_symbol));
         title_sections.push(Span::styled("[H]", THEME.title));
         required_space += 4;
+    }
+
+    if let Some(tags) = tags {
+        let mut available_space = area_width.saturating_sub(required_space);
+
+        let mut shown_tags = Vec::new();
+
+        for tag in tags {
+            if tag.len() > available_space {
+                shown_tags.push("...".to_string());
+                break;
+            }
+
+            shown_tags.push(tag.to_string());
+            available_space = available_space.saturating_sub(tag.len() + 2);
+        }
+
+        if !shown_tags.is_empty() {
+            let tag_text = format!("[{}]", shown_tags.join(", "));
+
+            required_space += tag_text.len() + 1;
+
+            title_sections.push(Span::raw(border_symbol));
+            title_sections.push(Span::styled(tag_text, THEME.title));
+        }
     }
 
     if let Some(p_gap_width) = area_width.checked_sub(required_space) {

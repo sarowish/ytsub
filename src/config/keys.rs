@@ -1,4 +1,4 @@
-use crate::commands::Command;
+use crate::commands::{ChannelSelectionCommand, Command, ImportCommand, TagCommand};
 use anyhow::{Context, Result};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use serde::Deserialize;
@@ -7,7 +7,11 @@ use std::ops::{Deref, DerefMut};
 
 #[derive(Deserialize)]
 pub struct UserKeyBindings {
-    key_bindings: HashMap<String, String>,
+    #[serde(flatten)]
+    general: Option<HashMap<String, String>>,
+    import: Option<HashMap<String, String>>,
+    tag: Option<HashMap<String, String>>,
+    channel_selection: Option<HashMap<String, String>>,
 }
 
 fn parse_binding(binding: &str) -> Result<KeyEvent> {
@@ -54,52 +58,114 @@ fn parse_binding(binding: &str) -> Result<KeyEvent> {
 
 #[derive(PartialEq, Eq, Debug)]
 pub struct KeyBindings {
-    pub key_bindings: HashMap<KeyEvent, Command>,
+    pub general: HashMap<KeyEvent, Command>,
+    pub import: HashMap<KeyEvent, ImportCommand>,
+    pub tag: HashMap<KeyEvent, TagCommand>,
+    pub channel_selection: HashMap<KeyEvent, ChannelSelectionCommand>,
 }
 
 impl Default for KeyBindings {
+    #[rustfmt::skip]
     fn default() -> Self {
-        let mut key_bindings = HashMap::new();
+        let mut general = HashMap::new();
+        let mut import = HashMap::new();
+        let mut tag = HashMap::new();
+        let mut channel_selection = HashMap::new();
 
         macro_rules! insert_binding {
-            ($key: expr, $command: expr) => {
-                key_bindings.insert(parse_binding($key).unwrap(), $command);
+            ($map: expr, $key: expr, $command: expr) => {
+                $map.insert(parse_binding($key).unwrap(), $command);
             };
         }
 
-        insert_binding!("1", Command::SetModeSubs);
-        insert_binding!("2", Command::SetModeLatestVideos);
-        insert_binding!("j", Command::OnDown);
-        insert_binding!("down", Command::OnDown);
-        insert_binding!("k", Command::OnUp);
-        insert_binding!("up", Command::OnUp);
-        insert_binding!("h", Command::OnLeft);
-        insert_binding!("left", Command::OnLeft);
-        insert_binding!("l", Command::OnRight);
-        insert_binding!("right", Command::OnRight);
-        insert_binding!("g", Command::SelectFirst);
-        insert_binding!("G", Command::SelectLast);
-        insert_binding!("c", Command::JumpToChannel);
-        insert_binding!("t", Command::ToggleHide);
-        insert_binding!("i", Command::Subscribe);
-        insert_binding!("d", Command::Unsubscribe);
-        insert_binding!("D", Command::DeleteVideo);
-        insert_binding!("/", Command::SearchForward);
-        insert_binding!("?", Command::SearchBackward);
-        insert_binding!("n", Command::RepeatLastSearch);
-        insert_binding!("N", Command::RepeatLastSearchOpposite);
-        insert_binding!("r", Command::RefreshChannel);
-        insert_binding!("R", Command::RefreshChannels);
-        insert_binding!("F", Command::RefreshFailedChannels);
-        insert_binding!("o", Command::OpenInBrowser);
-        insert_binding!("p", Command::PlayVideo);
-        insert_binding!("m", Command::ToggleWatched);
-        insert_binding!("ctrl-h", Command::ToggleHelp);
-        insert_binding!("q", Command::Quit);
-        insert_binding!("ctrl-c", Command::Quit);
+        insert_binding!(general, "1", Command::SetModeSubs);
+        insert_binding!(general, "2", Command::SetModeLatestVideos);
+        insert_binding!(general, "j", Command::OnDown);
+        insert_binding!(general, "down", Command::OnDown);
+        insert_binding!(general, "k", Command::OnUp);
+        insert_binding!(general, "up", Command::OnUp);
+        insert_binding!(general, "h", Command::OnLeft);
+        insert_binding!(general, "left", Command::OnLeft);
+        insert_binding!(general, "l", Command::OnRight);
+        insert_binding!(general, "right", Command::OnRight);
+        insert_binding!(general, "g", Command::SelectFirst);
+        insert_binding!(general, "G", Command::SelectLast);
+        insert_binding!(general, "c", Command::JumpToChannel);
+        insert_binding!(general, "t", Command::ToggleHide);
+        insert_binding!(general, "i", Command::Subscribe);
+        insert_binding!(general, "d", Command::Unsubscribe);
+        insert_binding!(general, "D", Command::DeleteVideo);
+        insert_binding!(general, "/", Command::SearchForward);
+        insert_binding!(general, "?", Command::SearchBackward);
+        insert_binding!(general, "n", Command::RepeatLastSearch);
+        insert_binding!(general, "N", Command::RepeatLastSearchOpposite);
+        insert_binding!(general, "r", Command::RefreshChannel);
+        insert_binding!(general, "R", Command::RefreshChannels);
+        insert_binding!(general, "F", Command::RefreshFailedChannels);
+        insert_binding!(general, "o", Command::OpenInBrowser);
+        insert_binding!(general, "p", Command::PlayVideo);
+        insert_binding!(general, "m", Command::ToggleWatched);
+        insert_binding!(general, "ctrl-h", Command::ToggleHelp);
+        insert_binding!(general, "T", Command::ToggleTag);
+        insert_binding!(general, "q", Command::Quit);
+        insert_binding!(general, "ctrl-c", Command::Quit);
 
-        Self { key_bindings }
+        insert_binding!(tag, "space", TagCommand::ToggleSelection);
+        insert_binding!(tag, "a", TagCommand::SelectAll);
+        insert_binding!(tag, "z", TagCommand::DeselectAll);
+        insert_binding!(tag, "s", TagCommand::SelectChannels);
+        insert_binding!(tag, "i", TagCommand::CreateTag);
+        insert_binding!(tag, "d", TagCommand::DeleteTag);
+        insert_binding!(tag, "r", TagCommand::RenameTag);
+
+        insert_binding!(import, "space", ImportCommand::ToggleSelection);
+        insert_binding!(import, "a", ImportCommand::SelectAll);
+        insert_binding!(import, "z", ImportCommand::DeselectAll);
+        insert_binding!(import, "enter", ImportCommand::Import);
+
+        insert_binding!(channel_selection, "enter", ChannelSelectionCommand::Confirm);
+        insert_binding!(channel_selection, "escape", ChannelSelectionCommand::Abort);
+        insert_binding!(channel_selection, "space", ChannelSelectionCommand::ToggleSelection);
+        insert_binding!(channel_selection, "a", ChannelSelectionCommand::SelectAll);
+        insert_binding!(channel_selection, "z", ChannelSelectionCommand::DeselectAll);
+
+        Self {
+            general,
+            import,
+            tag,
+            channel_selection,
+        }
     }
+}
+
+fn set_bindings<'a, T, E>(
+    key_bindings: &mut HashMap<KeyEvent, T>,
+    user_key_bindings: &'a HashMap<String, String>,
+) -> Result<(), anyhow::Error>
+where
+    T: TryFrom<&'a str, Error = E>,
+    E: Into<anyhow::Error>,
+{
+    for (bindings, command) in user_key_bindings {
+        for binding in bindings.split_whitespace() {
+            let binding = parse_binding(binding)
+                .with_context(|| format!("Error: failed to parse binding \"{}\"", binding))?;
+            if command.is_empty() {
+                key_bindings.remove(&binding);
+            } else {
+                key_bindings.insert(
+                    binding,
+                    T::try_from(command.as_str())
+                        .map_err(|e| anyhow::anyhow!(e))
+                        .with_context(|| {
+                            format!("Error: failed to parse command \"{}\"", command)
+                        })?,
+                );
+            }
+        }
+    }
+
+    Ok(())
 }
 
 impl TryFrom<UserKeyBindings> for KeyBindings {
@@ -108,21 +174,20 @@ impl TryFrom<UserKeyBindings> for KeyBindings {
     fn try_from(user_key_bindings: UserKeyBindings) -> Result<Self, Self::Error> {
         let mut key_bindings = KeyBindings::default();
 
-        for (bindings, command) in user_key_bindings.key_bindings.iter() {
-            for binding in bindings.split_whitespace() {
-                let binding = parse_binding(binding)
-                    .with_context(|| format!("Error: failed to parse binding \"{}\"", binding))?;
-                if command.is_empty() {
-                    key_bindings.remove(&binding);
-                } else {
-                    key_bindings.insert(
-                        binding,
-                        command.as_str().try_into().with_context(|| {
-                            format!("Error: failed to parse command \"{}\"", command)
-                        })?,
-                    );
-                }
-            }
+        if let Some(general_bindings) = user_key_bindings.general {
+            set_bindings(&mut key_bindings, &general_bindings)?;
+        }
+
+        if let Some(import_bindings) = user_key_bindings.import {
+            set_bindings(&mut key_bindings.import, &import_bindings)?;
+        }
+
+        if let Some(tag_bindings) = user_key_bindings.tag {
+            set_bindings(&mut key_bindings.tag, &tag_bindings)?;
+        }
+
+        if let Some(tag_bindings) = user_key_bindings.channel_selection {
+            set_bindings(&mut key_bindings.channel_selection, &tag_bindings)?;
         }
 
         Ok(key_bindings)
@@ -133,13 +198,13 @@ impl Deref for KeyBindings {
     type Target = HashMap<KeyEvent, Command>;
 
     fn deref(&self) -> &Self::Target {
-        &self.key_bindings
+        &self.general
     }
 }
 
 impl DerefMut for KeyBindings {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.key_bindings
+        &mut self.general
     }
 }
 
@@ -199,36 +264,37 @@ mod tests {
         use std::collections::HashMap;
 
         let mut user_key_bindings = UserKeyBindings {
-            key_bindings: HashMap::new(),
+            general: Some(HashMap::new()),
+            import: None,
+            tag: None,
+            channel_selection: None,
         };
 
-        user_key_bindings
-            .key_bindings
-            .insert("l right".to_string(), "on_left".to_string());
+        let general_bindings = user_key_bindings.general.as_mut().unwrap();
 
-        user_key_bindings
-            .key_bindings
-            .insert("esc".to_string(), "quit".to_string());
+        general_bindings.insert("l right".to_string(), "on_left".to_string());
+
+        general_bindings.insert("esc".to_string(), "quit".to_string());
 
         let key_bindings = KeyBindings::try_from(user_key_bindings).unwrap();
 
         assert_eq!(
             *key_bindings
-                .key_bindings
+                .general
                 .get(&KeyEvent::new(KeyCode::Char('l'), KeyModifiers::NONE))
                 .unwrap(),
             Command::OnLeft,
         );
         assert_eq!(
             *key_bindings
-                .key_bindings
+                .general
                 .get(&KeyEvent::new(KeyCode::Right, KeyModifiers::NONE))
                 .unwrap(),
             Command::OnLeft
         );
         assert_eq!(
             *key_bindings
-                .key_bindings
+                .general
                 .get(&KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE))
                 .unwrap(),
             Command::Quit
@@ -240,17 +306,22 @@ mod tests {
         use std::collections::HashMap;
 
         let mut user_key_bindings = UserKeyBindings {
-            key_bindings: HashMap::new(),
+            general: Some(HashMap::new()),
+            import: None,
+            tag: None,
+            channel_selection: None,
         };
 
         user_key_bindings
-            .key_bindings
+            .general
+            .as_mut()
+            .unwrap()
             .insert("q".to_string(), "".to_string());
 
         let key_bindings = KeyBindings::try_from(user_key_bindings).unwrap();
 
         assert!(key_bindings
-            .key_bindings
+            .general
             .get(&KeyEvent::new(KeyCode::Char('q'), KeyModifiers::NONE))
             .is_none());
     }

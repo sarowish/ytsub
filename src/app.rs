@@ -1,6 +1,6 @@
 use crate::channel::{Channel, ListItem, Video, VideoType};
 use crate::help::HelpWindowState;
-use crate::import::{self, ImportItemState};
+use crate::import::{self, ImportItem};
 use crate::input::InputMode;
 use crate::invidious::ChannelFeed;
 use crate::invidious::Instance;
@@ -11,15 +11,24 @@ use crate::{database, OPTIONS};
 use anyhow::{Context, Result};
 use rusqlite::Connection;
 use std::collections::HashSet;
+use std::fmt::Display;
+use std::ops::{Deref, DerefMut};
 use std::path::PathBuf;
 use std::sync::mpsc::Sender;
 use tui::widgets::{ListState, TableState};
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
+impl ListItem for String {
+    fn id(&self) -> &str {
+        self
+    }
+}
+
 pub struct App {
     pub channels: StatefulList<Channel, ListState>,
     pub videos: StatefulList<Video, TableState>,
+    pub tags: SelectionList<String>,
     pub selected: Selected,
     pub mode: Mode,
     pub conn: Connection,
@@ -27,14 +36,16 @@ pub struct App {
     pub input: String,
     pub input_mode: InputMode,
     pub input_idx: usize,
+    pub prev_input_mode: InputMode,
     pub cursor_position: u16,
     pub help_window_state: HelpWindowState,
-    pub import_state: import::Subscriptions,
+    pub import_state: SelectionList<ImportItem>,
     new_video_ids: HashSet<String>,
     search: Search,
     instance: Instance,
     pub hide_watched: bool,
     io_tx: Sender<IoEvent>,
+    pub channel_selection: SelectionList<Channel>,
 }
 
 impl App {
@@ -42,6 +53,7 @@ impl App {
         let mut app = Self {
             channels: StatefulList::with_items(Default::default()),
             videos: StatefulList::with_items(Default::default()),
+            tags: Default::default(),
             selected: Selected::Channels,
             mode: Mode::Subscriptions,
             conn: Connection::open(OPTIONS.database.clone())?,
@@ -49,6 +61,7 @@ impl App {
             input: Default::default(),
             input_mode: InputMode::Normal,
             input_idx: 0,
+            prev_input_mode: InputMode::Normal,
             cursor_position: 0,
             search: Default::default(),
             instance: Instance::new()?,
@@ -56,13 +69,16 @@ impl App {
             hide_watched: OPTIONS.hide_watched,
             io_tx,
             help_window_state: HelpWindowState::new(),
-            import_state: import::Subscriptions::default(),
+            import_state: SelectionList::default(),
+            channel_selection: Default::default(),
         };
 
         database::initialize_db(&app.conn)?;
         app.set_mode_subs();
-        app.load_channels()?;
-        app.select_first();
+        app.load_channels();
+        app.on_change_channel();
+
+        app.tags = SelectionList::new(database::get_tags(&app.conn)?);
 
         Ok(app)
     }
@@ -153,9 +169,18 @@ impl App {
         }
     }
 
-    pub fn load_channels(&mut self) -> Result<()> {
-        self.channels = database::get_channels(&self.conn)?.into();
-        Ok(())
+    pub fn load_channels(&mut self) {
+        let selected_tags: Vec<&str> = self
+            .tags
+            .get_selected_items()
+            .iter()
+            .map(|tag| tag.as_str())
+            .collect();
+
+        match database::get_channels(&self.conn, &selected_tags) {
+            Ok(channels) => self.channels = channels.into(),
+            Err(e) => self.set_error_message(&e.to_string()),
+        }
     }
 
     pub fn set_mode_subs(&mut self) {
@@ -351,7 +376,14 @@ impl App {
     }
 
     fn get_latest_videos(&self) -> Result<Vec<Video>> {
-        database::get_latest_videos(&self.conn)
+        let selected_tags: Vec<&str> = self
+            .tags
+            .get_selected_items()
+            .iter()
+            .map(|tag| tag.as_str())
+            .collect();
+
+        database::get_latest_videos(&self.conn, &selected_tags)
     }
 
     pub fn load_videos(&mut self) {
@@ -504,8 +536,13 @@ impl App {
     }
 
     pub fn is_footer_active(&self) -> bool {
-        matches!(self.input_mode, InputMode::Search | InputMode::Subscribe)
-            || !self.message.is_empty()
+        matches!(
+            self.input_mode,
+            InputMode::Search
+                | InputMode::Subscribe
+                | InputMode::TagCreation
+                | InputMode::TagRenaming
+        ) || !self.message.is_empty()
     }
 
     pub fn toggle_help(&mut self) {
@@ -513,6 +550,7 @@ impl App {
     }
 
     pub fn prompt_for_subscription(&mut self) {
+        self.prev_input_mode = self.input_mode.clone();
         self.input_mode = InputMode::Subscribe;
         self.message.clear_message();
         self.input_idx = 0;
@@ -550,6 +588,7 @@ impl App {
     }
 
     fn start_searching(&mut self) {
+        self.prev_input_mode = self.input_mode.clone();
         self.input_mode = InputMode::Search;
         self.message.clear_message();
         self.input_idx = 0;
@@ -570,23 +609,39 @@ impl App {
         &self.search.direction
     }
 
-    pub fn search_in_block(&mut self) {
-        match self.selected {
-            Selected::Channels => {
-                self.search.search(&mut self.channels, &self.input);
-                self.on_change_channel()
+    pub fn search_in_selected(&mut self) {
+        match self.prev_input_mode {
+            InputMode::Normal => match self.selected {
+                Selected::Channels => {
+                    self.search.search(&mut self.channels, &self.input);
+                    self.on_change_channel()
+                }
+                Selected::Videos => self.search.search(&mut self.videos, &self.input),
+            },
+            InputMode::Import => self.search.search(&mut self.import_state, &self.input),
+            InputMode::Tag => self.search.search(&mut self.tags, &self.input),
+            InputMode::ChannelSelection => {
+                self.search.search(&mut self.channel_selection, &self.input)
             }
-            Selected::Videos => self.search.search(&mut self.videos, &self.input),
+            _ => panic!(),
         }
     }
 
     fn repeat_last_search_helper(&mut self, opposite: bool) {
-        match self.selected {
-            Selected::Channels => {
-                self.search.repeat_last(&mut self.channels, opposite);
-                self.on_change_channel()
-            }
-            Selected::Videos => self.search.repeat_last(&mut self.videos, opposite),
+        match self.input_mode {
+            InputMode::Normal => match self.selected {
+                Selected::Channels => {
+                    self.search.repeat_last(&mut self.channels, opposite);
+                    self.on_change_channel()
+                }
+                Selected::Videos => self.search.repeat_last(&mut self.videos, opposite),
+            },
+            InputMode::Import => self.search.repeat_last(&mut self.import_state, opposite),
+            InputMode::Tag => self.search.repeat_last(&mut self.tags, opposite),
+            InputMode::ChannelSelection => self
+                .search
+                .repeat_last(&mut self.channel_selection, opposite),
+            _ => panic!(),
         }
         if self.no_search_pattern_match() {
             self.set_error_message(&format!("Pattern not found: {}", self.search.pattern));
@@ -605,7 +660,7 @@ impl App {
 
     fn update_search_on_delete(&mut self) {
         self.search.state = SearchState::PoppedKey;
-        self.search_in_block();
+        self.search_in_selected();
     }
 
     pub fn push_key(&mut self, c: char) {
@@ -618,7 +673,7 @@ impl App {
             }
         }
         if let InputMode::Search = self.input_mode {
-            self.search_in_block();
+            self.search_in_selected();
             self.search.state = SearchState::PushedKey;
         }
         self.input_idx += c.len_utf8();
@@ -730,19 +785,27 @@ impl App {
     }
 
     pub fn finalize_search(&mut self, abort: bool) {
-        self.input_mode = InputMode::Normal;
+        self.input_mode = self.prev_input_mode.clone();
         self.input.clear();
         self.search.complete_search(abort);
     }
 
     fn recover_item(&mut self) {
         if self.search.recovery_index.is_some() {
-            match self.selected {
-                Selected::Channels => {
-                    self.search.recover_item(&mut self.channels);
-                    self.on_change_channel()
+            match self.prev_input_mode {
+                InputMode::Normal => match self.selected {
+                    Selected::Channels => {
+                        self.search.recover_item(&mut self.channels);
+                        self.on_change_channel()
+                    }
+                    Selected::Videos => self.search.recover_item(&mut self.videos),
+                },
+                InputMode::Import => self.search.recover_item(&mut self.import_state),
+                InputMode::Tag => self.search.recover_item(&mut self.tags),
+                InputMode::ChannelSelection => {
+                    self.search.recover_item(&mut self.channel_selection)
                 }
-                Selected::Videos => self.search.recover_item(&mut self.videos),
+                _ => panic!(),
             }
         }
     }
@@ -763,18 +826,18 @@ impl App {
         }
         .with_context(|| "Failed to import")?;
 
-        import_state.items = import_state
-            .items
+        import_state = import_state
             .drain(..)
             .filter(|entry| self.channels.find_by_id(&entry.channel_id).is_none())
-            .collect::<Vec<ImportItemState>>();
+            .collect::<Vec<ImportItem>>();
 
-        if import_state.items.is_empty() {
+        if import_state.is_empty() {
             self.set_warning_message("Already subscribed to all the channels in the file");
             return Ok(());
         }
 
-        self.import_state = import_state;
+        self.import_state = SelectionList::new(import_state);
+        self.import_state.select_all();
 
         self.input_mode = InputMode::Import;
 
@@ -868,6 +931,121 @@ impl App {
     pub fn clear_message_after_duration(&mut self, duration_seconds: u64) {
         self.dispatch(IoEvent::ClearMessage(duration_seconds));
     }
+
+    pub fn toggle_tag_selection(&mut self) {
+        if let InputMode::Tag = self.input_mode {
+            self.input_mode = InputMode::Normal;
+        } else {
+            self.input_mode = InputMode::Tag;
+        }
+    }
+
+    pub fn enter_tag_creation(&mut self) {
+        self.prev_input_mode = self.input_mode.clone();
+        self.input_mode = InputMode::TagCreation;
+        self.message.clear_message();
+        self.input_idx = 0;
+        self.cursor_position = 0;
+    }
+
+    pub fn enter_tag_renaming(&mut self) {
+        if let Some(tag) = self.tags.get_selected() {
+            self.prev_input_mode = self.input_mode.clone();
+            self.input_mode = InputMode::TagRenaming;
+            self.message.clear_message();
+            self.input = tag.item.clone();
+            self.input_idx = self.input.len();
+            self.cursor_position = self.input.width() as u16;
+        }
+    }
+
+    pub fn enter_channel_selection(&mut self) {
+        self.input_mode = InputMode::ChannelSelection;
+
+        let selected_tag = &self.tags.get_selected().unwrap();
+
+        let mut all_channels = SelectionList::new(database::get_channels(&self.conn, &[]).unwrap());
+
+        let selected_channels = database::get_channels(&self.conn, &[selected_tag]).unwrap();
+
+        for channel in selected_channels {
+            if let Some(c) = all_channels.get_mut_by_id(&channel.channel_id) {
+                c.selected = true;
+            }
+        }
+
+        self.channel_selection = all_channels;
+    }
+
+    pub fn update_tag(&mut self) {
+        let selected_channels: Vec<String> = self
+            .channel_selection
+            .get_selected_items()
+            .into_iter()
+            .map(|channel| channel.channel_id.clone())
+            .collect();
+
+        database::update_channels_of_tag(
+            &self.conn,
+            self.tags.get_selected().unwrap(),
+            &selected_channels,
+        )
+        .unwrap();
+
+        let id_of_current_channel = self
+            .get_current_channel()
+            .map(|channel| channel.channel_id.clone());
+
+        self.load_channels();
+
+        if let Some(id) = id_of_current_channel {
+            if let Some(index) = self.channels.find_by_id(&id) {
+                self.channels.select_with_index(index);
+            } else {
+                self.channels.check_bounds();
+            };
+        }
+
+        self.on_change_channel();
+
+        self.input_mode = InputMode::Tag;
+    }
+
+    pub fn create_tag(&mut self) {
+        if let Err(e) = database::create_tag(&self.conn, &self.input) {
+            self.set_error_message(&e.to_string());
+        } else {
+            self.tags.items.push(SelectionItem::new(self.input.clone()));
+        }
+
+        self.input_mode = InputMode::Tag;
+        self.input.clear();
+    }
+
+    pub fn rename_selected_tag(&mut self) {
+        if let Some(tag) = self.tags.get_mut_selected() {
+            if let Err(e) = database::rename_tag(&self.conn, &tag.item, &self.input) {
+                self.set_error_message(&e.to_string());
+            } else {
+                tag.item = self.input.clone();
+            }
+        }
+
+        self.input_mode = InputMode::Tag;
+        self.input.clear();
+    }
+
+    pub fn delete_selected_tag(&mut self) {
+        if let Some(idx) = self.tags.state.selected() {
+            if let Err(e) = database::delete_tag(&self.conn, &self.tags.items[idx].item) {
+                self.set_error_message(&e.to_string());
+                return;
+            }
+
+            self.tags.items.remove(idx);
+            self.tags.check_bounds();
+        }
+    }
 }
 
 pub trait State {
@@ -902,10 +1080,14 @@ pub struct StatefulList<T, S: State> {
 
 impl<T, S: State + Default> StatefulList<T, S> {
     pub fn with_items(items: Vec<T>) -> StatefulList<T, S> {
-        StatefulList {
+        let mut stateful_list = StatefulList {
             state: Default::default(),
             items,
-        }
+        };
+
+        stateful_list.select_first();
+
+        stateful_list
     }
 
     fn select_with_index(&mut self, index: usize) {
@@ -957,7 +1139,7 @@ impl<T, S: State + Default> StatefulList<T, S> {
             .select(if self.items.is_empty() { None } else { Some(0) });
     }
 
-    fn get_selected(&self) -> Option<&T> {
+    pub fn get_selected(&self) -> Option<&T> {
         match self.state.selected() {
             Some(i) => Some(&self.items[i]),
             None => None,
@@ -1007,4 +1189,105 @@ pub enum Selected {
 pub enum Mode {
     Subscriptions,
     LatestVideos,
+}
+
+pub struct SelectionItem<T: ListItem> {
+    selected: bool,
+    pub item: T,
+}
+
+impl<T: ListItem> SelectionItem<T> {
+    fn new(item: T) -> Self {
+        Self {
+            selected: false,
+            item,
+        }
+    }
+
+    fn toggle(&mut self) {
+        self.selected = !self.selected;
+    }
+}
+
+impl<T: Display + ListItem> Display for SelectionItem<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "[{}] {}",
+            if self.selected { "*" } else { " " },
+            self.item
+        )
+    }
+}
+
+impl<T: ListItem> ListItem for SelectionItem<T> {
+    fn id(&self) -> &str {
+        self.item.id()
+    }
+}
+
+impl<T: ListItem> Deref for SelectionItem<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &self.item
+    }
+}
+
+impl<T: ListItem> DerefMut for SelectionItem<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.item
+    }
+}
+
+pub struct SelectionList<T: ListItem>(StatefulList<SelectionItem<T>, ListState>);
+
+impl<T: ListItem> SelectionList<T> {
+    fn new(items: Vec<T>) -> Self {
+        let items = items.into_iter().map(SelectionItem::new).collect();
+
+        Self(StatefulList::with_items(items))
+    }
+
+    pub fn toggle_selected(&mut self) {
+        if let Some(item) = self.get_mut_selected() {
+            item.toggle();
+        }
+    }
+
+    pub fn select_all(&mut self) {
+        self.items.iter_mut().for_each(|item| item.selected = true);
+    }
+
+    pub fn deselect_all(&mut self) {
+        self.items.iter_mut().for_each(|item| item.selected = false);
+    }
+
+    pub fn get_selected_items(&self) -> Vec<&T> {
+        self.items
+            .iter()
+            .filter(|item| item.selected)
+            .map(|item| &item.item)
+            .collect()
+    }
+}
+
+impl<T: ListItem> Deref for SelectionList<T> {
+    type Target = StatefulList<SelectionItem<T>, ListState>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<T: ListItem> DerefMut for SelectionList<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl<T: ListItem> Default for SelectionList<T> {
+    fn default() -> Self {
+        Self(StatefulList::with_items(Default::default()))
+    }
 }

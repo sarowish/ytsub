@@ -20,7 +20,6 @@ struct UserConfig {
     options: Option<UserOptions>,
     #[serde(flatten)]
     theme: Option<UserTheme>,
-    #[serde(flatten)]
     key_bindings: Option<UserKeyBindings>,
 }
 

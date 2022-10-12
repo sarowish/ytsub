@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add import and export subcommands.
 - Classify some messages as warning.
 - Skip recently refreshed channels.
+- Group channels using tags.
 
 ### Changed
 - Ignore case when sorting channels list

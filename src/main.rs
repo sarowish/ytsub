@@ -28,7 +28,7 @@ use crossterm::terminal::{
     disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
 };
 use futures_util::StreamExt;
-use help::HelpWindow;
+use help::Help;
 use input::InputMode;
 use std::io;
 use std::panic;
@@ -52,7 +52,7 @@ lazy_static::lazy_static! {
     static ref OPTIONS: &'static Options = &CONFIG.options;
     static ref THEME: &'static Theme = &CONFIG.theme;
     static ref KEY_BINDINGS: &'static KeyBindings = &CONFIG.key_bindings;
-    static ref HELP: HelpWindow<'static> = HelpWindow::new();
+    static ref HELP: Help<'static> = Help::new();
 }
 
 fn main() -> Result<()> {
@@ -119,13 +119,20 @@ fn run_tui<B: Backend>(terminal: &mut Terminal<B>, app: Arc<Mutex<App>>) -> Resu
 
         const SEARCH_MODE_CURSOR_OFFSET: u16 = 1;
         const SUBSCRIBE_MODE_CURSOR_OFFSET: u16 = 25;
+        const TAG_CREATION_MODE_CURSOR_OFFSET: u16 = 10;
 
         let cursor_position = app.lock().unwrap().cursor_position;
         match &app.lock().unwrap().input_mode {
-            mode @ InputMode::Subscribe | mode @ InputMode::Search => {
+            mode @ (InputMode::Subscribe
+            | InputMode::Search
+            | InputMode::TagCreation
+            | InputMode::TagRenaming) => {
                 let offset = match mode {
                     InputMode::Search => SEARCH_MODE_CURSOR_OFFSET,
                     InputMode::Subscribe => SUBSCRIBE_MODE_CURSOR_OFFSET,
+                    InputMode::TagCreation | InputMode::TagRenaming => {
+                        TAG_CREATION_MODE_CURSOR_OFFSET
+                    }
                     _ => 0,
                 };
                 terminal.set_cursor(cursor_position + offset, terminal.size()?.height - 1)?;

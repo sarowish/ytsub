@@ -2,7 +2,7 @@ use crate::KEY_BINDINGS;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use std::ops::{Deref, DerefMut};
 
-const DESCRIPTIONS_LEN: usize = 25;
+const DESCRIPTIONS_LEN: usize = 26;
 const DESCRIPTIONS: [&str; DESCRIPTIONS_LEN] = [
     "Switch to subscriptions mode",
     "Switch to latest videos mode",
@@ -28,7 +28,36 @@ const DESCRIPTIONS: [&str; DESCRIPTIONS_LEN] = [
     "Play video in video player",
     "Mark/unmark video as watched",
     "Toggle help window",
+    "Toggle tag selection window",
     "Quit application",
+];
+
+const IMPORT_DESCRIPTIONS_LEN: usize = 4;
+const IMPORT_DESCRIPTIONS: [&str; IMPORT_DESCRIPTIONS_LEN] = [
+    " - Import, ",
+    " - Toggle, ",
+    " - Select all, ",
+    " - Deselect all",
+];
+
+const TAG_DESCRIPTIONS_LEN: usize = 7;
+const TAG_DESCRIPTIONS: [&str; TAG_DESCRIPTIONS_LEN] = [
+    " - Create tag, ",
+    " - Delete tag, ",
+    " - Rename tag, ",
+    " - Modify channels, ",
+    " - Toggle, ",
+    " - Select all, ",
+    " - Deselect all",
+];
+
+const CHANNEL_SELECTION_DESCRIPTIONS_LEN: usize = 5;
+const CHANNEL_SELECTION_DESCRIPTIONS: [&str; CHANNEL_SELECTION_DESCRIPTIONS_LEN] = [
+    " - Confirm, ",
+    " - Abort, ",
+    " - Toggle, ",
+    " - Select all, ",
+    " - Deselect all",
 ];
 
 pub struct HelpWindowState {
@@ -69,41 +98,67 @@ impl HelpWindowState {
 
 const HELP_ENTRY: (String, &str) = (String::new(), "");
 
-pub struct HelpWindow<'a>([(String, &'a str); DESCRIPTIONS_LEN]);
+pub struct Help<'a> {
+    pub general: [(String, &'a str); DESCRIPTIONS_LEN],
+    pub import: [(String, &'a str); IMPORT_DESCRIPTIONS_LEN],
+    pub tag: [(String, &'a str); TAG_DESCRIPTIONS_LEN],
+    pub channel_selection: [(String, &'a str); CHANNEL_SELECTION_DESCRIPTIONS_LEN],
+}
 
-impl<'a> HelpWindow<'a> {
+impl<'a> Help<'a> {
     pub fn new() -> Self {
-        let mut help = HelpWindow([HELP_ENTRY; DESCRIPTIONS_LEN]);
+        let mut help = Self {
+            general: [HELP_ENTRY; DESCRIPTIONS_LEN],
+            import: [HELP_ENTRY; IMPORT_DESCRIPTIONS_LEN],
+            tag: [HELP_ENTRY; TAG_DESCRIPTIONS_LEN],
+            channel_selection: [HELP_ENTRY; CHANNEL_SELECTION_DESCRIPTIONS_LEN],
+        };
 
-        for (key, command) in KEY_BINDINGS.iter() {
-            let idx = *command as usize;
+        macro_rules! generate_entries {
+            ($entries: expr, $bindings: expr, $descriptions: ident) => {
+                for (key, command) in &$bindings {
+                    let idx = *command as usize;
 
-            if !help[idx].0.is_empty() {
-                help[idx].0.push_str(", ");
-            }
-            help[idx].0.push_str(&key_event_to_string(key));
+                    if !$entries[idx].0.is_empty() {
+                        $entries[idx].0.push_str(", ");
+                    }
+                    $entries[idx].0.push_str(&key_event_to_string(key));
+                }
+
+                for (idx, (_, desc)) in $entries.iter_mut().enumerate() {
+                    *desc = $descriptions[idx];
+                }
+            };
         }
 
-        for (idx, (key, desc)) in help.iter_mut().enumerate() {
-            *key = format!("{:10}  ", key);
-            *desc = DESCRIPTIONS[idx];
+        generate_entries!(help.general, KEY_BINDINGS.general, DESCRIPTIONS);
+        generate_entries!(help.import, KEY_BINDINGS.import, IMPORT_DESCRIPTIONS);
+        generate_entries!(help.tag, KEY_BINDINGS.tag, TAG_DESCRIPTIONS);
+        generate_entries!(
+            help.channel_selection,
+            KEY_BINDINGS.channel_selection,
+            CHANNEL_SELECTION_DESCRIPTIONS
+        );
+
+        for (keys, _) in help.general.iter_mut() {
+            *keys = format!("{:10}  ", keys);
         }
 
         help
     }
 }
 
-impl<'a> Deref for HelpWindow<'a> {
+impl<'a> Deref for Help<'a> {
     type Target = [(String, &'a str); DESCRIPTIONS_LEN];
 
     fn deref(&self) -> &Self::Target {
-        &self.0
+        &self.general
     }
 }
 
-impl<'a> DerefMut for HelpWindow<'a> {
+impl<'a> DerefMut for Help<'a> {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
+        &mut self.general
     }
 }
 

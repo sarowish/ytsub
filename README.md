@@ -168,7 +168,30 @@ fg = "Green"
 "p" = "play_video" # Play selected video in a video player (default: mpv)
 "m" = "toggle_watched" # Mark/unmark selected video as watched
 "ctrl+h" = "toggle_help" # Toggle help window
+"T" = "toggle_tag" # Toggle tag window
 "q ctrl-c" = "quit" # Quit application
+
+[key_bindings.import]
+"space" = "toggle_selection" # Select/Unselect channel
+"a" = "select_all" # Select all channels
+"z" = "deselect_all" # Deselect all channels
+"enter" = "import" # Import selected channels
+
+[key_bindings.tag]
+"i" = "create_tag"
+"d" = "delete_tag"
+"r" = "rename_tag"
+"s" = "select_channels" # Pick channels for the tag
+"space" = "toggle_selection" # Select/Unselect tag
+"a" = "select_all" # Select all tags
+"z" = "deselect_all" # Deselect all tags
+
+[key_bindings.channel_selection]
+"enter" = "confirm" # Confirm the selection of channels
+"escape" = "abort" # Drop changes
+"space" = "toggle_selection" # Select/Unselect channel
+"a" = "select_all" # Select all channels
+"z" = "deselect_all" # Deselect all channels
 ```
 
 ### `instances`

@@ -1,4 +1,9 @@
-use crate::{app::App, commands::Command, help::HelpWindowState, KEY_BINDINGS};
+use crate::{
+    app::App,
+    commands::{ChannelSelectionCommand, Command, ImportCommand, TagCommand},
+    help::HelpWindowState,
+    KEY_BINDINGS,
+};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 #[derive(Clone)]
@@ -8,6 +13,10 @@ pub enum InputMode {
     Search,
     Confirmation,
     Import,
+    Tag,
+    TagCreation,
+    TagRenaming,
+    ChannelSelection,
 }
 
 pub fn handle_event(key: KeyEvent, app: &mut App) -> bool {
@@ -18,6 +27,8 @@ pub fn handle_event(key: KeyEvent, app: &mut App) -> bool {
         InputMode::Normal => return handle_key_normal_mode(key, app),
         InputMode::Confirmation => handle_key_confirmation_mode(key, app),
         InputMode::Import => return handle_key_import_mode(key, app),
+        InputMode::Tag => return handle_key_tag_mode(key, app),
+        InputMode::ChannelSelection => return handle_key_channel_selection_mode(key, app),
         _ => handle_key_editing_mode(key, app),
     }
 
@@ -51,6 +62,7 @@ fn handle_key_normal_mode(key: KeyEvent, app: &mut App) -> bool {
             Command::PlayVideo => app.play_video(),
             Command::ToggleWatched => app.toggle_watched(),
             Command::ToggleHelp => app.toggle_help(),
+            Command::ToggleTag => app.toggle_tag_selection(),
             Command::Quit => return true,
         }
     }
@@ -83,21 +95,98 @@ fn handle_key_confirmation_mode(key: KeyEvent, app: &mut App) {
 }
 
 fn handle_key_import_mode(key: KeyEvent, app: &mut App) -> bool {
-    if let Some(command) = KEY_BINDINGS.get(&key) {
+    if let Some(command) = KEY_BINDINGS.import.get(&key) {
+        match command {
+            ImportCommand::ToggleSelection => app.import_state.toggle_selected(),
+            ImportCommand::SelectAll => app.import_state.select_all(),
+            ImportCommand::DeselectAll => app.import_state.deselect_all(),
+            ImportCommand::Import => app.import_subscriptions(),
+        }
+    } else if let Some(command) = KEY_BINDINGS.get(&key) {
         match command {
             Command::OnDown => app.import_state.next(),
             Command::OnUp => app.import_state.previous(),
             Command::SelectFirst => app.import_state.select_first(),
             Command::SelectLast => app.import_state.select_last(),
+            Command::SearchForward => app.search_forward(),
+            Command::SearchBackward => app.search_backward(),
+            Command::RepeatLastSearch => app.repeat_last_search(),
+            Command::RepeatLastSearchOpposite => app.repeat_last_search_opposite(),
             Command::Quit => return true,
             _ => (),
         }
-    } else {
-        match key.code {
-            KeyCode::Char(' ') => app.import_state.toggle(),
-            KeyCode::Char('a') => app.import_state.select_all(),
-            KeyCode::Char('z') => app.import_state.deselect_all(),
-            KeyCode::Enter => app.import_subscriptions(),
+    }
+
+    false
+}
+
+fn handle_key_tag_mode(key: KeyEvent, app: &mut App) -> bool {
+    if let Some(command) = KEY_BINDINGS.tag.get(&key) {
+        let mut updated = false;
+
+        match command {
+            TagCommand::ToggleSelection => {
+                app.tags.toggle_selected();
+                updated = true;
+            }
+            TagCommand::SelectAll => {
+                app.tags.select_all();
+                updated = true;
+            }
+            TagCommand::DeselectAll => {
+                app.tags.deselect_all();
+                updated = true;
+            }
+            TagCommand::SelectChannels => app.enter_channel_selection(),
+            TagCommand::CreateTag => app.enter_tag_creation(),
+            TagCommand::DeleteTag => app.delete_selected_tag(),
+            TagCommand::RenameTag => app.enter_tag_renaming(),
+        }
+
+        if updated {
+            app.load_channels();
+            app.channels.select_first();
+            app.on_change_channel();
+        }
+    } else if let Some(command) = KEY_BINDINGS.get(&key) {
+        match command {
+            Command::OnDown => app.tags.next(),
+            Command::OnUp => app.tags.previous(),
+            Command::SelectFirst => app.tags.select_first(),
+            Command::SelectLast => app.tags.select_last(),
+            Command::SearchForward => app.search_forward(),
+            Command::SearchBackward => app.search_backward(),
+            Command::RepeatLastSearch => app.repeat_last_search(),
+            Command::RepeatLastSearchOpposite => app.repeat_last_search_opposite(),
+            Command::ToggleTag => app.toggle_tag_selection(),
+            Command::Quit => return true,
+            _ => (),
+        }
+    }
+
+    false
+}
+
+fn handle_key_channel_selection_mode(key: KeyEvent, app: &mut App) -> bool {
+    if let Some(command) = KEY_BINDINGS.channel_selection.get(&key) {
+        match command {
+            ChannelSelectionCommand::Confirm => app.update_tag(),
+            ChannelSelectionCommand::Abort => app.input_mode = InputMode::Tag,
+            ChannelSelectionCommand::ToggleSelection => app.channel_selection.toggle_selected(),
+            ChannelSelectionCommand::SelectAll => app.channel_selection.select_all(),
+            ChannelSelectionCommand::DeselectAll => app.channel_selection.deselect_all(),
+        }
+    } else if let Some(command) = KEY_BINDINGS.get(&key) {
+        match command {
+            Command::OnDown => app.channel_selection.next(),
+            Command::OnUp => app.channel_selection.previous(),
+            Command::SelectFirst => app.channel_selection.select_first(),
+            Command::SelectLast => app.channel_selection.select_last(),
+            Command::SearchForward => app.search_forward(),
+            Command::SearchBackward => app.search_backward(),
+            Command::RepeatLastSearch => app.repeat_last_search(),
+            Command::RepeatLastSearchOpposite => app.repeat_last_search_opposite(),
+            Command::Quit => return true,
             _ => (),
         }
     }
@@ -130,14 +219,16 @@ fn complete(app: &mut App) {
     match app.input_mode {
         InputMode::Subscribe => app.subscribe(),
         InputMode::Search => app.complete_search(),
+        InputMode::TagCreation => app.create_tag(),
+        InputMode::TagRenaming => app.rename_selected_tag(),
         _ => (),
     }
 }
 
 fn abort(app: &mut App) {
     match app.input_mode {
-        InputMode::Subscribe => {
-            app.input_mode = InputMode::Normal;
+        InputMode::Subscribe | InputMode::TagCreation | InputMode::TagRenaming => {
+            app.input_mode = app.prev_input_mode.clone();
             app.input.clear();
         }
         InputMode::Search => app.abort_search(),
