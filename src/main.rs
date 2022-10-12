@@ -205,6 +205,19 @@ async fn clear_message(app: &Arc<Mutex<App>>, duration_seconds: u64) {
 }
 
 async fn subscribe_to_channel(app: &Arc<Mutex<App>>, channel_id: String) {
+    if app
+        .lock()
+        .unwrap()
+        .channels
+        .get_mut_by_id(&channel_id)
+        .is_some()
+    {
+        app.lock()
+            .unwrap()
+            .set_warning_message("Already subscribed to the channel");
+        return;
+    }
+
     let instance = app.lock().unwrap().instance();
     app.lock().unwrap().set_message("Subscribing to channel");
     let app = app.clone();
