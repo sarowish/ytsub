@@ -14,6 +14,135 @@ use tui::widgets::{
     Block, BorderType, Borders, Cell, Clear, List, ListItem, Paragraph, Row, Table, Wrap,
 };
 use tui::Frame;
+use unicode_width::UnicodeWidthStr;
+
+struct TitleBuilder<'a, T, S: State> {
+    title: String,
+    hide_flag: bool,
+    list: Option<&'a StatefulList<T, S>>,
+    tags: Option<Vec<&'a String>>,
+    available_width: usize,
+}
+
+impl<'a, T, S: State> TitleBuilder<'a, T, S> {
+    fn new(available_width: usize) -> Self {
+        Self {
+            title: String::new(),
+            hide_flag: false,
+            list: None,
+            tags: None,
+            available_width: available_width.saturating_sub(2),
+        }
+    }
+
+    fn title(mut self, title: String) -> Self {
+        self.title = title;
+        self
+    }
+
+    fn hide_flag(mut self, hide: bool) -> Self {
+        self.hide_flag = hide;
+        self
+    }
+
+    fn list(mut self, list: &'a StatefulList<T, S>) -> Self {
+        self.list = Some(list);
+        self
+    }
+
+    fn tags(mut self, tags: Vec<&'a String>) -> Self {
+        if !tags.is_empty() {
+            self.tags = Some(tags);
+        }
+
+        self
+    }
+
+    fn build_title<'b>(mut self) -> Vec<Span<'b>> {
+        const MIN_GAP: usize = 2;
+
+        let mut title_sections = Vec::with_capacity(7);
+        let border_symbol = BorderType::line_symbols(BorderType::Plain).horizontal;
+
+        if !self.title.is_empty() {
+            let title = Span::styled(self.title, THEME.title);
+            self.available_width = self.available_width.saturating_sub(title.width());
+
+            title_sections.push(title);
+        }
+
+        if self.hide_flag {
+            self.available_width = self.available_width.saturating_sub(4);
+        }
+
+        let position = if let Some(list) = self.list {
+            Span::styled(
+                format!(
+                    "{}/{}",
+                    if let Some(index) = list.state.selected() {
+                        index + 1
+                    } else {
+                        0
+                    },
+                    list.items.len()
+                ),
+                THEME.title,
+            )
+        } else {
+            Span::raw("")
+        };
+
+        let required_width_for_position = if self.list.is_some() {
+            position.width() + MIN_GAP
+        } else {
+            0
+        };
+
+        if let Some(tags) = self.tags {
+            let mut available_width = self
+                .available_width
+                .saturating_sub(required_width_for_position + 3);
+
+            let mut shown_tags = Vec::new();
+
+            for tag in tags {
+                if tag.len() > available_width {
+                    if 2 > available_width {
+                        shown_tags.pop();
+                    }
+
+                    shown_tags.push("..".to_string());
+                    break;
+                }
+
+                shown_tags.push(tag.to_string());
+                available_width = available_width.saturating_sub(tag.width() + 2);
+            }
+
+            let tag_text = format!("[{}]", shown_tags.join(", "));
+            self.available_width = self.available_width.saturating_sub(tag_text.width() + 1);
+
+            title_sections.push(Span::raw(border_symbol));
+            title_sections.push(Span::styled(tag_text, THEME.title));
+        }
+
+        if self.hide_flag {
+            title_sections.push(Span::raw(border_symbol));
+            title_sections.push(Span::styled("[H]", THEME.title));
+        }
+
+        if let Some(p_gap_width) = self
+            .available_width
+            .checked_sub(required_width_for_position)
+        {
+            let fill = Span::raw(border_symbol.repeat(p_gap_width + MIN_GAP));
+            title_sections.push(fill);
+            title_sections.push(position);
+        }
+
+        title_sections
+    }
+}
 
 pub fn draw<B: Backend>(f: &mut Frame<B>, app: &mut App) {
     let (main_layout, footer) = if app.is_footer_active() {
@@ -79,18 +208,17 @@ fn draw_channels<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
         .collect::<Vec<ListItem>>();
 
     let selected_tags = app.tags.get_selected_items();
+    let title = TitleBuilder::new(area.width.into())
+        .title("Channels".to_string())
+        .list(&app.channels)
+        .tags(selected_tags)
+        .build_title();
 
     let channels = List::new(channels)
         .block(
             Block::default()
                 .borders(Borders::ALL)
-                .title(gen_title(
-                    "Channels".to_string(),
-                    false,
-                    &app.channels,
-                    Some(selected_tags),
-                    area.width as usize,
-                ))
+                .title(title)
                 .border_style(match app.selected {
                     Selected::Channels => THEME.selected_block,
                     Selected::Videos => Style::default(),
@@ -149,31 +277,28 @@ fn draw_videos<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
             })
         })
         .collect::<Vec<Row>>();
+
+    let title = TitleBuilder::new(video_area.width.into())
+        .hide_flag(app.hide_watched)
+        .list(&app.videos);
+
+    let title = if let Mode::LatestVideos = app.mode {
+        let selected_tags = app.tags.get_selected_items();
+        title
+            .title("Latest Videos".into())
+            .tags(selected_tags)
+            .build_title()
+    } else if let Some(channel) = app.get_current_channel() {
+        title.title(channel.channel_name.clone()).build_title()
+    } else {
+        Default::default()
+    };
+
     let videos = Table::new(videos)
         .block(
             Block::default()
                 .borders(Borders::ALL)
-                .title(if let Mode::LatestVideos = app.mode {
-                    let selected_tags = app.tags.get_selected_items();
-
-                    gen_title(
-                        "Latest Videos".into(),
-                        app.hide_watched,
-                        &app.videos,
-                        Some(selected_tags),
-                        video_area.width.into(),
-                    )
-                } else if let Some(channel) = app.get_current_channel() {
-                    gen_title(
-                        channel.channel_name.clone(),
-                        app.hide_watched,
-                        &app.videos,
-                        None,
-                        video_area.width.into(),
-                    )
-                } else {
-                    Default::default()
-                })
+                .title(title)
                 .border_style(match app.selected {
                     Selected::Channels => Style::default(),
                     Selected::Videos => THEME.selected_block,
@@ -416,16 +541,13 @@ fn draw_list_with_help<T: crate::channel::ListItem + Display, B: Backend>(
 
     let window = popup_window_from_dimensions(max_height, max_width, f.size());
     f.render_widget(Clear, window);
-    f.render_widget(
-        Block::default().borders(Borders::ALL).title(gen_title(
-            title,
-            false,
-            list,
-            None,
-            window.width.into(),
-        )),
-        window,
-    );
+
+    let title = TitleBuilder::new(window.width.into())
+        .title(title)
+        .list(list)
+        .build_title();
+
+    f.render_widget(Block::default().borders(Borders::ALL).title(title), window);
 
     let (entry_area, help_area) = {
         let chunks = Layout::default()
@@ -496,73 +618,4 @@ fn popup_window(hor_constraints: &[Constraint], ver_constraints: &[Constraint], 
         .direction(Direction::Horizontal)
         .constraints(hor_constraints)
         .split(popup_layout[1])[1]
-}
-
-fn gen_title<'a, T, S: State>(
-    title: String,
-    hide_flag: bool,
-    list: &StatefulList<T, S>,
-    tags: Option<Vec<&String>>,
-    area_width: usize,
-) -> Vec<Span<'a>> {
-    let title = Span::styled(title, THEME.title);
-
-    let position = Span::styled(
-        format!(
-            "{}/{}",
-            if let Some(index) = list.state.selected() {
-                index + 1
-            } else {
-                0
-            },
-            list.items.len()
-        ),
-        THEME.title,
-    );
-
-    let border_symbol = BorderType::line_symbols(BorderType::Plain).horizontal;
-    const MIN_GAP: usize = 2;
-    let mut required_space = title.width() + position.width() + 2 + MIN_GAP;
-
-    let mut title_sections = Vec::with_capacity(7);
-    title_sections.push(title);
-
-    if hide_flag {
-        title_sections.push(Span::raw(border_symbol));
-        title_sections.push(Span::styled("[H]", THEME.title));
-        required_space += 4;
-    }
-
-    if let Some(tags) = tags {
-        let mut available_space = area_width.saturating_sub(required_space);
-
-        let mut shown_tags = Vec::new();
-
-        for tag in tags {
-            if tag.len() > available_space {
-                shown_tags.push("...".to_string());
-                break;
-            }
-
-            shown_tags.push(tag.to_string());
-            available_space = available_space.saturating_sub(tag.len() + 2);
-        }
-
-        if !shown_tags.is_empty() {
-            let tag_text = format!("[{}]", shown_tags.join(", "));
-
-            required_space += tag_text.len() + 1;
-
-            title_sections.push(Span::raw(border_symbol));
-            title_sections.push(Span::styled(tag_text, THEME.title));
-        }
-    }
-
-    if let Some(p_gap_width) = area_width.checked_sub(required_space) {
-        let fill = Span::raw(border_symbol.repeat(p_gap_width + MIN_GAP));
-        title_sections.push(fill);
-        title_sections.push(position);
-    }
-
-    title_sections
 }
