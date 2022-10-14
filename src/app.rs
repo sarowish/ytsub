@@ -41,6 +41,7 @@ pub struct App {
     pub help_window_state: HelpWindowState,
     pub import_state: SelectionList<ImportItem>,
     new_video_ids: HashSet<String>,
+    channels_with_new_videos: HashSet<String>,
     search: Search,
     instance: Instance,
     pub hide_watched: bool,
@@ -66,6 +67,7 @@ impl App {
             search: Default::default(),
             instance: Instance::new()?,
             new_video_ids: Default::default(),
+            channels_with_new_videos: Default::default(),
             hide_watched: OPTIONS.hide_watched,
             io_tx,
             help_window_state: HelpWindowState::new(),
@@ -162,6 +164,8 @@ impl App {
         let index = self.channels.find_by_id(channel_id).unwrap();
         let mut channel = self.channels.items.remove(index);
         channel.new_video |= true;
+        self.channels_with_new_videos
+            .insert(channel.channel_id.clone());
         self.channels.items.insert(0, channel);
         if let Some(id) = id_of_current_channel {
             let index = self.channels.find_by_id(&id).unwrap();
@@ -178,7 +182,13 @@ impl App {
             .collect();
 
         match database::get_channels(&self.conn, &selected_tags) {
-            Ok(channels) => self.channels = channels.into(),
+            Ok(mut channels) => {
+                for channel in &mut channels {
+                    channel.new_video = self.channels_with_new_videos.contains(&channel.channel_id);
+                }
+
+                self.channels = channels.into();
+            }
             Err(e) => self.set_error_message(&e.to_string()),
         }
     }
