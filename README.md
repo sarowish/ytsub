@@ -53,10 +53,10 @@ the [example `config.toml` file](#example-configtoml-with-default-values).
 
 Default directory of the configuration files is `$HOME/.config/ytsub`.
 
-| File          | Description                                   |
-|---------------|-----------------------------------------------|
-| `config.toml` | option, key binding and theme configurations  |
-| `instances`   | list of invidious instances                   |
+| File                         | Description                                   |
+|------------------------------|-----------------------------------------------|
+| [`config.toml`](#configtoml) | option, key binding and theme configurations  |
+| [`instances`](#instances)    | list of invidious instances                   |
 
 ### `config.toml`
 
