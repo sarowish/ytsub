@@ -49,6 +49,9 @@ SUBCOMMANDS:
     import    Import subscriptions
 ```
 
+For default key bindings, press `ctrl+h` in the app or refer to
+the [example `config.toml` file](#example-configtoml-with-default-values).
+
 ## Configuration
 
 Default directory of the configuration files is `$HOME/.config/ytsub`.
@@ -211,31 +214,3 @@ https://invidio.xamh.de
 https://inv.riverside.rocks
 https://yt.artemislena.eu
 ```
-
-## Key Bindings
-
-| Key Binding          | Action                                       |
-| -------------------- | -------------------------------------------- |
-| `h/l,left/right`     | switch to channels/videos block              |
-| `k/j,up/down`        | go one line upward/downward                  |
-| `g`                  | go to first line                             |
-| `G`                  | go to last line                              |
-| `c`                  | jump to channel from latest videos mode      |
-| `1`                  | switch to subscriptions mode                 |
-| `2`                  | switch to latest videos mode                 |
-| `o`                  | open channel or video in browser             |
-| `p`                  | play video in mpv                            |
-| `t`                  | toggle hide                                  |
-| `i`                  | subscribe                                    |
-| `d`                  | unsubscribe                                  |
-| `D`                  | delete selected video                        |
-| `/`                  | search forward                               |
-| `?`                  | search backward                              |
-| `n`                  | repeat last search                           |
-| `N`                  | repeat last search in the opposite direction |
-| `r`                  | refresh selected channel                     |
-| `R`                  | refresh all channels                         |
-| `F`                  | retry refreshing failed channels             |
-| `m`                  | toggle watched/unwatched                     |
-| `ctrl+h`             | toggle help window                           |
-| `q`,`ctrl+c`         | quit application                             |
