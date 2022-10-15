@@ -25,27 +25,27 @@ pub struct Options {
 
 impl Options {
     pub fn override_with_clap_args(&mut self) {
-        if let Some(database) = CLAP_ARGS.value_of("database") {
+        if let Some(database) = CLAP_ARGS.get_one::<String>("database") {
             self.database = PathBuf::from(database);
         }
 
-        if let Some(instances) = CLAP_ARGS.value_of("instances") {
+        if let Some(instances) = CLAP_ARGS.get_one::<String>("instances") {
             self.instances = PathBuf::from(instances);
         }
 
-        if let Some(tick_rate) = CLAP_ARGS.value_of("tick_rate") {
-            self.tick_rate = tick_rate.parse().unwrap();
+        if let Some(tick_rate) = CLAP_ARGS.get_one::<u64>("tick_rate") {
+            self.tick_rate = *tick_rate;
         }
 
-        if let Some(request_timeout) = CLAP_ARGS.value_of("instances") {
-            self.request_timeout = request_timeout.parse().unwrap();
+        if let Some(request_timeout) = CLAP_ARGS.get_one::<u64>("instances") {
+            self.request_timeout = *request_timeout;
         }
 
-        if let Some(highlight_symbol) = CLAP_ARGS.value_of("highlight_symbol") {
+        if let Some(highlight_symbol) = CLAP_ARGS.get_one::<String>("highlight_symbol") {
             self.highlight_symbol = highlight_symbol.to_string();
         }
 
-        if let Some(video_player) = CLAP_ARGS.value_of("video_player") {
+        if let Some(video_player) = CLAP_ARGS.get_one::<String>("video_player") {
             self.video_player = video_player.to_string();
         }
     }

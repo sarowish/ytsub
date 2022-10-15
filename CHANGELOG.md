@@ -5,23 +5,35 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [0.3.0] - 2022-10-16
 ### Added
 - `D` key binding deletes the selected video from database.
+[`83238bc`](https://github.com/sarowish/ytsub/commit/83238bc)
 - Add import and export subcommands.
+[`4f3e073`](https://github.com/sarowish/ytsub/commit/4f3e073)
 - Classify some messages as warning.
+[`9d88336`](https://github.com/sarowish/ytsub/commit/9d88336)
 - Skip recently refreshed channels.
+[`89f8528`](https://github.com/sarowish/ytsub/commit/89f8528)
 - Group channels using tags.
+[`3e57063`](https://github.com/sarowish/ytsub/commit/3e57063)
 - Show warning if trying to subscribe to an already subscribed channel.
+[`ea83acc`](https://github.com/sarowish/ytsub/commit/ea83acc)
 
 ### Changed
 - Ignore case when sorting channels list
+[`4e08381`](https://github.com/sarowish/ytsub/commit/4e08381)
 - Use rss if the number of channels exceeds 125.
+[`0bbca1d`](https://github.com/sarowish/ytsub/commit/0bbca1d)
 
 ### Fixed
 - Mark new videos correctly.
+[`d91ce4e`](https://github.com/sarowish/ytsub/commit/d91ce4e)
 
 ### Deprecated
 - Deprecate `--tick-rate`, `--request-timeout` and `--highlight-symbol` cli arguments.
+[`1fd5678`](https://github.com/sarowish/ytsub/commit/1fd5678)
 
 ## [0.2.0] - 2022-05-31
 ### Added

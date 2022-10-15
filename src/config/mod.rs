@@ -32,13 +32,13 @@ pub struct Config {
 
 impl Config {
     pub fn new() -> Result<Self> {
-        let config_file = match CLAP_ARGS.value_of("config") {
+        let config_file = match CLAP_ARGS.get_one::<String>("config") {
             Some(path) => PathBuf::from(path),
             None => utils::get_config_dir()?.join(CONFIG_FILE),
         };
 
         let mut config = match fs::read_to_string(&config_file) {
-            Ok(config_str) if !CLAP_ARGS.is_present("no_config") => {
+            Ok(config_str) if !CLAP_ARGS.get_flag("no_config") => {
                 Self::try_from(toml::from_str::<UserConfig>(&config_str)?)?
             }
             _ => Self::default(),

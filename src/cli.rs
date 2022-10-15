@@ -1,4 +1,4 @@
-use clap::{Arg, ArgMatches, Command};
+use clap::{Arg, ArgAction, ArgMatches, Command};
 
 pub fn get_matches() -> ArgMatches {
     Command::new(env!("CARGO_PKG_NAME"))
@@ -16,7 +16,8 @@ pub fn get_matches() -> ArgMatches {
                 .short('n')
                 .long("no-config")
                 .help("Ignore configuration file")
-                .conflicts_with("config"),
+                .conflicts_with("config")
+                .action(ArgAction::SetTrue),
         )
         .arg(
             Arg::new("database")
@@ -36,7 +37,8 @@ pub fn get_matches() -> ArgMatches {
             Arg::new("gen_instances_list")
                 .short('g')
                 .long("gen-instances")
-                .help("Generate Invidious instances file"),
+                .help("Generate Invidious instances file")
+                .action(ArgAction::SetTrue),
         )
         .arg(
             Arg::new("tick_rate")
@@ -45,7 +47,7 @@ pub fn get_matches() -> ArgMatches {
                 .long("tick-rate")
                 .help("Tick rate in milliseconds")
                 .value_name("TICK RATE")
-                .validator(|s| s.parse::<u64>()),
+                .value_parser(clap::value_parser!(u64)),
         )
         .arg(
             Arg::new("request_timeout")
@@ -54,7 +56,7 @@ pub fn get_matches() -> ArgMatches {
                 .long("request-timeout")
                 .help("Timeout in seconds")
                 .value_name("TIMEOUT")
-                .validator(|s| s.parse::<u64>()),
+                .value_parser(clap::value_parser!(u64)),
         )
         .arg(
             Arg::new("highlight_symbol")
@@ -79,7 +81,7 @@ pub fn get_matches() -> ArgMatches {
                         .help("Format of the import file")
                         .value_name("FORMAT")
                         .default_value("youtube_csv")
-                        .possible_values(["youtube_csv", "newpipe"]),
+                        .value_parser(["youtube_csv", "newpipe"]),
                 )
                 .arg(
                     Arg::new("source")
@@ -98,7 +100,7 @@ pub fn get_matches() -> ArgMatches {
                         .help("Format of the export file")
                         .value_name("FORMAT")
                         .default_value("youtube_csv")
-                        .possible_values(["youtube_csv", "newpipe"]),
+                        .value_parser(["youtube_csv", "newpipe"]),
                 )
                 .arg(
                     Arg::new("target")

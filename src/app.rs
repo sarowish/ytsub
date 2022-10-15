@@ -74,9 +74,9 @@ impl App {
             channel_selection: Default::default(),
         };
 
-        if CLAP_ARGS.is_present("tick_rate")
-            || CLAP_ARGS.is_present("highlight_symbol")
-            || CLAP_ARGS.is_present("request_timeout")
+        if CLAP_ARGS.contains_id("tick_rate")
+            || CLAP_ARGS.contains_id("highlight_symbol")
+            || CLAP_ARGS.contains_id("request_timeout")
         {
             app.set_warning_message(
                 "--tick-rate, --request-timeout and --highlight-symbol arguments are deprecated. \

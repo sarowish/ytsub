@@ -27,23 +27,22 @@ cargo install ytsub --features bundled_sqlite
 ## Usage
 
 ```
-USAGE:
-    ytsub [OPTIONS] [SUBCOMMAND]
+Usage: ytsub [OPTIONS] [COMMAND]
 
-OPTIONS:
-    -c, --config <FILE>                  Path to configuration file
-    -d, --database <FILE>                Path to database file
-    -g, --gen-instances                  Generate Invidious instances file
-    -h, --help                           Print help information
-    -n, --no-config                      Ignore configuration file
-    -s, --instances <FILE>               Path to instances file
-    -V, --version                        Print version information
-        --video-player <VIDEO PLAYER>    Path to video player
+Commands:
+  import  Import subscriptions
+  export  Export subscriptions
+  help    Print this message or the help of the given subcommand(s)
 
-SUBCOMMANDS:
-    export    Export subscriptions
-    help      Print this message or the help of the given subcommand(s)
-    import    Import subscriptions
+Options:
+  -c, --config <FILE>                       Path to configuration file
+  -n, --no-config <no_config>               Ignore configuration file
+  -d, --database <FILE>                     Path to database file
+  -s, --instances <FILE>                    Path to instances file
+  -g, --gen-instances <gen_instances_list>  Generate Invidious instances file
+      --video-player <VIDEO PLAYER>         Path to video player
+  -h, --help                                Print help information
+  -V, --version                             Print version information
 ```
 
 For default key bindings, press `ctrl+h` in the app or refer to

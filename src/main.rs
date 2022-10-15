@@ -56,7 +56,7 @@ lazy_static::lazy_static! {
 }
 
 fn main() -> Result<()> {
-    if CLAP_ARGS.is_present("gen_instances_list") {
+    if CLAP_ARGS.get_flag("gen_instances_list") {
         utils::generate_instances_file()?;
         return Ok(());
     }
@@ -73,13 +73,21 @@ fn main() -> Result<()> {
 
     match CLAP_ARGS.subcommand() {
         Some(("import", matches)) => app.lock().unwrap().select_channels_to_import(
-            PathBuf::from(matches.value_of("source").unwrap()),
-            matches.value_of("format").unwrap_or_default().into(),
+            PathBuf::from(matches.get_one::<String>("source").unwrap()),
+            matches
+                .get_one::<String>("format")
+                .map(|s| s.as_str())
+                .unwrap()
+                .into(),
         )?,
         Some(("export", matches)) => {
             return app.lock().unwrap().export_subscriptions(
-                PathBuf::from(matches.value_of("target").unwrap()),
-                matches.value_of("format").unwrap_or_default().into(),
+                PathBuf::from(matches.get_one::<String>("target").unwrap()),
+                matches
+                    .get_one::<String>("format")
+                    .map(|s| s.as_str())
+                    .unwrap()
+                    .into(),
             );
         }
         _ => (),
