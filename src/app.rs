@@ -6,8 +6,7 @@ use crate::invidious::ChannelFeed;
 use crate::invidious::Instance;
 use crate::message::Message;
 use crate::search::{Search, SearchDirection, SearchState};
-use crate::IoEvent;
-use crate::{database, OPTIONS};
+use crate::{database, IoEvent, CLAP_ARGS, OPTIONS};
 use anyhow::{Context, Result};
 use rusqlite::Connection;
 use std::collections::HashSet;
@@ -74,6 +73,16 @@ impl App {
             import_state: SelectionList::default(),
             channel_selection: Default::default(),
         };
+
+        if CLAP_ARGS.is_present("tick_rate")
+            || CLAP_ARGS.is_present("highlight_symbol")
+            || CLAP_ARGS.is_present("request_timeout")
+        {
+            app.set_warning_message(
+                "--tick-rate, --request-timeout and --highlight-symbol arguments are deprecated. \
+                Set them in the config file.",
+            );
+        }
 
         database::initialize_db(&app.conn)?;
         app.set_mode_subs();

@@ -20,6 +20,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Mark new videos correctly.
 
+### Deprecated
+- Deprecate `--tick-rate`, `--request-timeout` and `--highlight-symbol` cli arguments.
+
 ## [0.2.0] - 2022-05-31
 ### Added
 - Make theme, key bindings and options configurable through a configuration file.

@@ -35,11 +35,8 @@ OPTIONS:
     -d, --database <FILE>                Path to database file
     -g, --gen-instances                  Generate Invidious instances file
     -h, --help                           Print help information
-        --highlight-symbol <SYMBOL>      Symbol to highlight selected items
     -n, --no-config                      Ignore configuration file
-    -r, --request-timeout <TIMEOUT>      Timeout in seconds
     -s, --instances <FILE>               Path to instances file
-    -t, --tick-rate <TICK RATE>          Tick rate in milliseconds
     -V, --version                        Print version information
         --video-player <VIDEO PLAYER>    Path to video player
 

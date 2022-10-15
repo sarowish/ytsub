@@ -40,6 +40,7 @@ pub fn get_matches() -> ArgMatches {
         )
         .arg(
             Arg::new("tick_rate")
+                .hide(true)
                 .short('t')
                 .long("tick-rate")
                 .help("Tick rate in milliseconds")
@@ -48,6 +49,7 @@ pub fn get_matches() -> ArgMatches {
         )
         .arg(
             Arg::new("request_timeout")
+                .hide(true)
                 .short('r')
                 .long("request-timeout")
                 .help("Timeout in seconds")
@@ -56,6 +58,7 @@ pub fn get_matches() -> ArgMatches {
         )
         .arg(
             Arg::new("highlight_symbol")
+                .hide(true)
                 .long("highlight-symbol")
                 .help("Symbol to highlight selected items")
                 .value_name("SYMBOL"),
