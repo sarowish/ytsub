@@ -102,11 +102,8 @@ const WEEK: u64 = 604800;
 const MONTH: u64 = 2592000;
 const YEAR: u64 = 31536000;
 
-pub fn published_text(published: u64) -> String {
-    let now = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_secs();
+pub fn published_text(published: u64) -> Result<String> {
+    let now = now()?;
     let time_diff = now.abs_diff(published);
     let (num, mut time_frame) = if time_diff < MINUTE {
         (time_diff, "second".to_string())
@@ -126,9 +123,17 @@ pub fn published_text(published: u64) -> String {
     if num > 1 {
         time_frame.push('s');
     }
-    if published > now {
+    Ok(if published > now {
         format!("Premieres in {} {}", num, time_frame)
     } else {
         format!("Shared {} {} ago", num, time_frame)
-    }
+    })
+}
+
+pub fn now() -> Result<u64> {
+    Ok(SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs())
+}
+
+pub fn time_passed(time: u64) -> Result<u64> {
+    Ok(now()?.saturating_sub(time))
 }

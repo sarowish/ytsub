@@ -89,6 +89,7 @@ impl App {
         let channel = Channel::new(
             channel_feed.channel_id.clone().unwrap(),
             channel_feed.channel_title.clone().unwrap(),
+            crate::utils::now().ok(),
         );
 
         if let Err(e) = database::create_channel(&self.conn, &channel) {
@@ -465,6 +466,19 @@ impl App {
     pub fn on_change_channel(&mut self) {
         self.load_videos();
         self.videos.reset_state();
+    }
+
+    pub fn on_refresh_completed(&mut self, channel_id: &str) {
+        let last_refreshed = if let Some(channel) = self.channels.get_mut_by_id(channel_id) {
+            channel.on_refresh_completed();
+            channel.last_refreshed
+        } else {
+            crate::utils::now().ok()
+        };
+
+        if let Err(e) = database::set_last_refreshed_field(&self.conn, channel_id, last_refreshed) {
+            self.set_error_message(&e.to_string());
+        }
     }
 
     pub fn on_down(&mut self) {

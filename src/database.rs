@@ -5,64 +5,88 @@ use crate::{
 use anyhow::Result;
 use rusqlite::{params, Connection};
 
+const LATEST_USER_VERSION: u8 = 2;
+
 pub fn initialize_db(conn: &Connection) -> Result<()> {
     conn.pragma_update(None, "foreign_keys", "on")?;
 
-    conn.execute(
-        "
-        CREATE TABLE IF NOT EXISTS channels (
-            channel_id TEXT PRIMARY KEY,
-            channel_name TEXT
-            )
-        ",
-        [],
-    )?;
+    let current_user_version =
+        conn.pragma_query_value(None, "user_version", |value| value.get(0))?;
 
-    conn.execute(
-        "
-        CREATE TABLE IF NOT EXISTS videos (
-            video_id TEXT PRIMARY KEY,
-            channel_id TEXT,
-            title TEXT,
-            published INTEGER,
-            length INTEGER,
-            watched BOOL,
-            FOREIGN KEY(channel_id) REFERENCES channels(channel_id) ON DELETE CASCADE
-            )
-        ",
-        [],
-    )?;
+    for i in current_user_version..LATEST_USER_VERSION {
+        apply_migration(conn, i)?;
+    }
 
-    conn.execute(
-        "
-        CREATE TABLE IF NOT EXISTS tags (
-            tag_name TEXT PRIMARY KEY
-            )
-        ",
-        [],
-    )?;
+    Ok(())
+}
 
-    conn.execute(
-        "
-        CREATE TABLE IF NOT EXISTS tag_relations (
-            tag_name TEXT,
-            channel_id TEXT,
-            PRIMARY KEY(tag_name, channel_id),
-            FOREIGN KEY(channel_id) REFERENCES channels(channel_id) ON DELETE CASCADE,
-            FOREIGN KEY(tag_name) REFERENCES tags(tag_name) ON DELETE CASCADE ON UPDATE CASCADE
-            )
-        ",
-        [],
-    )?;
+fn apply_migration(conn: &Connection, current_user_version: u8) -> Result<()> {
+    match current_user_version {
+        0 => {
+            conn.execute(
+                "
+                CREATE TABLE IF NOT EXISTS channels (
+                    channel_id TEXT PRIMARY KEY,
+                    channel_name TEXT
+                    )
+                ",
+                [],
+            )?;
+
+            conn.execute(
+                "
+                CREATE TABLE IF NOT EXISTS videos (
+                    video_id TEXT PRIMARY KEY,
+                    channel_id TEXT,
+                    title TEXT,
+                    published INTEGER,
+                    length INTEGER,
+                    watched BOOL,
+                    FOREIGN KEY(channel_id) REFERENCES channels(channel_id) ON DELETE CASCADE
+                    )
+                ",
+                [],
+            )?;
+
+            conn.execute(
+                "
+                CREATE TABLE IF NOT EXISTS tags (
+                    tag_name TEXT PRIMARY KEY
+                    )
+                ",
+                [],
+            )?;
+
+            conn.execute(
+                "
+                CREATE TABLE IF NOT EXISTS tag_relations (
+                    tag_name TEXT,
+                    channel_id TEXT,
+                    PRIMARY KEY(tag_name, channel_id),
+                    FOREIGN KEY(channel_id) REFERENCES channels(channel_id) ON DELETE CASCADE,
+                    FOREIGN KEY(tag_name) REFERENCES tags(tag_name) ON DELETE CASCADE ON UPDATE CASCADE
+                    )
+                ",
+                [],
+            )?;
+
+            conn.pragma_update(None, "user_version", 1)?;
+        }
+        1 => {
+            conn.execute("ALTER TABLE channels ADD COLUMN last_refreshed INTEGER", [])?;
+            conn.pragma_update(None, "user_version", 2)?;
+        }
+        _ => panic!(),
+    }
 
     Ok(())
 }
 
 pub fn create_channel(conn: &Connection, channel: &Channel) -> Result<()> {
     conn.execute(
-        "INSERT INTO channels (channel_id, channel_name)
-        VALUES (?1, ?2)",
-        params![channel.channel_id, channel.channel_name],
+        "INSERT INTO channels (channel_id, channel_name, last_refreshed)
+        VALUES (?1, ?2, ?3)",
+        params![channel.channel_id, channel.channel_name, utils::now().ok()],
     )?;
 
     Ok(())
@@ -96,6 +120,16 @@ pub fn delete_channel(conn: &Connection, channel_id: &str) -> Result<()> {
         }
     }
 
+    Ok(())
+}
+
+pub fn set_last_refreshed_field(
+    conn: &Connection,
+    channel_id: &str,
+    time: Option<u64>,
+) -> Result<()> {
+    let mut stmt = conn.prepare("UPDATE channels SET last_refreshed=?1 WHERE channel_id=?2")?;
+    stmt.execute(params![time, channel_id])?;
     Ok(())
 }
 
@@ -142,7 +176,7 @@ fn build_bulk_stmt<T>(query_type: StatementType, columns: &[&str], values: &[T])
             columns_str, values_string
         ),
         StatementType::GetChannels => format!(
-            "SELECT DISTINCT channels.channel_id, channel_name
+            "SELECT DISTINCT channels.channel_id, channel_name, last_refreshed
             FROM channels, tag_relations
             WHERE tag_relations.channel_id=channels.channel_id AND tag_relations.tag_name IN ({})
             ORDER BY channel_name COLLATE NOCASE ASC
@@ -205,7 +239,7 @@ pub fn get_channels(conn: &Connection, tags: &[&str]) -> Result<Vec<Channel>> {
         values = rusqlite::params_from_iter([].iter());
 
         stmt = conn.prepare(
-            "SELECT channel_id, channel_name
+            "SELECT channel_id, channel_name, last_refreshed
             FROM channels
             ORDER BY channel_name COLLATE NOCASE ASC
             ",
@@ -224,7 +258,8 @@ pub fn get_channels(conn: &Connection, tags: &[&str]) -> Result<Vec<Channel>> {
     for channel in stmt.query_map(values, |row| {
         let channel_id: String = row.get(0)?;
         let channel_name: String = row.get(1)?;
-        Ok(Channel::new(channel_id, channel_name))
+        let last_refreshed: Option<u64> = row.get(2)?;
+        Ok(Channel::new(channel_id, channel_name, last_refreshed))
     })? {
         channels.push(channel?);
     }
@@ -247,7 +282,7 @@ pub fn get_videos(conn: &Connection, channel_id: &str) -> Result<Vec<Video>> {
             video_id: row.get(0)?,
             title: row.get(1)?,
             published: row.get(2)?,
-            published_text: utils::published_text(row.get(2)?),
+            published_text: utils::published_text(row.get(2)?).unwrap_or_default(),
             length: row.get(3)?,
             watched: row.get(4)?,
             new: false,
@@ -291,7 +326,7 @@ pub fn get_latest_videos(conn: &Connection, tags: &[&str]) -> Result<Vec<Video>>
             video_id: row.get(0)?,
             title: row.get(1)?,
             published: row.get(2)?,
-            published_text: utils::published_text(row.get(2)?),
+            published_text: utils::published_text(row.get(2)?).unwrap_or_default(),
             length: row.get(3)?,
             watched: row.get(4)?,
             new: false,
