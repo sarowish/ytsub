@@ -341,10 +341,7 @@ async fn refresh_channel(app: &Arc<Mutex<App>>, channel_id: String) {
     let instance = app.lock().unwrap().instance();
     app.lock()
         .unwrap()
-        .channels
-        .get_mut_by_id(&channel_id)
-        .unwrap()
-        .refresh_state = RefreshState::Refreshing;
+        .set_channel_refresh_state(&channel_id, RefreshState::Refreshing);
     app.lock().unwrap().set_message("Refreshing channel");
     let app = app.clone();
     tokio::task::spawn(async move {
@@ -353,10 +350,7 @@ async fn refresh_channel(app: &Arc<Mutex<App>>, channel_id: String) {
             Err(_) => {
                 app.lock()
                     .unwrap()
-                    .channels
-                    .get_mut_by_id(&channel_id)
-                    .unwrap()
-                    .refresh_state = RefreshState::Failed;
+                    .set_channel_refresh_state(&channel_id, RefreshState::Failed);
                 app.lock()
                     .unwrap()
                     .set_error_message("failed to refresh channel");
@@ -366,7 +360,7 @@ async fn refresh_channel(app: &Arc<Mutex<App>>, channel_id: String) {
         {
             let mut app = app.lock().unwrap();
             app.add_videos(channel_feed);
-            app.on_refresh_completed(&channel_id);
+            app.set_channel_refresh_state(&channel_id, RefreshState::Completed);
             let elapsed = now.elapsed();
             app.set_message_with_default_duration(&format!("Refreshed in {:?}", elapsed));
         }
@@ -413,10 +407,7 @@ async fn refresh_channels(app: &Arc<Mutex<App>>, refresh_failed: bool) -> Result
         let instance = instance.clone();
         app.lock()
             .unwrap()
-            .channels
-            .get_mut_by_id(&channel_id)
-            .unwrap()
-            .refresh_state = RefreshState::Refreshing;
+            .set_channel_refresh_state(&channel_id, RefreshState::Refreshing);
         let app = app.clone();
         let count = count.clone();
         tokio::task::spawn(async move {
@@ -429,7 +420,7 @@ async fn refresh_channels(app: &Arc<Mutex<App>>, refresh_failed: bool) -> Result
                 Ok(channel_feed) => {
                     let mut app = app.lock().unwrap();
                     app.add_videos(channel_feed);
-                    app.on_refresh_completed(&channel_id);
+                    app.set_channel_refresh_state(&channel_id, RefreshState::Completed);
                     *count.lock().unwrap() += 1;
                     app.set_message(&format!(
                         "Refreshing Channels: {}/{}",
@@ -440,10 +431,7 @@ async fn refresh_channels(app: &Arc<Mutex<App>>, refresh_failed: bool) -> Result
                 Err(_) => {
                     app.lock()
                         .unwrap()
-                        .channels
-                        .get_mut_by_id(&channel_id)
-                        .unwrap()
-                        .refresh_state = RefreshState::Failed
+                        .set_channel_refresh_state(&channel_id, RefreshState::Failed);
                 }
             }
         })

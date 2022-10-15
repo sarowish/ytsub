@@ -36,11 +36,6 @@ impl Channel {
     pub fn set_to_be_refreshed(&mut self) {
         self.refresh_state = RefreshState::ToBeRefreshed;
     }
-
-    pub fn on_refresh_completed(&mut self) {
-        self.refresh_state = RefreshState::Completed;
-        self.last_refreshed = crate::utils::now().ok()
-    }
 }
 
 impl ListItem for Channel {

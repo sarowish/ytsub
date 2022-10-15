@@ -1,4 +1,4 @@
-use crate::channel::{Channel, ListItem, Video, VideoType};
+use crate::channel::{Channel, ListItem, RefreshState, Video, VideoType};
 use crate::help::HelpWindowState;
 use crate::import::{self, ImportItem};
 use crate::input::InputMode;
@@ -101,14 +101,15 @@ impl App {
     }
 
     pub fn add_videos(&mut self, mut channel_feed: ChannelFeed) {
-        let present_videos: Vec<Video> =
-            match database::get_videos(&self.conn, channel_feed.channel_id.as_ref().unwrap()) {
-                Ok(videos) => videos,
-                Err(e) => {
-                    self.set_error_message(&e.to_string());
-                    return;
-                }
-            };
+        let channel_id = channel_feed.channel_id.as_ref().unwrap();
+
+        let present_videos: Vec<Video> = match database::get_videos(&self.conn, channel_id) {
+            Ok(videos) => videos,
+            Err(e) => {
+                self.set_error_message(&e.to_string());
+                return;
+            }
+        };
 
         let mut videos = Vec::new();
         let mut added_new_video = false;
@@ -131,18 +132,18 @@ impl App {
             }
         }
 
-        if let Err(e) = database::add_videos(
-            &self.conn,
-            channel_feed.channel_id.as_ref().unwrap(),
-            &videos,
-        ) {
+        if let Err(e) = database::add_videos(&self.conn, channel_id, &videos) {
             self.set_error_message(&e.to_string());
             return;
         }
 
         if added_new_video {
-            self.move_channel_to_top(channel_feed.channel_id.as_ref().unwrap());
-            self.reload_videos();
+            if self.channels.find_by_id(channel_id).is_some() {
+                self.move_channel_to_top(channel_id);
+                self.reload_videos();
+            } else {
+                self.channels_with_new_videos.insert(channel_id.to_string());
+            }
         } else if !videos.is_empty() {
             self.load_videos();
         }
@@ -468,16 +469,17 @@ impl App {
         self.videos.reset_state();
     }
 
-    pub fn on_refresh_completed(&mut self, channel_id: &str) {
-        let last_refreshed = if let Some(channel) = self.channels.get_mut_by_id(channel_id) {
-            channel.on_refresh_completed();
-            channel.last_refreshed
-        } else {
-            crate::utils::now().ok()
-        };
+    pub fn set_channel_refresh_state(&mut self, channel_id: &str, refresh_state: RefreshState) {
+        if let RefreshState::Completed = refresh_state {
+            let now = crate::utils::now().ok();
 
-        if let Err(e) = database::set_last_refreshed_field(&self.conn, channel_id, last_refreshed) {
-            self.set_error_message(&e.to_string());
+            if let Err(e) = database::set_last_refreshed_field(&self.conn, channel_id, now) {
+                self.set_error_message(&e.to_string());
+            }
+        }
+
+        if let Some(channel) = self.channels.get_mut_by_id(channel_id) {
+            channel.refresh_state = refresh_state;
         }
     }
 
