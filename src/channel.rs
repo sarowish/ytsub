@@ -3,6 +3,7 @@ use serde::{de, Deserialize};
 use serde_json::Value;
 use std::fmt::Display;
 
+#[derive(Clone, Copy)]
 pub enum RefreshState {
     ToBeRefreshed,
     Refreshing,

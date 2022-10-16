@@ -479,16 +479,22 @@ impl App {
     }
 
     pub fn set_channel_refresh_state(&mut self, channel_id: &str, refresh_state: RefreshState) {
+        let mut channel = self.channels.get_mut_by_id(channel_id);
+
+        if let Some(channel) = channel.as_deref_mut() {
+            channel.refresh_state = refresh_state;
+        }
+
         if let RefreshState::Completed = refresh_state {
             let now = crate::utils::now().ok();
+
+            if let Some(channel) = channel {
+                channel.last_refreshed = now;
+            }
 
             if let Err(e) = database::set_last_refreshed_field(&self.conn, channel_id, now) {
                 self.set_error_message(&e.to_string());
             }
-        }
-
-        if let Some(channel) = self.channels.get_mut_by_id(channel_id) {
-            channel.refresh_state = refresh_state;
         }
     }
 
