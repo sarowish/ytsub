@@ -188,7 +188,7 @@ fg = "Green"
 "o" = "open_in_browser" # Open channel or video in browser
 "p" = "play_video" # Play selected video in a video player (default: mpv)
 "m" = "toggle_watched" # Mark/unmark selected video as watched
-"ctrl+h" = "toggle_help" # Toggle help window
+"ctrl-h" = "toggle_help" # Toggle help window
 "T" = "toggle_tag" # Toggle tag window
 "q ctrl-c" = "quit" # Quit application
 
