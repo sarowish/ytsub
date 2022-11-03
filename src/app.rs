@@ -1001,21 +1001,22 @@ impl App {
     }
 
     pub fn enter_channel_selection(&mut self) {
-        self.input_mode = InputMode::ChannelSelection;
+        if let Some(selected_tag) = &self.tags.get_selected() {
+            self.input_mode = InputMode::ChannelSelection;
 
-        let selected_tag = &self.tags.get_selected().unwrap();
+            let mut all_channels =
+                SelectionList::new(database::get_channels(&self.conn, &[]).unwrap());
 
-        let mut all_channels = SelectionList::new(database::get_channels(&self.conn, &[]).unwrap());
+            let selected_channels = database::get_channels(&self.conn, &[selected_tag]).unwrap();
 
-        let selected_channels = database::get_channels(&self.conn, &[selected_tag]).unwrap();
-
-        for channel in selected_channels {
-            if let Some(c) = all_channels.get_mut_by_id(&channel.channel_id) {
-                c.selected = true;
+            for channel in selected_channels {
+                if let Some(c) = all_channels.get_mut_by_id(&channel.channel_id) {
+                    c.selected = true;
+                }
             }
-        }
 
-        self.channel_selection = all_channels;
+            self.channel_selection = all_channels;
+        }
     }
 
     pub fn update_tag(&mut self) {
