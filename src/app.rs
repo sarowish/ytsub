@@ -42,7 +42,8 @@ pub struct App {
     new_video_ids: HashSet<String>,
     channels_with_new_videos: HashSet<String>,
     search: Search,
-    instance: Instance,
+    pub invidious_instances: Option<Vec<String>>,
+    instance: Option<Instance>,
     pub hide_watched: bool,
     io_tx: Sender<IoEvent>,
     pub channel_selection: SelectionList<Channel>,
@@ -64,7 +65,8 @@ impl App {
             prev_input_mode: InputMode::Normal,
             cursor_position: 0,
             search: Default::default(),
-            instance: Instance::new()?,
+            invidious_instances: crate::utils::read_instances().ok(),
+            instance: None,
             new_video_ids: Default::default(),
             channels_with_new_videos: Default::default(),
             hide_watched: OPTIONS.hide_watched,
@@ -88,6 +90,11 @@ impl App {
         app.set_mode_subs();
         app.load_channels();
         app.on_change_channel();
+        if app.invidious_instances.is_none() {
+            app.dispatch(IoEvent::FetchInstances);
+        } else {
+            app.set_instance()?;
+        }
 
         app.tags = SelectionList::new(database::get_tags(&app.conn)?);
 
@@ -222,8 +229,8 @@ impl App {
         }
     }
 
-    pub fn instance(&self) -> Instance {
-        self.instance.clone()
+    pub fn instance(&self) -> Option<Instance> {
+        self.instance.as_ref().cloned()
     }
 
     fn find_channel_by_name(&mut self, channel_name: &str) -> Option<usize> {
@@ -357,19 +364,22 @@ impl App {
     }
 
     pub fn open_in_browser(&mut self) {
+        let Some(instance) = &self.instance else {
+            self.set_error_message("No Invidious instances available.");
+            return;
+        };
+
         let url = match self.selected {
             Selected::Channels => match self.get_current_channel() {
-                Some(current_channel) => format!(
-                    "{}/channel/{}",
-                    self.instance.domain, current_channel.channel_id
-                ),
+                Some(current_channel) => {
+                    format!("{}/channel/{}", instance.domain, current_channel.channel_id)
+                }
                 None => return,
             },
             Selected::Videos => match self.get_current_video() {
-                Some(current_video) => format!(
-                    "{}/watch?v={}",
-                    self.instance.domain, current_video.video_id
-                ),
+                Some(current_video) => {
+                    format!("{}/watch?v={}", instance.domain, current_video.video_id)
+                }
                 None => return,
             },
         };
@@ -915,14 +925,27 @@ impl App {
     }
 
     pub fn subscribe_to_channel(&mut self, channel_id: String) {
-        self.dispatch(IoEvent::SubscribeToChannel(channel_id));
+        if self.instance.is_some() {
+            self.dispatch(IoEvent::SubscribeToChannel(channel_id));
+        } else {
+            self.set_error_message("No Invidious instances available.");
+        }
     }
 
     pub fn subscribe_to_channels(&mut self) {
-        self.dispatch(IoEvent::SubscribeToChannels);
+        if self.instance.is_some() {
+            self.dispatch(IoEvent::SubscribeToChannels);
+        } else {
+            self.set_error_message("No Invidious instances available.");
+        }
     }
 
     pub fn refresh_channel(&mut self) {
+        if self.instance.is_none() {
+            self.set_error_message("No Invidious instances available.");
+            return;
+        }
+
         if let Some(current_channel) = self.get_current_channel() {
             let channel_id = current_channel.channel_id.clone();
             self.dispatch(IoEvent::RefreshChannel(channel_id));
@@ -930,16 +953,22 @@ impl App {
     }
 
     pub fn refresh_channels(&mut self) {
-        self.dispatch(IoEvent::RefreshChannels(false));
+        if self.instance.is_some() {
+            self.dispatch(IoEvent::RefreshChannels(false));
+        } else {
+            self.set_error_message("No Invidious instances available.");
+        }
     }
 
-    pub fn change_instance(&mut self) -> Result<()> {
-        self.instance = Instance::new()?;
+    pub fn set_instance(&mut self) -> Result<()> {
+        if let Some(invidious_instances) = &self.invidious_instances {
+            self.instance = Some(Instance::new(invidious_instances)?);
+        }
         Ok(())
     }
 
     pub fn refresh_failed_channels(&mut self) {
-        if let Err(e) = self.change_instance() {
+        if let Err(e) = self.set_instance() {
             self.set_error_message(&format!("Couldn't change instance: {}", e));
             return;
         }

@@ -177,6 +177,7 @@ pub enum IoEvent {
     SubscribeToChannels,
     RefreshChannel(String),
     RefreshChannels(bool),
+    FetchInstances,
     ClearMessage(u64),
 }
 
@@ -192,6 +193,22 @@ async fn async_io_loop(
             IoEvent::RefreshChannel(channel_id) => refresh_channel(&app, channel_id).await,
             IoEvent::RefreshChannels(refresh_failed) => {
                 refresh_channels(&app, refresh_failed).await?
+            }
+            IoEvent::FetchInstances => {
+                app.lock().unwrap().set_message("Fetching instances");
+
+                match utils::fetch_invidious_instances() {
+                    Ok(instances) => {
+                        app.lock().unwrap().invidious_instances = Some(instances);
+                        app.lock().unwrap().message.clear_message();
+                        app.lock().unwrap().set_instance()?;
+                    }
+                    Err(e) => {
+                        app.lock()
+                            .unwrap()
+                            .set_error_message(&format!("Couldn't fetch instances: {}", e));
+                    }
+                }
             }
             IoEvent::ClearMessage(duration_seconds) => clear_message(&app, duration_seconds).await,
         }
@@ -226,7 +243,7 @@ async fn subscribe_to_channel(app: &Arc<Mutex<App>>, channel_id: String) {
         return;
     }
 
-    let instance = app.lock().unwrap().instance();
+    let instance = app.lock().unwrap().instance().unwrap();
     app.lock().unwrap().set_message("Subscribing to channel");
     let app = app.clone();
     tokio::task::spawn(async move {
@@ -262,7 +279,7 @@ async fn subscribe_to_channels(app: &Arc<Mutex<App>>) -> Result<()> {
         count.lock().unwrap(),
         total
     ));
-    let instance = app.lock().unwrap().instance();
+    let instance = app.lock().unwrap().instance().unwrap();
     let streams = futures_util::stream::iter(channel_ids).map(|channel_id| {
         let instance = instance.clone();
         app.lock()
@@ -333,7 +350,7 @@ async fn subscribe_to_channels(app: &Arc<Mutex<App>>) -> Result<()> {
             app.import_state.state.select(Some(0));
         }
 
-        if let Err(e) = app.change_instance() {
+        if let Err(e) = app.set_instance() {
             app.set_error_message(&format!("Couldn't change instance: {}", e));
         }
 
@@ -346,7 +363,7 @@ async fn subscribe_to_channels(app: &Arc<Mutex<App>>) -> Result<()> {
 }
 async fn refresh_channel(app: &Arc<Mutex<App>>, channel_id: String) {
     let now = std::time::Instant::now();
-    let instance = app.lock().unwrap().instance();
+    let instance = app.lock().unwrap().instance().unwrap();
     app.lock()
         .unwrap()
         .set_channel_refresh_state(&channel_id, RefreshState::Refreshing);
@@ -410,7 +427,7 @@ async fn refresh_channels(app: &Arc<Mutex<App>>, refresh_failed: bool) -> Result
         count.lock().unwrap(),
         total
     ));
-    let instance = app.lock().unwrap().instance();
+    let instance = app.lock().unwrap().instance().unwrap();
     let streams = futures_util::stream::iter(channel_ids).map(|channel_id| {
         let instance = instance.clone();
         app.lock()

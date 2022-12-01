@@ -1,7 +1,5 @@
 use crate::channel::Video;
-use crate::utils;
 use crate::OPTIONS;
-use anyhow::Context;
 use anyhow::Result;
 use rand::prelude::*;
 use rand::thread_rng;
@@ -47,13 +45,7 @@ pub struct Instance {
 }
 
 impl Instance {
-    pub fn new() -> Result<Self> {
-        let invidious_instances = match utils::read_instances() {
-            Ok(instances) => instances,
-            Err(_) => {
-                utils::fetch_invidious_instances().with_context(|| "No instances available")?
-            }
-        };
+    pub fn new(invidious_instances: &[String]) -> Result<Self> {
         let mut rng = thread_rng();
         let domain = invidious_instances[rng.gen_range(0..invidious_instances.len())].to_string();
         let agent = AgentBuilder::new()
