@@ -45,7 +45,7 @@ const TAG_DESCRIPTIONS: [&str; TAG_DESCRIPTIONS_LEN] = [
     " - Create tag, ",
     " - Delete tag, ",
     " - Rename tag, ",
-    " - Modify channels, ",
+    " - Pick channels, ",
     " - Toggle, ",
     " - Select all, ",
     " - Deselect all",
