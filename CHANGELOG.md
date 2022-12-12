@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 ### Added
 - Fetch instances from api.invidious.io after starting the tui.
+- Hide barely visable columns.
 
 ### Changed
 - Change `modify channels` help text to `pick channels`

@@ -144,6 +144,27 @@ impl<'a, T, S: State> TitleBuilder<'a, T, S> {
     }
 }
 
+fn filter_columns(constraints: &[(Constraint, u16)], mut avaiable_width: u16) -> Vec<Constraint> {
+    constraints
+        .iter()
+        .filter_map(|(constraint, min_width)| match constraint {
+            Constraint::Percentage(perc) => {
+                avaiable_width = avaiable_width.saturating_sub((avaiable_width * perc) / 100);
+                Some(*constraint)
+            }
+            Constraint::Min(width) => {
+                if *min_width >= avaiable_width {
+                    None
+                } else {
+                    avaiable_width = avaiable_width.saturating_sub(*width);
+                    Some(*constraint)
+                }
+            }
+            _ => panic!(),
+        })
+        .collect()
+}
+
 pub fn draw<B: Backend>(f: &mut Frame<B>, app: &mut App) {
     let (main_layout, footer) = if app.is_footer_active() {
         let chunks = Layout::default()
@@ -233,8 +254,25 @@ fn draw_channels<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
 }
 
 fn draw_videos<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
-    let (video_area, video_info_area) = if (matches!(app.mode, Mode::LatestVideos if area.width < 140)
-        || matches!(app.mode, Mode::Subscriptions if area.width < 117))
+    const COLUMN_SPACING: u16 = 2;
+    const COLUMN_CONSTRAINTS: &[(Constraint, u16); 4] = &[
+        (Constraint::Percentage(15), 0),
+        (Constraint::Min(90), 0),
+        (Constraint::Min(20), 4),
+        (Constraint::Min(30), 11),
+    ];
+
+    let column_constraints = match app.mode {
+        Mode::LatestVideos => &COLUMN_CONSTRAINTS[0..],
+        Mode::Subscriptions => &COLUMN_CONSTRAINTS[1..],
+    };
+    let shown_column_constraints = filter_columns(
+        column_constraints,
+        area.width
+            .saturating_sub((column_constraints.len() as u16 - 1) * COLUMN_SPACING),
+    );
+
+    let (video_area, video_info_area) = if shown_column_constraints.len() < column_constraints.len()
         && app.get_current_video().is_some()
     {
         let chunks = Layout::default()
@@ -245,6 +283,7 @@ fn draw_videos<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
     } else {
         (area, None)
     };
+
     let videos = app
         .videos
         .items
@@ -312,19 +351,7 @@ fn draw_videos<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
             .style(THEME.header),
         )
         .column_spacing(2)
-        .widths(match app.mode {
-            Mode::Subscriptions => &[
-                Constraint::Min(90),
-                Constraint::Min(20),
-                Constraint::Min(30),
-            ],
-            Mode::LatestVideos => &[
-                Constraint::Percentage(15),
-                Constraint::Min(90),
-                Constraint::Min(20),
-                Constraint::Min(30),
-            ],
-        })
+        .widths(&shown_column_constraints)
         .highlight_symbol(&OPTIONS.highlight_symbol)
         .highlight_style({
             let mut style = match app.selected {
@@ -344,7 +371,9 @@ fn draw_videos<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
             }
             style
         });
+
     f.render_stateful_widget(videos, video_area, &mut app.videos.state);
+
     if let Some(area) = video_info_area {
         draw_video_info(f, app, area);
     }
