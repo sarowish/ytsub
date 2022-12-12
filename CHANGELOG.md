@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - No longer crashes if no tag is selected when trying to modify channels of a tag.
+- Reload channels when a tag is deleted.
 
 ## [0.3.1] - 2022-10-16
 ### Fixed

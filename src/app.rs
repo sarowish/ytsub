@@ -211,6 +211,24 @@ impl App {
         }
     }
 
+    fn reload_channels(&mut self) {
+        let id_of_current_channel = self
+            .get_current_channel()
+            .map(|channel| channel.channel_id.clone());
+
+        self.load_channels();
+
+        if let Some(id) = id_of_current_channel {
+            if let Some(index) = self.channels.find_by_id(&id) {
+                self.channels.select_with_index(index);
+            } else {
+                self.channels.check_bounds();
+            };
+        }
+
+        self.on_change_channel();
+    }
+
     pub fn set_mode_subs(&mut self) {
         if !matches!(self.mode, Mode::Subscriptions) {
             self.mode = Mode::Subscriptions;
@@ -1063,21 +1081,7 @@ impl App {
         )
         .unwrap();
 
-        let id_of_current_channel = self
-            .get_current_channel()
-            .map(|channel| channel.channel_id.clone());
-
-        self.load_channels();
-
-        if let Some(id) = id_of_current_channel {
-            if let Some(index) = self.channels.find_by_id(&id) {
-                self.channels.select_with_index(index);
-            } else {
-                self.channels.check_bounds();
-            };
-        }
-
-        self.on_change_channel();
+        self.reload_channels();
 
         self.input_mode = InputMode::Tag;
     }
@@ -1113,7 +1117,10 @@ impl App {
                 return;
             }
 
-            self.tags.items.remove(idx);
+            if self.tags.items.remove(idx).selected {
+                self.reload_channels();
+            }
+
             self.tags.check_bounds();
         }
     }
