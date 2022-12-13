@@ -381,7 +381,7 @@ impl App {
         }
     }
 
-    pub fn open_in_browser(&mut self) {
+    pub fn open_in_invidious(&mut self) {
         let Some(instance) = &self.instance else {
             self.set_error_message("No Invidious instances available.");
             return;
@@ -402,7 +402,32 @@ impl App {
             },
         };
 
-        let browser_process = || webbrowser::open(&url);
+        self.open_in_browser(&url);
+    }
+
+    pub fn open_in_youtube(&mut self) {
+        const YOUTUBE_URL: &str = "https://www.youtube.com";
+
+        let url = match self.selected {
+            Selected::Channels => match self.get_current_channel() {
+                Some(current_channel) => {
+                    format!("{}/channel/{}", YOUTUBE_URL, current_channel.channel_id)
+                }
+                None => return,
+            },
+            Selected::Videos => match self.get_current_video() {
+                Some(current_video) => {
+                    format!("{}/watch?v={}", YOUTUBE_URL, current_video.video_id)
+                }
+                None => return,
+            },
+        };
+
+        self.open_in_browser(&url);
+    }
+
+    pub fn open_in_browser(&mut self, url: &str) {
+        let browser_process = || webbrowser::open(url);
 
         #[cfg(unix)]
         let res = self.run_detached(browser_process);
