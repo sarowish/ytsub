@@ -67,7 +67,7 @@ Options:
   -V, --version                             Print version information
 ```
 
-For default key bindings, press `ctrl+h` in the app or refer to
+For default key bindings, press `ctrl-h` in the app or refer to
 the [example `config.toml` file](#example-configtoml-with-default-values).
 
 ## Configuration
