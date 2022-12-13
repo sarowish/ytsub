@@ -113,6 +113,9 @@ hide_watched = false # Hide watched videos by default
 # bg = "10, 250, 99"
 # modifiers = "bold reversed italic"
 
+# Example with alternative syntax:
+# title = { fg = "#123456", bg = "10, 250, 99", modifiers = "bold reversed italic" }
+
 # Block titles
 [title]
 fg = "Cyan"
