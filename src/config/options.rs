@@ -37,7 +37,7 @@ impl Options {
             self.tick_rate = *tick_rate;
         }
 
-        if let Some(request_timeout) = CLAP_ARGS.get_one::<u64>("instances") {
+        if let Some(request_timeout) = CLAP_ARGS.get_one::<u64>("request_timeout") {
             self.request_timeout = *request_timeout;
         }
 

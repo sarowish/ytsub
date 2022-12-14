@@ -16,9 +16,7 @@ pub fn get_config_dir() -> Result<PathBuf> {
         Some(path) => path.join(PACKAGE_NAME),
         None => bail!("Couldn't find config directory"),
     };
-    if !path.exists() {
-        std::fs::create_dir_all(&path)?;
-    }
+
     Ok(path)
 }
 
@@ -59,6 +57,12 @@ pub fn get_default_instances_file() -> Result<PathBuf> {
 pub fn generate_instances_file() -> Result<()> {
     let instances = fetch_invidious_instances()?;
     let instances_file_path = &CONFIG.options.instances;
+    let instances_dir = instances_file_path.parent().unwrap();
+
+    if !instances_dir.exists() {
+        std::fs::create_dir_all(instances_dir)?;
+    }
+
     let mut file = File::create(instances_file_path.as_path())?;
     println!(
         "Generated \"{}\" with the following instances:",
