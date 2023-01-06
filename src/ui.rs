@@ -144,19 +144,19 @@ impl<'a, T, S: State> TitleBuilder<'a, T, S> {
     }
 }
 
-fn filter_columns(constraints: &[(Constraint, u16)], mut avaiable_width: u16) -> Vec<Constraint> {
+fn filter_columns(constraints: &[(Constraint, u16)], mut available_width: u16) -> Vec<Constraint> {
     constraints
         .iter()
         .filter_map(|(constraint, min_width)| match constraint {
             Constraint::Percentage(perc) => {
-                avaiable_width = avaiable_width.saturating_sub((avaiable_width * perc) / 100);
+                available_width = available_width.saturating_sub((available_width * perc) / 100);
                 Some(*constraint)
             }
             Constraint::Min(width) => {
-                if *min_width >= avaiable_width {
+                if *min_width >= available_width {
                     None
                 } else {
-                    avaiable_width = avaiable_width.saturating_sub(*width);
+                    available_width = available_width.saturating_sub(*width);
                     Some(*constraint)
                 }
             }
