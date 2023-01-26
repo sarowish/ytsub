@@ -560,7 +560,7 @@ fn draw_list_with_help<T: crate::channel::ListItem + Display, B: Backend>(
         .max(help_text_width) as u16
         + RIGHT_PADDING;
 
-    let frame_height = f.size().height as u16;
+    let frame_height = f.size().height;
     let max_height = if frame_height <= item_texts.len() as u16 + VER_MARGIN + 3 {
         frame_height.saturating_sub(VER_MARGIN)
     } else {

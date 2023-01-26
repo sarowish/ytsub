@@ -37,7 +37,7 @@ impl Config {
             None => utils::get_config_dir()?.join(CONFIG_FILE),
         };
 
-        let mut config = match fs::read_to_string(&config_file) {
+        let mut config = match fs::read_to_string(config_file) {
             Ok(config_str) if !CLAP_ARGS.get_flag("no_config") => {
                 Self::try_from(toml::from_str::<UserConfig>(&config_str)?)?
             }
