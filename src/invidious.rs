@@ -5,8 +5,18 @@ use rand::prelude::*;
 use rand::thread_rng;
 use serde::Deserialize;
 use serde_json::Value;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::time::Duration;
 use ureq::{Agent, AgentBuilder};
+
+#[derive(Deserialize, PartialEq, Debug)]
+#[serde(rename_all(deserialize = "lowercase"))]
+pub enum ChannelTab {
+    Videos,
+    Shorts,
+    Streams,
+}
 
 #[derive(Deserialize)]
 pub struct ChannelFeed {
@@ -20,21 +30,26 @@ pub struct ChannelFeed {
 
 impl From<Value> for ChannelFeed {
     fn from(mut value: Value) -> Self {
-        let channel_title = value.get("author");
+        let mut channel_feed = Self {
+            channel_title: None,
+            channel_id: None,
+            videos: Vec::new(),
+        };
 
-        if let Some(channel_title) = channel_title {
-            Self {
-                channel_title: Some(channel_title.as_str().unwrap().to_string()),
-                channel_id: Some(value.get("authorId").unwrap().as_str().unwrap().to_string()),
-                videos: Video::vec_from_json(value["latestVideos"].take()),
-            }
+        let videos = if value["videos"].is_null() {
+            value
         } else {
-            Self {
-                channel_title: None,
-                channel_id: None,
-                videos: Video::vec_from_json(value),
-            }
+            value["videos"].take()
+        };
+
+        if let Some(video) = videos.get(0) {
+            channel_feed.channel_title =
+                Some(video.get("author").unwrap().as_str().unwrap().to_string());
+
+            channel_feed.videos = Video::vec_from_json(videos);
         }
+
+        channel_feed
     }
 }
 
@@ -42,6 +57,7 @@ impl From<Value> for ChannelFeed {
 pub struct Instance {
     pub domain: String,
     agent: Agent,
+    old_version: Arc<AtomicBool>,
 }
 
 impl Instance {
@@ -51,38 +67,147 @@ impl Instance {
         let agent = AgentBuilder::new()
             .timeout(Duration::from_secs(OPTIONS.request_timeout))
             .build();
-        Ok(Self { domain, agent })
+
+        Ok(Self {
+            domain,
+            agent,
+            old_version: Arc::new(AtomicBool::new(false)),
+        })
     }
 
-    pub fn get_videos_of_channel(&self, channel_id: &str) -> Result<ChannelFeed> {
-        let url = format!("{}/api/v1/channels/{}", self.domain, channel_id);
-        Ok(ChannelFeed::from(self
+    pub fn get_videos_for_the_first_time(&mut self, channel_id: &str) -> Result<ChannelFeed> {
+        let mut channel_feed;
+        let url = format!("{}/api/v1/channels/{}/videos", self.domain, channel_id,);
+        let response = self
             .agent
             .get(&url)
             .query(
                 "fields",
-                "author,authorId,latestVideos(title,videoId,published,lengthSeconds,isUpcoming,premiereTimestamp)",
+                if self.old_version.load(Ordering::SeqCst) {
+                    "author,title,videoId,published,lengthSeconds,isUpcoming,premiereTimestamp"
+                }
+                else {
+                    "videos(author,title,videoId,published,lengthSeconds,isUpcoming,premiereTimestamp)"
+                },
             )
-            .call()?
-            .into_json::<Value>()?))
+            .call();
+
+        match response {
+            Ok(response) => channel_feed = ChannelFeed::from(response.into_json::<Value>()?),
+            Err(e) => {
+                // if the error code is 400, retry with the old api
+                if let ureq::Error::Status(400, _) = e {
+                    self.old_version.store(true, Ordering::SeqCst);
+                    return self.get_videos_for_the_first_time(channel_id);
+                } else {
+                    return Err(anyhow::anyhow!(e));
+                }
+            }
+        }
+
+        channel_feed.channel_id = Some(channel_id.to_string());
+
+        if !self.old_version.load(Ordering::SeqCst) {
+            if !OPTIONS.videos_tab {
+                channel_feed.videos.drain(..);
+            }
+
+            if OPTIONS.shorts_tab {
+                if let Ok(videos) = self.get_tab_of_channel(channel_id, ChannelTab::Shorts) {
+                    channel_feed.videos.extend(videos);
+                }
+            }
+
+            if OPTIONS.streams_tab {
+                if let Ok(videos) = self.get_tab_of_channel(channel_id, ChannelTab::Streams) {
+                    channel_feed.videos.extend(videos);
+                }
+            }
+        }
+
+        Ok(channel_feed)
     }
 
-    pub fn get_latest_videos_of_channel(&self, channel_id: &str) -> Result<ChannelFeed> {
-        let url = format!("{}/api/v1/channels/latest/{}", self.domain, channel_id);
-        let mut res = ChannelFeed::from(
-            self.agent
-                .get(&url)
-                .query(
-                    "fields",
-                    "title,videoId,published,lengthSeconds,isUpcoming,premiereTimestamp",
-                )
-                .call()?
-                .into_json::<Value>()?,
+    fn get_tab_of_channel(&self, channel_id: &str, tab: ChannelTab) -> Result<Vec<Video>> {
+        let url = format!(
+            "{}/api/v1/channels/{}/{}",
+            self.domain,
+            channel_id,
+            match tab {
+                ChannelTab::Videos => "",
+                ChannelTab::Shorts => "shorts",
+                ChannelTab::Streams => "streams",
+            }
         );
 
-        res.channel_id = Some(channel_id.to_string());
+        let mut value = self
+            .agent
+            .get(&url)
+            .query(
+                "fields",
+                &format!(
+                    "{}(title,videoId,published,lengthSeconds,isUpcoming,premiereTimestamp)",
+                    match tab {
+                        ChannelTab::Videos => "latestVideos",
+                        _ => "videos",
+                    },
+                ),
+            )
+            .call()?
+            .into_json::<Value>()?;
 
-        Ok(res)
+        let videos_array = match tab {
+            ChannelTab::Videos => value["latestVideos"].take(),
+            _ => value["videos"].take(),
+        };
+
+        if let Some(video) = videos_array.get(0) {
+            // if the key doesn't exist, assume that the tab is not available
+            if video.get("videoId").is_none() {
+                return Ok(Vec::new());
+            }
+        }
+
+        Ok(Video::vec_from_json(videos_array))
+    }
+
+    pub fn get_videos_of_channel(&mut self, channel_id: &str) -> Result<ChannelFeed> {
+        let mut channel_feed = ChannelFeed {
+            channel_title: None,
+            channel_id: Some(channel_id.to_string()),
+            videos: Vec::new(),
+        };
+
+        if OPTIONS.videos_tab {
+            if let Ok(videos) = self.get_tab_of_channel(channel_id, ChannelTab::Videos) {
+                channel_feed.videos.extend(videos);
+            }
+        }
+
+        let old_version = self.old_version.load(Ordering::SeqCst);
+
+        if OPTIONS.shorts_tab && !old_version {
+            match self.get_tab_of_channel(channel_id, ChannelTab::Shorts) {
+                Ok(videos) => channel_feed.videos.extend(videos),
+                Err(e) => {
+                    // if the error code is 500 don't try to fetch shorts and streams tabs
+                    if let Some(ureq::Error::Status(500, _)) = e.downcast_ref::<ureq::Error>() {
+                        self.old_version.store(true, Ordering::SeqCst);
+                        return self.get_videos_of_channel(channel_id);
+                    } else {
+                        return Err(anyhow::anyhow!(e));
+                    }
+                }
+            }
+        }
+
+        if OPTIONS.streams_tab && !old_version {
+            if let Ok(videos) = self.get_tab_of_channel(channel_id, ChannelTab::Streams) {
+                channel_feed.videos.extend(videos);
+            }
+        }
+
+        Ok(channel_feed)
     }
 
     pub fn get_rss_feed_of_channel(&self, channel_id: &str) -> Result<ChannelFeed> {

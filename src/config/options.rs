@@ -1,4 +1,4 @@
-use crate::CLAP_ARGS;
+use crate::{invidious::ChannelTab, CLAP_ARGS};
 use serde::Deserialize;
 use std::path::PathBuf;
 
@@ -6,6 +6,7 @@ use std::path::PathBuf;
 pub struct UserOptions {
     pub database: Option<PathBuf>,
     pub instances: Option<PathBuf>,
+    pub tabs: Option<Vec<ChannelTab>>,
     pub tick_rate: Option<u64>,
     pub request_timeout: Option<u64>,
     pub highlight_symbol: Option<String>,
@@ -16,6 +17,9 @@ pub struct UserOptions {
 pub struct Options {
     pub database: PathBuf,
     pub instances: PathBuf,
+    pub videos_tab: bool,
+    pub shorts_tab: bool,
+    pub streams_tab: bool,
     pub tick_rate: u64,
     pub request_timeout: u64,
     pub highlight_symbol: String,
@@ -56,6 +60,9 @@ impl Default for Options {
         Options {
             database: PathBuf::default(),
             instances: PathBuf::default(),
+            videos_tab: true,
+            shorts_tab: false,
+            streams_tab: false,
             tick_rate: 200,
             request_timeout: 5,
             highlight_symbol: String::new(),
@@ -75,6 +82,12 @@ impl From<UserOptions> for Options {
                     options.$name = option;
                 }
             };
+        }
+
+        if let Some(tabs) = user_options.tabs {
+            options.videos_tab = tabs.contains(&ChannelTab::Videos);
+            options.shorts_tab = tabs.contains(&ChannelTab::Shorts);
+            options.streams_tab = tabs.contains(&ChannelTab::Streams);
         }
 
         set_options_field!(database);

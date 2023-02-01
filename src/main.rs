@@ -243,11 +243,12 @@ async fn subscribe_to_channel(app: &Arc<Mutex<App>>, channel_id: String) {
         return;
     }
 
-    let instance = app.lock().unwrap().instance().unwrap();
+    let mut instance = app.lock().unwrap().instance().unwrap();
     app.lock().unwrap().set_message("Subscribing to channel");
     let app = app.clone();
     tokio::task::spawn(async move {
-        let channel_feed = instance.get_videos_of_channel(&channel_id);
+        let channel_feed = instance.get_videos_for_the_first_time(&channel_id);
+
         match channel_feed {
             Ok(channel_feed) => {
                 app.lock().unwrap().message.clear_message();
@@ -281,7 +282,7 @@ async fn subscribe_to_channels(app: &Arc<Mutex<App>>) -> Result<()> {
     ));
     let instance = app.lock().unwrap().instance().unwrap();
     let streams = futures_util::stream::iter(channel_ids).map(|channel_id| {
-        let instance = instance.clone();
+        let mut instance = instance.clone();
         app.lock()
             .unwrap()
             .import_state
@@ -294,8 +295,9 @@ async fn subscribe_to_channels(app: &Arc<Mutex<App>>) -> Result<()> {
             let channel_feed = if total > 125 {
                 instance.get_rss_feed_of_channel(&channel_id)
             } else {
-                instance.get_videos_of_channel(&channel_id)
+                instance.get_videos_for_the_first_time(&channel_id)
             };
+
             match channel_feed {
                 Ok(channel_feed) => {
                     app.lock().unwrap().add_channel(channel_feed);
@@ -363,14 +365,14 @@ async fn subscribe_to_channels(app: &Arc<Mutex<App>>) -> Result<()> {
 }
 async fn refresh_channel(app: &Arc<Mutex<App>>, channel_id: String) {
     let now = std::time::Instant::now();
-    let instance = app.lock().unwrap().instance().unwrap();
+    let mut instance = app.lock().unwrap().instance().unwrap();
     app.lock()
         .unwrap()
         .set_channel_refresh_state(&channel_id, RefreshState::Refreshing);
     app.lock().unwrap().set_message("Refreshing channel");
     let app = app.clone();
     tokio::task::spawn(async move {
-        let channel_feed = match instance.get_latest_videos_of_channel(&channel_id) {
+        let channel_feed = match instance.get_videos_of_channel(&channel_id) {
             Ok(channel_feed) => channel_feed,
             Err(_) => {
                 app.lock()
@@ -429,7 +431,7 @@ async fn refresh_channels(app: &Arc<Mutex<App>>, refresh_failed: bool) -> Result
     ));
     let instance = app.lock().unwrap().instance().unwrap();
     let streams = futures_util::stream::iter(channel_ids).map(|channel_id| {
-        let instance = instance.clone();
+        let mut instance = instance.clone();
         app.lock()
             .unwrap()
             .set_channel_refresh_state(&channel_id, RefreshState::Refreshing);
@@ -439,7 +441,7 @@ async fn refresh_channels(app: &Arc<Mutex<App>>, refresh_failed: bool) -> Result
             let channel_feed = if total > 125 {
                 instance.get_rss_feed_of_channel(&channel_id)
             } else {
-                instance.get_latest_videos_of_channel(&channel_id)
+                instance.get_videos_of_channel(&channel_id)
             };
             match channel_feed {
                 Ok(channel_feed) => {

@@ -90,6 +90,7 @@ Path to the configuration file can be specified with the `-c` flag.
 
 database = "/home/username/.local/share/ytsub/videos.db" # Path to database file
 instances = "/home/username/.config/ytsub/instances" # Path to instances file
+tabs = ["videos"] # Tabs to fetch videos from [possible values: videos, shorts, streams]
 tick_rate = 200 # Tick rate in milliseconds
 request_timeout = 5 # Request timeout in seconds
 highlight_symbol = "" # Symbol to highlight selected items
