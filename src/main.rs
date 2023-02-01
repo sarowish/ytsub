@@ -45,7 +45,7 @@ lazy_static::lazy_static! {
     static ref CONFIG: Config = match Config::new() {
         Ok(config) => config,
         Err(e) => {
-            eprintln!("{:?}", e);
+            eprintln!("{e:?}");
             std::process::exit(1);
         }
     };
@@ -112,7 +112,7 @@ fn main() -> Result<()> {
     reset_terminal()?;
 
     if let Err(e) = res {
-        eprintln!("{:?}", e);
+        eprintln!("{e:?}");
     }
 
     Ok(())
@@ -206,7 +206,7 @@ async fn async_io_loop(
                     Err(e) => {
                         app.lock()
                             .unwrap()
-                            .set_error_message(&format!("Couldn't fetch instances: {}", e));
+                            .set_error_message(&format!("Couldn't fetch instances: {e}"));
                     }
                 }
             }
@@ -256,7 +256,7 @@ async fn subscribe_to_channel(app: &Arc<Mutex<App>>, channel_id: String) {
             Err(e) => {
                 app.lock()
                     .unwrap()
-                    .set_error_message(&format!("Failed to subscribe: {:?}", e));
+                    .set_error_message(&format!("Failed to subscribe: {e:?}"));
             }
         }
     });
@@ -351,7 +351,7 @@ async fn subscribe_to_channels(app: &Arc<Mutex<App>>) -> Result<()> {
         }
 
         if let Err(e) = app.set_instance() {
-            app.set_error_message(&format!("Couldn't change instance: {}", e));
+            app.set_error_message(&format!("Couldn't change instance: {e}"));
         }
 
         for channel in &mut app.import_state.items {
@@ -387,7 +387,7 @@ async fn refresh_channel(app: &Arc<Mutex<App>>, channel_id: String) {
             app.add_videos(channel_feed);
             app.set_channel_refresh_state(&channel_id, RefreshState::Completed);
             let elapsed = now.elapsed();
-            app.set_message_with_default_duration(&format!("Refreshed in {:?}", elapsed));
+            app.set_message_with_default_duration(&format!("Refreshed in {elapsed:?}"));
         }
     });
 }
@@ -473,8 +473,7 @@ async fn refresh_channels(app: &Arc<Mutex<App>>, refresh_failed: bool) -> Result
             .lock()
             .unwrap()
             .set_message_with_default_duration(&format!(
-                "Refreshed {} out of {} channels in {:?}",
-                count, total, elapsed
+                "Refreshed {count} out of {total} channels in {elapsed:?}"
             )),
     }
     Ok(())

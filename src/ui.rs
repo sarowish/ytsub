@@ -463,8 +463,7 @@ fn draw_confirmation_window<B: Backend>(f: &mut Frame<B>, app: &App) {
 
     let channel_name = &app.get_current_channel().unwrap().channel_name;
     let mut text = Paragraph::new(Spans::from(format!(
-        "Are you sure you want to unsubscribe from '{}'?",
-        channel_name
+        "Are you sure you want to unsubscribe from '{channel_name}'?"
     )))
     .alignment(Alignment::Center);
     // program crashes if width is 0 and wrap is enabled

@@ -142,7 +142,7 @@ impl<'a> Help<'a> {
         );
 
         for (keys, _) in help.general.iter_mut() {
-            *keys = format!("{:10}  ", keys);
+            *keys = format!("{keys:10}  ");
         }
 
         help

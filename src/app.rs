@@ -345,7 +345,7 @@ impl App {
                 if let Err(e) = func() {
                     close(pipe_r).unwrap();
                     dup2(pipe_w, 1).unwrap();
-                    println!("{}", e);
+                    println!("{e}");
                     close(pipe_w).unwrap();
                     std::process::exit(101);
                 }
@@ -374,7 +374,7 @@ impl App {
             let res = video_player_process();
 
             if let Err(e) = res {
-                self.set_error_message(&format!("couldn't run \"{}\": {}", video_player, e));
+                self.set_error_message(&format!("couldn't run \"{video_player}\": {e}"));
             } else {
                 self.mark_as_watched();
             }
@@ -435,7 +435,7 @@ impl App {
         let res = browser_process();
 
         if let Err(e) = res {
-            self.set_error_message(&format!("{}", e));
+            self.set_error_message(&format!("{e}"));
         } else if matches!(self.selected, Selected::Videos) {
             self.mark_as_watched();
         }
@@ -963,7 +963,7 @@ impl App {
 
     fn dispatch(&mut self, action: IoEvent) {
         if let Err(e) = self.io_tx.send(action) {
-            self.set_error_message(&format!("Error from dispatch: {}", e));
+            self.set_error_message(&format!("Error from dispatch: {e}"));
         }
     }
 
@@ -1012,7 +1012,7 @@ impl App {
 
     pub fn refresh_failed_channels(&mut self) {
         if let Err(e) = self.set_instance() {
-            self.set_error_message(&format!("Couldn't change instance: {}", e));
+            self.set_error_message(&format!("Couldn't change instance: {e}"));
             return;
         }
 

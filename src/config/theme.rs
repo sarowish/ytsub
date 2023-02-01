@@ -76,16 +76,14 @@ fn str_to_color(color: &str) -> Result<Color> {
         "Reset" => Color::Reset,
         color if color.starts_with('#') => parse_hex(color).with_context(|| {
             format!(
-                "\"{}\" is an invalid hex color. \
-                    It must be of the form \"#xxxxxx\" where every x is a hexadecimal digit.",
-                color
+                "\"{color}\" is an invalid hex color. \
+                    It must be of the form \"#xxxxxx\" where every x is a hexadecimal digit."
             )
         })?,
         color if color.contains(',') => parse_rgb(color).with_context(|| {
             format!(
-                "\"{}\" is an invalid RGB color. \
-                    It must be of the form \"x, x, x\" where every x is an integer from 0 to 255.",
-                color
+                "\"{color}\" is an invalid RGB color. \
+                    It must be of the form \"x, x, x\" where every x is an integer from 0 to 255."
             )
         })?,
         _ => anyhow::bail!(

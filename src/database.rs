@@ -151,7 +151,7 @@ fn build_bulk_stmt<T>(query_type: StatementType, columns: &[&str], values: &[T])
                 "({})",
                 chunk
                     .iter()
-                    .map(|i| format!("?{}", i))
+                    .map(|i| format!("?{i}"))
                     .collect::<Vec<_>>()
                     .join(", ")
             )
@@ -161,37 +161,32 @@ fn build_bulk_stmt<T>(query_type: StatementType, columns: &[&str], values: &[T])
 
     match query_type {
         StatementType::AddVideo => format!(
-            "INSERT OR REPLACE INTO videos ({})
-            VALUES {}
-            ",
-            columns_str, values_string
+            "INSERT OR REPLACE INTO videos ({columns_str})
+            VALUES {values_string}
+            "
         ),
         StatementType::AddToTag => format!(
-            "INSERT INTO tag_relations ({})
-            VALUES {}",
-            columns_str, values_string
+            "INSERT INTO tag_relations ({columns_str})
+            VALUES {values_string}"
         ),
         StatementType::RemoveFromTag => format!(
-            "DELETE FROM tag_relations WHERE ({}) IN ({})",
-            columns_str, values_string
+            "DELETE FROM tag_relations WHERE ({columns_str}) IN ({values_string})"
         ),
         StatementType::GetChannels => format!(
             "SELECT DISTINCT channels.channel_id, channel_name, last_refreshed
             FROM channels, tag_relations
-            WHERE tag_relations.channel_id=channels.channel_id AND tag_relations.tag_name IN ({})
+            WHERE tag_relations.channel_id=channels.channel_id AND tag_relations.tag_name IN ({values_string})
             ORDER BY channel_name COLLATE NOCASE ASC
-            ",
-            values_string
+            "
         ),
         StatementType::GetLatestVideos => format!(
             "SELECT DISTINCT video_id, title, published, length, watched, channel_name
             FROM videos, channels, tag_relations
-            WHERE videos.channel_id = channels.channel_id AND tag_relations.tag_name IN ({})
+            WHERE videos.channel_id = channels.channel_id AND tag_relations.tag_name IN ({values_string})
             AND tag_relations.channel_id=channels.channel_id
             ORDER BY published DESC
             LIMIT 100
-            ",
-            values_string
+            "
         ),
     }
 }

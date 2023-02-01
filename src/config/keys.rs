@@ -150,7 +150,7 @@ where
     for (bindings, command) in user_key_bindings {
         for binding in bindings.split_whitespace() {
             let binding = parse_binding(binding)
-                .with_context(|| format!("Error: failed to parse binding \"{}\"", binding))?;
+                .with_context(|| format!("Error: failed to parse binding \"{binding}\""))?;
             if command.is_empty() {
                 key_bindings.remove(&binding);
             } else {
@@ -158,9 +158,7 @@ where
                     binding,
                     T::try_from(command.as_str())
                         .map_err(|e| anyhow::anyhow!(e))
-                        .with_context(|| {
-                            format!("Error: failed to parse command \"{}\"", command)
-                        })?,
+                        .with_context(|| format!("Error: failed to parse command \"{command}\""))?,
                 );
             }
         }

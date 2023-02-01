@@ -69,8 +69,8 @@ pub fn generate_instances_file() -> Result<()> {
         instances_file_path.display()
     );
     for instance in instances {
-        writeln!(file, "{}", instance)?;
-        println!("{}", instance);
+        writeln!(file, "{instance}")?;
+        println!("{instance}");
     }
     Ok(())
 }
@@ -93,9 +93,9 @@ pub fn as_hhmmss(length: u32) -> String {
     let minutes = (length / 60) % 60;
     let hours = (length / 60) / 60;
     match (hours, minutes, seconds) {
-        (0, 0, _) => format!("0:{:02}", seconds),
-        (0, _, _) => format!("{}:{:02}", minutes, seconds),
-        _ => format!("{}:{:02}:{:02}", hours, minutes, seconds),
+        (0, 0, _) => format!("0:{seconds:02}"),
+        (0, _, _) => format!("{minutes}:{seconds:02}"),
+        _ => format!("{hours}:{minutes:02}:{seconds:02}"),
     }
 }
 
@@ -128,9 +128,9 @@ pub fn published_text(published: u64) -> Result<String> {
         time_frame.push('s');
     }
     Ok(if published > now {
-        format!("Premieres in {} {}", num, time_frame)
+        format!("Premieres in {num} {time_frame}")
     } else {
-        format!("Shared {} {} ago", num, time_frame)
+        format!("Shared {num} {time_frame} ago")
     })
 }
 
