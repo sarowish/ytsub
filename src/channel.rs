@@ -108,16 +108,12 @@ impl Video {
 
 impl From<&Value> for Video {
     fn from(video_json: &Value) -> Self {
-        let is_upcoming = video_json.get("isUpcoming").unwrap().as_bool().unwrap();
-        let mut published = video_json.get("published").unwrap().as_u64().unwrap();
-        let mut length = video_json.get("lengthSeconds").unwrap().as_u64().unwrap();
+        let is_upcoming = video_json["isUpcoming"].as_bool().unwrap();
+        let mut published = video_json["published"].as_u64().unwrap();
+        let mut length = video_json["lengthSeconds"].as_u64().unwrap();
 
         if is_upcoming {
-            let premiere_timestamp = video_json
-                .get("premiereTimestamp")
-                .unwrap()
-                .as_u64()
-                .unwrap();
+            let premiere_timestamp = video_json["premiereTimestamp"].as_u64().unwrap();
 
             // In Invidious API, all shorts are marked as upcoming but the published key needs to be
             // used for the release time. If the premiere timestamp is 0, assume it is a shorts.
@@ -133,18 +129,8 @@ impl From<&Value> for Video {
 
         Video {
             video_type: Default::default(),
-            video_id: video_json
-                .get("videoId")
-                .unwrap()
-                .as_str()
-                .unwrap()
-                .to_string(),
-            title: video_json
-                .get("title")
-                .unwrap()
-                .as_str()
-                .unwrap()
-                .to_string(),
+            video_id: video_json["videoId"].as_str().unwrap().to_string(),
+            title: video_json["title"].as_str().unwrap().to_string(),
             published,
             published_text: Default::default(),
             length: Some(length as u32),

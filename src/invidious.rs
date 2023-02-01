@@ -43,8 +43,7 @@ impl From<Value> for ChannelFeed {
         };
 
         if let Some(video) = videos.get(0) {
-            channel_feed.channel_title =
-                Some(video.get("author").unwrap().as_str().unwrap().to_string());
+            channel_feed.channel_title = Some(video["author"].as_str().unwrap().to_string());
 
             channel_feed.videos = Video::vec_from_json(videos);
         }
