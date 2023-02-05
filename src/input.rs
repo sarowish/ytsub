@@ -55,6 +55,7 @@ fn handle_key_normal_mode(key: KeyEvent, app: &mut App) -> bool {
             Command::SearchBackward => app.search_backward(),
             Command::RepeatLastSearch => app.repeat_last_search(),
             Command::RepeatLastSearchOpposite => app.repeat_last_search_opposite(),
+            Command::SwitchApi => app.switch_api(),
             Command::RefreshChannel => app.refresh_channel(),
             Command::RefreshChannels => app.refresh_channels(),
             Command::RefreshFailedChannels => app.refresh_failed_channels(),

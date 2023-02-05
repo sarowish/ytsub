@@ -33,6 +33,7 @@ lazy_static = "1.4.0"
 csv = "1.1.6"
 quick-xml = { version = "0.25.0", features = ["serialize"] }
 chrono = "0.4.22"
+dyn-clone = "1.0.10"
 
 [target.'cfg(unix)'.dependencies]
 nix = "0.25.0"

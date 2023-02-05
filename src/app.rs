@@ -1,9 +1,10 @@
+use crate::api::invidious::Instance;
+use crate::api::local::Local;
+use crate::api::{Api, ApiBackend, ChannelFeed};
 use crate::channel::{Channel, ListItem, RefreshState, Video, VideoType};
 use crate::help::HelpWindowState;
 use crate::import::{self, ImportItem};
 use crate::input::InputMode;
-use crate::invidious::ChannelFeed;
-use crate::invidious::Instance;
 use crate::message::Message;
 use crate::search::{Search, SearchDirection, SearchState};
 use crate::{database, IoEvent, CLAP_ARGS, OPTIONS};
@@ -43,7 +44,9 @@ pub struct App {
     channels_with_new_videos: HashSet<String>,
     search: Search,
     pub invidious_instances: Option<Vec<String>>,
-    instance: Option<Instance>,
+    invidious_instance: Option<Instance>,
+    local_api: Local,
+    pub selected_api: ApiBackend,
     pub hide_watched: bool,
     io_tx: Sender<IoEvent>,
     pub channel_selection: SelectionList<Channel>,
@@ -66,7 +69,9 @@ impl App {
             cursor_position: 0,
             search: Default::default(),
             invidious_instances: crate::utils::read_instances().ok(),
-            instance: None,
+            invidious_instance: None,
+            local_api: Local::new(),
+            selected_api: OPTIONS.api.clone(),
             new_video_ids: Default::default(),
             channels_with_new_videos: Default::default(),
             hide_watched: OPTIONS.hide_watched,
@@ -90,10 +95,9 @@ impl App {
         app.set_mode_subs();
         app.load_channels();
         app.on_change_channel();
-        if app.invidious_instances.is_none() {
-            app.dispatch(IoEvent::FetchInstances);
-        } else {
-            app.set_instance()?;
+
+        if let ApiBackend::Invidious = app.selected_api {
+            app.set_instance();
         }
 
         app.tags = SelectionList::new(database::get_tags(&app.conn)?);
@@ -247,8 +251,25 @@ impl App {
         }
     }
 
-    pub fn instance(&self) -> Option<Instance> {
-        self.instance.as_ref().cloned()
+    pub fn instance(&self) -> Box<dyn Api> {
+        match self.selected_api {
+            ApiBackend::Invidious => Box::new(self.invidious_instance.as_ref().unwrap().clone()),
+            ApiBackend::Local => Box::new(self.local_api.clone()),
+        }
+    }
+
+    pub fn switch_api(&mut self) {
+        self.selected_api = match self.selected_api {
+            ApiBackend::Local => {
+                if self.invidious_instance.is_none() {
+                    self.set_instance();
+                }
+                ApiBackend::Invidious
+            }
+            _ => ApiBackend::Local,
+        };
+
+        self.set_message_with_default_duration(&format!("Selected API: {}", self.selected_api));
     }
 
     fn find_channel_by_name(&mut self, channel_name: &str) -> Option<usize> {
@@ -382,7 +403,7 @@ impl App {
     }
 
     pub fn open_in_invidious(&mut self) {
-        let Some(instance) = &self.instance else {
+        let Some(instance) = &self.invidious_instance else {
             self.set_error_message("No Invidious instances available.");
             return;
         };
@@ -968,27 +989,14 @@ impl App {
     }
 
     pub fn subscribe_to_channel(&mut self, channel_id: String) {
-        if self.instance.is_some() {
-            self.dispatch(IoEvent::SubscribeToChannel(channel_id));
-        } else {
-            self.set_error_message("No Invidious instances available.");
-        }
+        self.dispatch(IoEvent::SubscribeToChannel(channel_id));
     }
 
     pub fn subscribe_to_channels(&mut self) {
-        if self.instance.is_some() {
-            self.dispatch(IoEvent::SubscribeToChannels);
-        } else {
-            self.set_error_message("No Invidious instances available.");
-        }
+        self.dispatch(IoEvent::SubscribeToChannels);
     }
 
     pub fn refresh_channel(&mut self) {
-        if self.instance.is_none() {
-            self.set_error_message("No Invidious instances available.");
-            return;
-        }
-
         if let Some(current_channel) = self.get_current_channel() {
             let channel_id = current_channel.channel_id.clone();
             self.dispatch(IoEvent::RefreshChannel(channel_id));
@@ -996,24 +1004,20 @@ impl App {
     }
 
     pub fn refresh_channels(&mut self) {
-        if self.instance.is_some() {
-            self.dispatch(IoEvent::RefreshChannels(false));
-        } else {
-            self.set_error_message("No Invidious instances available.");
-        }
+        self.dispatch(IoEvent::RefreshChannels(false));
     }
 
-    pub fn set_instance(&mut self) -> Result<()> {
+    pub fn set_instance(&mut self) {
         if let Some(invidious_instances) = &self.invidious_instances {
-            self.instance = Some(Instance::new(invidious_instances)?);
+            self.invidious_instance = Some(Instance::new(invidious_instances));
+        } else {
+            self.dispatch(IoEvent::FetchInstances);
         }
-        Ok(())
     }
 
     pub fn refresh_failed_channels(&mut self) {
-        if let Err(e) = self.set_instance() {
-            self.set_error_message(&format!("Couldn't change instance: {e}"));
-            return;
+        if let ApiBackend::Invidious = self.selected_api {
+            self.set_instance();
         }
 
         self.dispatch(IoEvent::RefreshChannels(true));

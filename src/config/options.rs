@@ -1,4 +1,7 @@
-use crate::{invidious::ChannelTab, CLAP_ARGS};
+use crate::{
+    api::{ApiBackend, ChannelTab},
+    CLAP_ARGS,
+};
 use serde::Deserialize;
 use std::path::PathBuf;
 
@@ -7,6 +10,7 @@ pub struct UserOptions {
     pub database: Option<PathBuf>,
     pub instances: Option<PathBuf>,
     pub tabs: Option<Vec<ChannelTab>>,
+    pub api: Option<ApiBackend>,
     pub tick_rate: Option<u64>,
     pub request_timeout: Option<u64>,
     pub highlight_symbol: Option<String>,
@@ -20,6 +24,7 @@ pub struct Options {
     pub videos_tab: bool,
     pub shorts_tab: bool,
     pub streams_tab: bool,
+    pub api: ApiBackend,
     pub tick_rate: u64,
     pub request_timeout: u64,
     pub highlight_symbol: String,
@@ -63,6 +68,7 @@ impl Default for Options {
             videos_tab: true,
             shorts_tab: false,
             streams_tab: false,
+            api: ApiBackend::Invidious,
             tick_rate: 200,
             request_timeout: 5,
             highlight_symbol: String::new(),
@@ -92,6 +98,7 @@ impl From<UserOptions> for Options {
 
         set_options_field!(database);
         set_options_field!(instances);
+        set_options_field!(api);
         set_options_field!(tick_rate);
         set_options_field!(request_timeout);
         set_options_field!(highlight_symbol);

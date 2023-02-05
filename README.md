@@ -91,6 +91,7 @@ Path to the configuration file can be specified with the `-c` flag.
 database = "/home/username/.local/share/ytsub/videos.db" # Path to database file
 instances = "/home/username/.config/ytsub/instances" # Path to instances file
 tabs = ["videos"] # Tabs to fetch videos from [possible values: videos, shorts, streams]
+api = "invidious" # API to be used for fetching videos [possible values: invidious, local]
 tick_rate = 200 # Tick rate in milliseconds
 request_timeout = 5 # Request timeout in seconds
 highlight_symbol = "" # Symbol to highlight selected items
@@ -186,6 +187,7 @@ fg = "Green"
 "?" = "search_backward" # Enter editing mode to make a backward search
 "n" = "repeat_last_search" # Search with the latest pattern and direction
 "N" = "repeat_last_search_opposite" # Search with the latest pattern and opposite direction
+"s" = "switch_api" # Switch between the available APIs
 "r" = "refresh_channel" # Refresh videos of the selected channel
 "R" = "refresh_channels" # Refresh videos of every channel
 "F" = "refresh_failed_channels" # Refresh videos of channels which their latest refresh was a failure

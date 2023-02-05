@@ -1,3 +1,4 @@
+mod api;
 mod app;
 mod channel;
 mod cli;
@@ -7,7 +8,6 @@ mod database;
 mod help;
 mod import;
 mod input;
-mod invidious;
 mod message;
 mod search;
 mod ui;
@@ -18,6 +18,7 @@ use crate::config::options::Options;
 use crate::config::theme::Theme;
 use crate::config::Config;
 use anyhow::Result;
+use api::ApiBackend;
 use app::App;
 use channel::RefreshState;
 use clap::ArgMatches;
@@ -201,12 +202,13 @@ async fn async_io_loop(
                     Ok(instances) => {
                         app.lock().unwrap().invidious_instances = Some(instances);
                         app.lock().unwrap().message.clear_message();
-                        app.lock().unwrap().set_instance()?;
+                        app.lock().unwrap().set_instance();
                     }
-                    Err(e) => {
+                    Err(_) => {
+                        app.lock().unwrap().selected_api = ApiBackend::Local;
                         app.lock()
                             .unwrap()
-                            .set_error_message(&format!("Couldn't fetch instances: {e}"));
+                            .set_error_message("Couldn't fetch instances. Switching to Local API.");
                     }
                 }
             }
@@ -243,7 +245,7 @@ async fn subscribe_to_channel(app: &Arc<Mutex<App>>, channel_id: String) {
         return;
     }
 
-    let mut instance = app.lock().unwrap().instance().unwrap();
+    let mut instance = app.lock().unwrap().instance();
     app.lock().unwrap().set_message("Subscribing to channel");
     let app = app.clone();
     tokio::task::spawn(async move {
@@ -280,9 +282,9 @@ async fn subscribe_to_channels(app: &Arc<Mutex<App>>) -> Result<()> {
         count.lock().unwrap(),
         total
     ));
-    let instance = app.lock().unwrap().instance().unwrap();
+    let instance = app.lock().unwrap().instance();
     let streams = futures_util::stream::iter(channel_ids).map(|channel_id| {
-        let mut instance = instance.clone();
+        let mut instance = dyn_clone::clone_box(&*instance);
         app.lock()
             .unwrap()
             .import_state
@@ -352,8 +354,8 @@ async fn subscribe_to_channels(app: &Arc<Mutex<App>>) -> Result<()> {
             app.import_state.state.select(Some(0));
         }
 
-        if let Err(e) = app.set_instance() {
-            app.set_error_message(&format!("Couldn't change instance: {e}"));
+        if let ApiBackend::Invidious = app.selected_api {
+            app.set_instance();
         }
 
         for channel in &mut app.import_state.items {
@@ -365,7 +367,7 @@ async fn subscribe_to_channels(app: &Arc<Mutex<App>>) -> Result<()> {
 }
 async fn refresh_channel(app: &Arc<Mutex<App>>, channel_id: String) {
     let now = std::time::Instant::now();
-    let mut instance = app.lock().unwrap().instance().unwrap();
+    let mut instance = app.lock().unwrap().instance();
     app.lock()
         .unwrap()
         .set_channel_refresh_state(&channel_id, RefreshState::Refreshing);
@@ -429,20 +431,16 @@ async fn refresh_channels(app: &Arc<Mutex<App>>, refresh_failed: bool) -> Result
         count.lock().unwrap(),
         total
     ));
-    let instance = app.lock().unwrap().instance().unwrap();
+    let instance = app.lock().unwrap().instance();
     let streams = futures_util::stream::iter(channel_ids).map(|channel_id| {
-        let mut instance = instance.clone();
+        let mut instance = dyn_clone::clone_box(&*instance);
         app.lock()
             .unwrap()
             .set_channel_refresh_state(&channel_id, RefreshState::Refreshing);
         let app = app.clone();
         let count = count.clone();
         tokio::task::spawn(async move {
-            let channel_feed = if total > 125 {
-                instance.get_rss_feed_of_channel(&channel_id)
-            } else {
-                instance.get_videos_of_channel(&channel_id)
-            };
+            let channel_feed = instance.get_videos_of_channel(&channel_id);
             match channel_feed {
                 Ok(channel_feed) => {
                     let mut app = app.lock().unwrap();

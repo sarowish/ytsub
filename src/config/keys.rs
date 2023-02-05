@@ -99,6 +99,7 @@ impl Default for KeyBindings {
         insert_binding!(general, "?", Command::SearchBackward);
         insert_binding!(general, "n", Command::RepeatLastSearch);
         insert_binding!(general, "N", Command::RepeatLastSearchOpposite);
+        insert_binding!(general, "s", Command::SwitchApi);
         insert_binding!(general, "r", Command::RefreshChannel);
         insert_binding!(general, "R", Command::RefreshChannels);
         insert_binding!(general, "F", Command::RefreshFailedChannels);

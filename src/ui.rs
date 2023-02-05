@@ -302,7 +302,7 @@ fn draw_videos<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
                     if video.new { "[N]" } else { "" }
                 ))),
                 Cell::from(Span::raw(if let Some(length) = video.length {
-                    utils::as_hhmmss(length)
+                    utils::length_as_hhmmss(length)
                 } else {
                     String::new()
                 })),
@@ -394,7 +394,7 @@ fn draw_video_info<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
         Spans::from(format!(
             "length: {}",
             if let Some(length) = current_video.length {
-                utils::as_hhmmss(length)
+                utils::length_as_hhmmss(length)
             } else {
                 String::new()
             }

@@ -88,7 +88,18 @@ pub fn get_default_database_file() -> Result<PathBuf> {
     Ok(get_data_dir()?.join(DATABASE_FILE))
 }
 
-pub fn as_hhmmss(length: u32) -> String {
+pub fn length_as_seconds(length: &str) -> u32 {
+    let mut total = 0;
+
+    for t in length.split(':') {
+        total *= 60;
+        total += t.parse::<u32>().unwrap();
+    }
+
+    total
+}
+
+pub fn length_as_hhmmss(length: u32) -> String {
     let seconds = length % 60;
     let minutes = (length / 60) % 60;
     let hours = (length / 60) / 60;
@@ -105,6 +116,27 @@ const DAY: u64 = 86400;
 const WEEK: u64 = 604800;
 const MONTH: u64 = 2592000;
 const YEAR: u64 = 31536000;
+
+pub fn published(published_text: &str) -> Result<u64> {
+    let (num, time_frame) = {
+        let v: Vec<&str> = published_text.splitn(2, ' ').collect();
+
+        (v[0].parse::<u64>().unwrap(), v[1])
+    };
+
+    let from_now = match &time_frame[..2] {
+        "se" => num,
+        "mi" => num * MINUTE,
+        "ho" => num * HOUR,
+        "da" => num * DAY,
+        "we" => num * WEEK,
+        "mo" => num * MONTH,
+        "ye" => num * YEAR,
+        _ => panic!(),
+    };
+
+    Ok(now()?.saturating_sub(from_now))
+}
 
 pub fn published_text(published: u64) -> Result<String> {
     let now = now()?;
@@ -140,4 +172,27 @@ pub fn now() -> Result<u64> {
 
 pub fn time_passed(time: u64) -> Result<u64> {
     Ok(now()?.saturating_sub(time))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{length_as_hhmmss, length_as_seconds, now, published, published_text};
+
+    #[test]
+    fn length_conversion() {
+        const SECONDS: u32 = 5409;
+        const TEXT: &str = "1:30:09";
+
+        assert_eq!(length_as_hhmmss(SECONDS), TEXT);
+        assert_eq!(length_as_seconds(TEXT), SECONDS);
+    }
+
+    #[test]
+    fn published_conversion() {
+        const TEXT: &str = "5 days ago";
+        let time = now().unwrap().saturating_sub(432000);
+
+        assert_eq!(published(TEXT).unwrap(), time);
+        assert_eq!(published_text(time).unwrap(), "Shared ".to_owned() + TEXT);
+    }
 }
