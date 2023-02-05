@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Hide barely visable columns.
 - `O` key binding opens the channel or video Youtube page in browser.
 - Add Innertube API as an alternative.
+- Make channel refresh threshold and RSS threshold configurable.
 
 ### Changed
 - Change `modify channels` help text to `pick channels`

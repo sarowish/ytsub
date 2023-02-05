@@ -198,8 +198,6 @@ impl Api for Instance {
         let url = format!("{}/feed/channel/{}", self.domain, channel_id);
         let response = self.agent.get(&url).call()?;
 
-        eprintln!("invid");
-
         Ok(quick_xml::de::from_str(&response.into_string()?).unwrap())
     }
 }

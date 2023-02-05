@@ -7,15 +7,17 @@ use std::path::PathBuf;
 
 #[derive(Deserialize)]
 pub struct UserOptions {
-    pub database: Option<PathBuf>,
-    pub instances: Option<PathBuf>,
-    pub tabs: Option<Vec<ChannelTab>>,
-    pub api: Option<ApiBackend>,
-    pub tick_rate: Option<u64>,
-    pub request_timeout: Option<u64>,
-    pub highlight_symbol: Option<String>,
-    pub video_player: Option<String>,
-    pub hide_watched: Option<bool>,
+    database: Option<PathBuf>,
+    instances: Option<PathBuf>,
+    tabs: Option<Vec<ChannelTab>>,
+    api: Option<ApiBackend>,
+    refresh_threshold: Option<u64>,
+    rss_threshold: Option<usize>,
+    tick_rate: Option<u64>,
+    request_timeout: Option<u64>,
+    highlight_symbol: Option<String>,
+    video_player: Option<String>,
+    hide_watched: Option<bool>,
 }
 
 pub struct Options {
@@ -25,6 +27,8 @@ pub struct Options {
     pub shorts_tab: bool,
     pub streams_tab: bool,
     pub api: ApiBackend,
+    pub refresh_threshold: u64,
+    pub rss_threshold: usize,
     pub tick_rate: u64,
     pub request_timeout: u64,
     pub highlight_symbol: String,
@@ -69,6 +73,8 @@ impl Default for Options {
             shorts_tab: false,
             streams_tab: false,
             api: ApiBackend::Invidious,
+            refresh_threshold: 600,
+            rss_threshold: 125,
             tick_rate: 200,
             request_timeout: 5,
             highlight_symbol: String::new(),
@@ -99,6 +105,8 @@ impl From<UserOptions> for Options {
         set_options_field!(database);
         set_options_field!(instances);
         set_options_field!(api);
+        set_options_field!(refresh_threshold);
+        set_options_field!(rss_threshold);
         set_options_field!(tick_rate);
         set_options_field!(request_timeout);
         set_options_field!(highlight_symbol);

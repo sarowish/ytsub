@@ -294,7 +294,7 @@ async fn subscribe_to_channels(app: &Arc<Mutex<App>>) -> Result<()> {
         let app = app.clone();
         let count = count.clone();
         tokio::task::spawn(async move {
-            let channel_feed = if total > 125 {
+            let channel_feed = if total > OPTIONS.rss_threshold {
                 instance.get_rss_feed_of_channel(&channel_id)
             } else {
                 instance.get_videos_for_the_first_time(&channel_id)
@@ -402,7 +402,10 @@ async fn refresh_channels(app: &Arc<Mutex<App>>, refresh_failed: bool) -> Result
     let mut channel_ids = Vec::new();
     for channel in &mut app.lock().unwrap().channels.items {
         if refresh_failed && !matches!(channel.refresh_state, RefreshState::Failed)
-            || matches!(channel.last_refreshed, Some(time) if utils::time_passed(time)? < 600)
+            || matches!(
+                channel.last_refreshed,
+                Some(time) if utils::time_passed(time)? < OPTIONS.refresh_threshold
+            )
         {
             continue;
         }
@@ -440,7 +443,12 @@ async fn refresh_channels(app: &Arc<Mutex<App>>, refresh_failed: bool) -> Result
         let app = app.clone();
         let count = count.clone();
         tokio::task::spawn(async move {
-            let channel_feed = instance.get_videos_of_channel(&channel_id);
+            let channel_feed = if total > OPTIONS.rss_threshold {
+                instance.get_rss_feed_of_channel(&channel_id)
+            } else {
+                instance.get_videos_of_channel(&channel_id)
+            };
+
             match channel_feed {
                 Ok(channel_feed) => {
                     let mut app = app.lock().unwrap();
