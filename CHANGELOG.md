@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Reload channels when a tag is deleted.
 - Don't automatically create config directory unless generating instances file.
 - Handle changes in Invidious API.
+- Ignore `refresh_threshold` when refreshing failed channels.
 
 ## [0.3.1] - 2022-10-16
 ### Fixed

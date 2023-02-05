@@ -402,10 +402,11 @@ async fn refresh_channels(app: &Arc<Mutex<App>>, refresh_failed: bool) -> Result
     let mut channel_ids = Vec::new();
     for channel in &mut app.lock().unwrap().channels.items {
         if refresh_failed && !matches!(channel.refresh_state, RefreshState::Failed)
-            || matches!(
-                channel.last_refreshed,
-                Some(time) if utils::time_passed(time)? < OPTIONS.refresh_threshold
-            )
+            || !refresh_failed
+                && matches!(
+                    channel.last_refreshed,
+                    Some(time) if utils::time_passed(time)? < OPTIONS.refresh_threshold
+                )
         {
             continue;
         }
