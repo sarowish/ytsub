@@ -5,22 +5,35 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [0.4.0] - 2023-02-06
 ### Added
 - Fetch instances from api.invidious.io after starting the tui.
+[`b6236d`](https://github.com/sarowish/ytsub/commit/b6236d)
 - Hide barely visable columns.
+[`0637d7`](https://github.com/sarowish/ytsub/commit/0637d7)
 - `O` key binding opens the channel or video Youtube page in browser.
+[`4ae403`](https://github.com/sarowish/ytsub/commit/4ae403)
 - Add Innertube API as an alternative.
+[`c53db8`](https://github.com/sarowish/ytsub/commit/c53db8)
 - Make channel refresh threshold and RSS threshold configurable.
+[`db3e1c`](https://github.com/sarowish/ytsub/commit/db3e1c)
 
 ### Changed
 - Change `modify channels` help text to `pick channels`
+[`f7d456`](https://github.com/sarowish/ytsub/commit/f7d456)
 
 ### Fixed
 - No longer crashes if no tag is selected when trying to modify channels of a tag.
+[`3b6276`](https://github.com/sarowish/ytsub/commit/3b6276)
 - Reload channels when a tag is deleted.
+[`4a63ae`](https://github.com/sarowish/ytsub/commit/4a63ae)
 - Don't automatically create config directory unless generating instances file.
+[`6ce6ec`](https://github.com/sarowish/ytsub/commit/6ce6ec)
 - Handle changes in Invidious API.
+[`d9ef23`](https://github.com/sarowish/ytsub/commit/d9ef23)
 - Ignore `refresh_threshold` when refreshing failed channels.
+[`bc6bbe`](https://github.com/sarowish/ytsub/commit/bc6bbe)
 
 ## [0.3.1] - 2022-10-16
 ### Fixed

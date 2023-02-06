@@ -1,6 +1,6 @@
 [package]
 name = "ytsub"
-version = "0.3.1"
+version = "0.4.0"
 edition = "2021"
 description = "A subscriptions only TUI Youtube client that uses the Invidious API"
 authors = ["Berke Enercan <berkeenercan@tutanota.com>"]
@@ -11,32 +11,32 @@ keywords = ["youtube", "cli", "tui", "terminal"]
 categories = ["command-line-utilities"]
 
 [dependencies]
-anyhow = "1.0.65"
-clap = "4.0.15"
-crossterm = "0.25.0"
+anyhow = "1.0.69"
+clap = "4.1.4"
+crossterm = "0.26.0"
 dirs = "4.0.0"
-futures-util = "0.3.24"
-num_cpus = "1.13.1"
+futures-util = "0.3.26"
+num_cpus = "1.15.0"
 rand = "0.8.5"
 rusqlite = "0.28.0"
-webbrowser = "0.8.2"
-serde = { version = "1.0.145", features = ["derive"] }
-serde_json = "1.0.86"
-tokio = { version = "1.21.2", features = ["time", "macros", "rt-multi-thread"] }
+webbrowser = "0.8.7"
+serde = { version = "1.0.152", features = ["derive"] }
+serde_json = "1.0.92"
+tokio = { version = "1.25.0", features = ["time", "macros", "rt-multi-thread"] }
 tokio-util = "0.7.4"
 tui = { version = "0.19.0", default-features = false, features = ['crossterm'] }
-ureq = { version = "2.5.0", features = ["json"] }
+ureq = { version = "2.6.2", features = ["json"] }
 unicode-width = "0.1.10"
-unicode-segmentation = "1.10.0"
-toml = "0.5.9"
+unicode-segmentation = "1.10.1"
+toml = "0.7.1"
 lazy_static = "1.4.0"
 csv = "1.1.6"
-quick-xml = { version = "0.25.0", features = ["serialize"] }
-chrono = "0.4.22"
+quick-xml = { version = "0.27.1", features = ["serialize"] }
+chrono = "0.4.23"
 dyn-clone = "1.0.10"
 
 [target.'cfg(unix)'.dependencies]
-nix = "0.25.0"
+nix = "0.26.2"
 
 [features]
 bundled_sqlite = ["rusqlite/bundled"]
