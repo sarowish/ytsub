@@ -1,7 +1,7 @@
 use crate::api::invidious::Instance;
 use crate::api::local::Local;
 use crate::api::{Api, ApiBackend, ChannelFeed};
-use crate::channel::{Channel, ListItem, RefreshState, Video, VideoType};
+use crate::channel::{Channel, ListItem, RefreshState, Video};
 use crate::help::HelpWindowState;
 use crate::import::{self, ImportItem};
 use crate::input::InputMode;
@@ -638,7 +638,7 @@ impl App {
     pub fn jump_to_channel(&mut self) {
         if let Mode::LatestVideos = self.mode {
             if let Some(video) = self.get_current_video() {
-                if let VideoType::LatestVideos(channel_name) = video.video_type.as_ref().unwrap() {
+                if let Some(channel_name) = &video.channel_name {
                     let channel_name = channel_name.clone();
                     let index = self.find_channel_by_name(&channel_name).unwrap();
                     self.mode = Mode::Subscriptions;

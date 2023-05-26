@@ -72,15 +72,10 @@ where
     Ok(date.timestamp() as u64)
 }
 
-pub enum VideoType {
-    Subscriptions,
-    LatestVideos(String),
-}
-
 #[derive(Deserialize)]
 pub struct Video {
     #[serde(skip_deserializing)]
-    pub video_type: Option<VideoType>,
+    pub channel_name: Option<String>,
     #[serde(rename = "videoId")]
     pub video_id: String,
     pub title: String,
@@ -128,7 +123,7 @@ impl From<&Value> for Video {
         }
 
         Video {
-            video_type: Default::default(),
+            channel_name: Default::default(),
             video_id: video_json["videoId"].as_str().unwrap().to_string(),
             title: video_json["title"].as_str().unwrap().to_string(),
             published,

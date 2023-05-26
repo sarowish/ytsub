@@ -1,5 +1,5 @@
 use crate::{
-    channel::{Channel, Video, VideoType},
+    channel::{Channel, Video},
     utils,
 };
 use anyhow::Result;
@@ -273,7 +273,7 @@ pub fn get_videos(conn: &Connection, channel_id: &str) -> Result<Vec<Video>> {
     let mut videos = Vec::new();
     for video in stmt.query_map(params![channel_id], |row| {
         Ok(Video {
-            video_type: Some(VideoType::Subscriptions),
+            channel_name: None,
             video_id: row.get(0)?,
             title: row.get(1)?,
             published: row.get(2)?,
@@ -317,7 +317,7 @@ pub fn get_latest_videos(conn: &Connection, tags: &[&str]) -> Result<Vec<Video>>
 
     for video in stmt.query_map(values, |row| {
         Ok(Video {
-            video_type: Some(VideoType::LatestVideos(row.get(5)?)),
+            channel_name: Some(row.get(5)?),
             video_id: row.get(0)?,
             title: row.get(1)?,
             published: row.get(2)?,

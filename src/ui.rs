@@ -1,5 +1,4 @@
 use crate::app::{App, Mode, Selected, SelectionList, State, StatefulList};
-use crate::channel::VideoType;
 use crate::help::HelpWindowState;
 use crate::input::InputMode;
 use crate::message::MessageType;
@@ -291,7 +290,7 @@ fn draw_videos<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
         .map(|video| {
             let mut columns = Vec::new();
 
-            if let Some(VideoType::LatestVideos(channel_name)) = &video.video_type {
+            if let Some(channel_name) = &video.channel_name {
                 columns.push(Cell::from(Span::raw(channel_name)))
             }
 
@@ -384,10 +383,9 @@ fn draw_video_info<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
     let video_info = Paragraph::new(vec![
         Spans::from(format!(
             "channel: {}",
-            match &current_video.video_type {
-                Some(VideoType::LatestVideos(channel_name)) => channel_name,
-                Some(VideoType::Subscriptions) => &app.get_current_channel().unwrap().channel_name,
-                None => "",
+            match &current_video.channel_name {
+                Some(channel_name) => channel_name,
+                None => &app.get_current_channel().unwrap().channel_name,
             }
         )),
         Spans::from(format!("title: {}", current_video.title)),

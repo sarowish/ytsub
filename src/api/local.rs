@@ -122,7 +122,7 @@ impl Local {
             let length = utils::length_as_seconds(&length);
 
             videos.push(Video {
-                video_type: Default::default(),
+                channel_name: Default::default(),
                 video_id,
                 title,
                 published,
@@ -204,7 +204,7 @@ impl Local {
             }
 
             videos.push(Video {
-                video_type: Default::default(),
+                channel_name: Default::default(),
                 video_id,
                 title,
                 published,
@@ -286,7 +286,7 @@ impl Local {
             };
 
             videos.push(Video {
-                video_type: Default::default(),
+                channel_name: Default::default(),
                 video_id,
                 title,
                 published,
