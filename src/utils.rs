@@ -121,18 +121,31 @@ pub fn published(published_text: &str) -> Result<u64> {
     let (num, time_frame) = {
         let v: Vec<&str> = published_text.splitn(2, ' ').collect();
 
-        (v[0].parse::<u64>().unwrap(), v[1])
+        match v[0].parse::<u64>() {
+            Ok(num) => (num, v[1]),
+            _ => (
+                v[0].trim_end_matches(char::is_alphabetic).parse().unwrap(),
+                v[0].trim_start_matches(char::is_numeric),
+            ),
+        }
     };
 
-    let from_now = match &time_frame[..2] {
-        "se" => num,
-        "mi" => num * MINUTE,
-        "ho" => num * HOUR,
-        "da" => num * DAY,
-        "we" => num * WEEK,
-        "mo" => num * MONTH,
-        "ye" => num * YEAR,
-        _ => panic!(),
+    let from_now = if time_frame.starts_with('s') {
+        num
+    } else if time_frame.starts_with("mi") {
+        num * MINUTE
+    } else if time_frame.starts_with('h') {
+        num * HOUR
+    } else if time_frame.starts_with('d') {
+        num * DAY
+    } else if time_frame.starts_with('w') {
+        num * WEEK
+    } else if time_frame.starts_with("mo") {
+        num * MONTH
+    } else if time_frame.starts_with('y') {
+        num * YEAR
+    } else {
+        panic!()
     };
 
     Ok(now()?.saturating_sub(from_now))
