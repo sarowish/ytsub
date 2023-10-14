@@ -558,12 +558,14 @@ fn draw_list_with_help<T: crate::channel::ListItem + Display, B: Backend>(
         + RIGHT_PADDING;
 
     let frame_height = f.size().height;
-    let max_height = if frame_height <= item_texts.len() as u16 + VER_MARGIN + 3 {
+
+    let mut max_height = item_texts.len() as u16 + help_text_height + 2;
+    max_height = if frame_height <= max_height + VER_MARGIN {
         frame_height.saturating_sub(VER_MARGIN)
     } else {
-        item_texts.len() as u16 + 3
+        max_height
     }
-    .max(4 + VER_MARGIN);
+    .max(10);
 
     let window = popup_window_from_dimensions(max_height, max_width, f.size());
     f.render_widget(Clear, window);

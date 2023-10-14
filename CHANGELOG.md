@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 ### Fixed
 - Handle short forms in published texts.
+- Take help text into account while determining floating window height.
 
 ## [0.4.0] - 2023-02-06
 ### Added
