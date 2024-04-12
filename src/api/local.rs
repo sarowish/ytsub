@@ -69,7 +69,7 @@ impl Local {
         let mut videos = videos.as_array().unwrap().as_slice();
 
         *channel_title = Some(
-            response["header"]["c4TabbedHeaderRenderer"]["title"]
+            response["metadata"]["channelMetadataRenderer"]["title"]
                 .as_str()
                 .unwrap()
                 .to_string(),
