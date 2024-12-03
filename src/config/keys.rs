@@ -1,4 +1,6 @@
-use crate::commands::{ChannelSelectionCommand, Command, ImportCommand, TagCommand};
+use crate::commands::{
+    ChannelSelectionCommand, Command, FormatSelectionCommand, ImportCommand, TagCommand,
+};
 use anyhow::{Context, Result};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use serde::Deserialize;
@@ -12,6 +14,7 @@ pub struct UserKeyBindings {
     import: Option<HashMap<String, String>>,
     tag: Option<HashMap<String, String>>,
     channel_selection: Option<HashMap<String, String>>,
+    format_selection: Option<HashMap<String, String>>,
 }
 
 fn parse_binding(binding: &str) -> Result<KeyEvent> {
@@ -62,6 +65,7 @@ pub struct KeyBindings {
     pub import: HashMap<KeyEvent, ImportCommand>,
     pub tag: HashMap<KeyEvent, TagCommand>,
     pub channel_selection: HashMap<KeyEvent, ChannelSelectionCommand>,
+    pub format_selection: HashMap<KeyEvent, FormatSelectionCommand>,
 }
 
 impl Default for KeyBindings {
@@ -71,6 +75,7 @@ impl Default for KeyBindings {
         let mut import = HashMap::new();
         let mut tag = HashMap::new();
         let mut channel_selection = HashMap::new();
+        let mut format_selection = HashMap::new();
 
         macro_rules! insert_binding {
             ($map: expr, $key: expr, $command: expr) => {
@@ -106,6 +111,8 @@ impl Default for KeyBindings {
         insert_binding!(general, "o", Command::OpenInInvidious);
         insert_binding!(general, "O", Command::OpenInYoutube);
         insert_binding!(general, "p", Command::PlayVideo);
+        insert_binding!(general, "P", Command::PlayFromFormats);
+        insert_binding!(general, "f", Command::SelectFormats);
         insert_binding!(general, "m", Command::ToggleWatched);
         insert_binding!(general, "ctrl-h", Command::ToggleHelp);
         insert_binding!(general, "T", Command::ToggleTag);
@@ -131,11 +138,21 @@ impl Default for KeyBindings {
         insert_binding!(channel_selection, "a", ChannelSelectionCommand::SelectAll);
         insert_binding!(channel_selection, "z", ChannelSelectionCommand::DeselectAll);
 
+        insert_binding!(format_selection, "l", FormatSelectionCommand::NextTab);
+        insert_binding!(format_selection, "right", FormatSelectionCommand::NextTab);
+        insert_binding!(format_selection, "h", FormatSelectionCommand::PreviousTab);
+        insert_binding!(format_selection, "left", FormatSelectionCommand::PreviousTab);
+        insert_binding!(format_selection, "s", FormatSelectionCommand::SwitchFormatType);
+        insert_binding!(format_selection, "space", FormatSelectionCommand::Select);
+        insert_binding!(format_selection, "enter", FormatSelectionCommand::PlayVideo);
+        insert_binding!(format_selection, "escape", FormatSelectionCommand::Abort);
+
         Self {
             general,
             import,
             tag,
             channel_selection,
+            format_selection
         }
     }
 }
@@ -174,20 +191,24 @@ impl TryFrom<UserKeyBindings> for KeyBindings {
     fn try_from(user_key_bindings: UserKeyBindings) -> Result<Self, Self::Error> {
         let mut key_bindings = KeyBindings::default();
 
-        if let Some(general_bindings) = user_key_bindings.general {
-            set_bindings(&mut key_bindings, &general_bindings)?;
+        if let Some(bindings) = user_key_bindings.general {
+            set_bindings(&mut key_bindings, &bindings)?;
         }
 
-        if let Some(import_bindings) = user_key_bindings.import {
-            set_bindings(&mut key_bindings.import, &import_bindings)?;
+        if let Some(bindings) = user_key_bindings.import {
+            set_bindings(&mut key_bindings.import, &bindings)?;
         }
 
-        if let Some(tag_bindings) = user_key_bindings.tag {
-            set_bindings(&mut key_bindings.tag, &tag_bindings)?;
+        if let Some(bindings) = user_key_bindings.tag {
+            set_bindings(&mut key_bindings.tag, &bindings)?;
         }
 
-        if let Some(tag_bindings) = user_key_bindings.channel_selection {
-            set_bindings(&mut key_bindings.channel_selection, &tag_bindings)?;
+        if let Some(bindings) = user_key_bindings.channel_selection {
+            set_bindings(&mut key_bindings.channel_selection, &bindings)?;
+        }
+
+        if let Some(bindings) = user_key_bindings.format_selection {
+            set_bindings(&mut key_bindings.format_selection, &bindings)?;
         }
 
         Ok(key_bindings)
@@ -268,6 +289,7 @@ mod tests {
             import: None,
             tag: None,
             channel_selection: None,
+            format_selection: None,
         };
 
         let general_bindings = user_key_bindings.general.as_mut().unwrap();
@@ -310,6 +332,7 @@ mod tests {
             import: None,
             tag: None,
             channel_selection: None,
+            format_selection: None,
         };
 
         user_key_bindings
@@ -320,9 +343,8 @@ mod tests {
 
         let key_bindings = KeyBindings::try_from(user_key_bindings).unwrap();
 
-        assert!(key_bindings
+        assert!(!key_bindings
             .general
-            .get(&KeyEvent::new(KeyCode::Char('q'), KeyModifiers::NONE))
-            .is_none());
+            .contains_key(&KeyEvent::new(KeyCode::Char('q'), KeyModifiers::NONE)));
     }
 }

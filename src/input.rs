@@ -1,8 +1,11 @@
 use crate::{
     app::App,
-    commands::{ChannelSelectionCommand, Command, ImportCommand, TagCommand},
+    app::VideoPlayer,
+    commands::{
+        ChannelSelectionCommand, Command, FormatSelectionCommand, ImportCommand, TagCommand,
+    },
     help::HelpWindowState,
-    KEY_BINDINGS,
+    KEY_BINDINGS, OPTIONS,
 };
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
@@ -17,6 +20,7 @@ pub enum InputMode {
     TagCreation,
     TagRenaming,
     ChannelSelection,
+    FormatSelection,
 }
 
 pub fn handle_event(key: KeyEvent, app: &mut App) -> bool {
@@ -29,6 +33,7 @@ pub fn handle_event(key: KeyEvent, app: &mut App) -> bool {
         InputMode::Import => return handle_key_import_mode(key, app),
         InputMode::Tag => return handle_key_tag_mode(key, app),
         InputMode::ChannelSelection => return handle_key_channel_selection_mode(key, app),
+        InputMode::FormatSelection => return handle_key_format_selection_mode(key, app),
         _ => handle_key_editing_mode(key, app),
     }
 
@@ -62,6 +67,8 @@ fn handle_key_normal_mode(key: KeyEvent, app: &mut App) -> bool {
             Command::OpenInInvidious => app.open_in_invidious(),
             Command::OpenInYoutube => app.open_in_youtube(),
             Command::PlayVideo => app.play_video(),
+            Command::PlayFromFormats => app.play_from_formats(),
+            Command::SelectFormats => app.enter_format_selection(),
             Command::ToggleWatched => app.toggle_watched(),
             Command::ToggleHelp => app.toggle_help(),
             Command::ToggleTag => app.toggle_tag_selection(),
@@ -184,6 +191,45 @@ fn handle_key_channel_selection_mode(key: KeyEvent, app: &mut App) -> bool {
             Command::OnUp => app.channel_selection.previous(),
             Command::SelectFirst => app.channel_selection.select_first(),
             Command::SelectLast => app.channel_selection.select_last(),
+            Command::SearchForward => app.search_forward(),
+            Command::SearchBackward => app.search_backward(),
+            Command::RepeatLastSearch => app.repeat_last_search(),
+            Command::RepeatLastSearchOpposite => app.repeat_last_search_opposite(),
+            Command::Quit => return true,
+            _ => (),
+        }
+    }
+
+    false
+}
+
+fn handle_key_format_selection_mode(key: KeyEvent, app: &mut App) -> bool {
+    if let Some(command) = KEY_BINDINGS.format_selection.get(&key) {
+        match command {
+            FormatSelectionCommand::PlayVideo => app.confirm_selected_streams(),
+            FormatSelectionCommand::Abort => app.input_mode = InputMode::Normal,
+            FormatSelectionCommand::Select => {
+                let tab_index = app.stream_formats.selected_tab;
+                let formats = app.stream_formats.get_mut_selected_tab();
+
+                if tab_index == 2
+                    && matches!(OPTIONS.video_player_for_stream_formats, VideoPlayer::Mpv)
+                {
+                    formats.toggle_selected()
+                } else {
+                    formats.select()
+                }
+            }
+            FormatSelectionCommand::PreviousTab => app.stream_formats.previous_tab(),
+            FormatSelectionCommand::NextTab => app.stream_formats.next_tab(),
+            FormatSelectionCommand::SwitchFormatType => app.stream_formats.switch_format_type(),
+        }
+    } else if let Some(command) = KEY_BINDINGS.get(&key) {
+        match command {
+            Command::OnDown => app.stream_formats.get_mut_selected_tab().next(),
+            Command::OnUp => app.stream_formats.get_mut_selected_tab().previous(),
+            Command::SelectFirst => app.stream_formats.get_mut_selected_tab().select_first(),
+            Command::SelectLast => app.stream_formats.get_mut_selected_tab().select_last(),
             Command::SearchForward => app.search_forward(),
             Command::SearchBackward => app.search_backward(),
             Command::RepeatLastSearch => app.repeat_last_search(),

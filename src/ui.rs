@@ -1,8 +1,9 @@
-use crate::app::{App, Mode, Selected, SelectionList, State, StatefulList};
+use crate::app::{App, Mode, Selected, State, StatefulList};
 use crate::help::HelpWindowState;
 use crate::input::InputMode;
 use crate::message::MessageType;
 use crate::search::SearchDirection;
+use crate::stream_formats::Formats;
 use crate::{utils, HELP, OPTIONS, THEME};
 use std::fmt::Display;
 use tui::backend::Backend;
@@ -10,7 +11,8 @@ use tui::layout::{Alignment, Constraint, Direction, Layout, Rect};
 use tui::style::{Color, Style};
 use tui::text::{Span, Spans};
 use tui::widgets::{
-    Block, BorderType, Borders, Cell, Clear, List, ListItem, Paragraph, Row, Table, Wrap,
+    Block, BorderType, Borders, Cell, Clear, List, ListItem, ListState, Paragraph, Row, Table,
+    Tabs, Wrap,
 };
 use tui::Frame;
 use unicode_width::UnicodeWidthStr;
@@ -204,6 +206,7 @@ pub fn draw<B: Backend>(f: &mut Frame<B>, app: &mut App) {
             &mut app.channel_selection,
             &HELP.channel_selection,
         ),
+        InputMode::FormatSelection => draw_format_selection(f, &mut app.stream_formats),
         _ => (),
     }
 }
@@ -521,10 +524,56 @@ fn draw_help<B: Backend>(f: &mut Frame<B>, help_window_state: &mut HelpWindowSta
     f.render_widget(help_text, window);
 }
 
-fn draw_list_with_help<T: crate::channel::ListItem + Display, B: Backend>(
+fn draw_format_selection<B: Backend>(f: &mut Frame<B>, stream_formats: &mut Formats) {
+    let tabs = Tabs::new(vec![
+        Spans::from("Video"),
+        Spans::from(Span::styled(
+            "Audio",
+            if stream_formats.use_adaptive_streams {
+                Style::default()
+            } else {
+                THEME.watched
+            },
+        )),
+        Spans::from(Span::styled(
+            "Caption",
+            if stream_formats.captions.items.is_empty() {
+                THEME.watched
+            } else {
+                Style::default()
+            },
+        )),
+    ])
+    .select(stream_formats.selected_tab)
+    .highlight_style(THEME.selected);
+
+    draw_list_with_help_tabs(
+        f,
+        if stream_formats.use_adaptive_streams {
+            "Adaptive Formats".to_string()
+        } else {
+            "Formats".to_string()
+        },
+        Some(tabs),
+        stream_formats.get_mut_selected_tab(),
+        &HELP.format_selection,
+    )
+}
+
+fn draw_list_with_help<T: Display, B: Backend>(
     f: &mut Frame<B>,
     title: String,
-    list: &mut SelectionList<T>,
+    list: &mut StatefulList<T, ListState>,
+    help_entries: &[(String, &str)],
+) {
+    draw_list_with_help_tabs(f, title, None, list, help_entries)
+}
+
+fn draw_list_with_help_tabs<T: Display, B: Backend>(
+    f: &mut Frame<B>,
+    title: String,
+    tabs: Option<Tabs>,
+    list: &mut StatefulList<T, ListState>,
     help_entries: &[(String, &str)],
 ) {
     const VER_MARGIN: u16 = 6;
@@ -558,8 +607,9 @@ fn draw_list_with_help<T: crate::channel::ListItem + Display, B: Backend>(
         + RIGHT_PADDING;
 
     let frame_height = f.size().height;
+    let tabs_height = if tabs.is_some() { 1 } else { 0 };
 
-    let mut max_height = item_texts.len() as u16 + help_text_height + 2;
+    let mut max_height = item_texts.len() as u16 + help_text_height + tabs_height + 2;
     max_height = if frame_height <= max_height + VER_MARGIN {
         frame_height.saturating_sub(VER_MARGIN)
     } else {
@@ -578,12 +628,26 @@ fn draw_list_with_help<T: crate::channel::ListItem + Display, B: Backend>(
     f.render_widget(Block::default().borders(Borders::ALL).title(title), window);
 
     let (entry_area, help_area) = {
-        let chunks = Layout::default()
-            .constraints([Constraint::Min(1), Constraint::Length(help_text_height)])
-            .direction(Direction::Vertical)
-            .margin(1)
-            .split(window);
-        (chunks[0], chunks[1])
+        let layout = Layout::default().direction(Direction::Vertical).margin(1);
+        let chunks;
+
+        if let Some(tabs) = tabs {
+            chunks = layout
+                .constraints([
+                    Constraint::Length(1),
+                    Constraint::Min(1),
+                    Constraint::Length(help_text_height),
+                ])
+                .split(window);
+
+            f.render_widget(tabs, chunks[0]);
+            (chunks[1], chunks[2])
+        } else {
+            chunks = layout
+                .constraints([Constraint::Min(1), Constraint::Length(help_text_height)])
+                .split(window);
+            (chunks[0], chunks[1])
+        }
     };
 
     let mut help_widget = Paragraph::new(help_text);

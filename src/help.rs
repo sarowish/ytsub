@@ -2,7 +2,7 @@ use crate::KEY_BINDINGS;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use std::ops::{Deref, DerefMut};
 
-const DESCRIPTIONS_LEN: usize = 28;
+const DESCRIPTIONS_LEN: usize = 30;
 const DESCRIPTIONS: [&str; DESCRIPTIONS_LEN] = [
     "Switch to subscriptions mode",
     "Switch to latest videos mode",
@@ -28,6 +28,8 @@ const DESCRIPTIONS: [&str; DESCRIPTIONS_LEN] = [
     "Open channel or video Invidious page in browser",
     "Open channel or video Youtube page in browser",
     "Play video in video player",
+    "Play video in video player using formats",
+    "Toggle format selection window",
     "Mark/unmark video as watched",
     "Toggle help window",
     "Toggle tag selection window",
@@ -60,6 +62,16 @@ const CHANNEL_SELECTION_DESCRIPTIONS: [&str; CHANNEL_SELECTION_DESCRIPTIONS_LEN]
     " - Toggle, ",
     " - Select all, ",
     " - Deselect all",
+];
+
+const FORMAT_SELECTION_DESCRIPTIONS_LEN: usize = 6;
+const FORMAT_SELECTION_DESCRIPTIONS: [&str; FORMAT_SELECTION_DESCRIPTIONS_LEN] = [
+    " - Previous tab, ",
+    " - Next tab, ",
+    " - Switch format, ",
+    " - Select, ",
+    " - Play video, ",
+    " - Abort",
 ];
 
 pub struct HelpWindowState {
@@ -105,6 +117,7 @@ pub struct Help<'a> {
     pub import: [(String, &'a str); IMPORT_DESCRIPTIONS_LEN],
     pub tag: [(String, &'a str); TAG_DESCRIPTIONS_LEN],
     pub channel_selection: [(String, &'a str); CHANNEL_SELECTION_DESCRIPTIONS_LEN],
+    pub format_selection: [(String, &'a str); FORMAT_SELECTION_DESCRIPTIONS_LEN],
 }
 
 impl<'a> Help<'a> {
@@ -114,6 +127,7 @@ impl<'a> Help<'a> {
             import: [HELP_ENTRY; IMPORT_DESCRIPTIONS_LEN],
             tag: [HELP_ENTRY; TAG_DESCRIPTIONS_LEN],
             channel_selection: [HELP_ENTRY; CHANNEL_SELECTION_DESCRIPTIONS_LEN],
+            format_selection: [HELP_ENTRY; FORMAT_SELECTION_DESCRIPTIONS_LEN],
         };
 
         macro_rules! generate_entries {
@@ -140,6 +154,11 @@ impl<'a> Help<'a> {
             help.channel_selection,
             KEY_BINDINGS.channel_selection,
             CHANNEL_SELECTION_DESCRIPTIONS
+        );
+        generate_entries!(
+            help.format_selection,
+            KEY_BINDINGS.format_selection,
+            FORMAT_SELECTION_DESCRIPTIONS
         );
 
         for (keys, _) in help.general.iter_mut() {
@@ -181,7 +200,7 @@ fn key_event_to_string(key_event: &KeyEvent) -> String {
         KeyCode::BackTab => "backtab",
         KeyCode::Delete => "delete",
         KeyCode::Insert => "insert",
-        KeyCode::Char(c) if c == ' ' => "space",
+        KeyCode::Char(' ') => "space",
         KeyCode::Char(c) => {
             char = c.to_string();
             &char

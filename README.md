@@ -97,8 +97,17 @@ rss_threshold = 125 # Use RSS if the number of channels being refreshed or being
 tick_rate = 200 # Tick rate in milliseconds
 request_timeout = 5 # Request timeout in seconds
 highlight_symbol = "" # Symbol to highlight selected items
-video_player = "mpv" # Path to video player
 hide_watched = false # Hide watched videos by default
+video_player_for_stream_formats = "mpv" # Video player to use to play streams [possible values: mpv, vlc]
+mpv_path = "mpv" # Path to mpv
+vlc_path = "vlc" # Path to vlc
+
+# the options below apply only while playing stream formats
+subtitle_languages = [] # Subtitle languages to add
+prefer_dash_formats = true # Use adaptive formats
+video_quality = "best" # Preferred video quality
+preferred_video_codec = "mp4"
+preferred_audio_codec = "mp4"
 
 # Theme
 
@@ -195,7 +204,9 @@ fg = "Green"
 "F" = "refresh_failed_channels" # Refresh videos of channels which their latest refresh was a failure
 "o" = "open_in_invidious" # Open channel or video Invidious page in browser
 "O" = "open_in_youtube" # Open channel or video Youtube page in browser
-"p" = "play_video" # Play selected video in a video player (default: mpv)
+"p" = "play_video" # Play selected video in a video player
+"P" = "play_from_formats" # Play selected video in a video player using formats
+"f" = "select_formats" # Toggle format selection window
 "m" = "toggle_watched" # Mark/unmark selected video as watched
 "ctrl-h" = "toggle_help" # Toggle help window
 "T" = "toggle_tag" # Toggle tag window
@@ -222,6 +233,14 @@ fg = "Green"
 "space" = "toggle_selection" # Select/Unselect channel
 "a" = "select_all" # Select all channels
 "z" = "deselect_all" # Deselect all channels
+
+[key_bindings.format_selection]
+"enter" = "play_video"
+"escape" = "abort"
+"space" = "select"
+"l right" = "next_tab"
+"h left" = "previous_tab"
+"s" = "switch_format_type"
 ```
 
 ### `instances`

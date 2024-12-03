@@ -1,4 +1,4 @@
-use super::Api;
+use super::{Api, ApiBackend, Format, VideoInfo};
 use crate::api::{ChannelFeed, ChannelTab};
 use crate::channel::Video;
 use crate::OPTIONS;
@@ -10,6 +10,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 use ureq::{Agent, AgentBuilder};
+
+const API_BACKEND: ApiBackend = ApiBackend::Invidious;
 
 impl From<Value> for ChannelFeed {
     fn from(mut value: Value) -> Self {
@@ -199,5 +201,47 @@ impl Api for Instance {
         let response = self.agent.get(&url).call()?;
 
         Ok(quick_xml::de::from_str(&response.into_string()?).unwrap())
+    }
+
+    fn get_video_formats(&self, video_id: &str) -> Result<VideoInfo> {
+        let url = format!("{}/api/v1/videos/{}", self.domain, video_id);
+        let response = self.agent.get(&url).call()?.into_json::<Value>()?;
+
+        let mut format_streams: Vec<Format> = response["formatStreams"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|format| Format::from_stream(format, API_BACKEND))
+            .collect();
+
+        let adaptive_formats = response["adaptiveFormats"].as_array().unwrap();
+
+        let mut video_formats = Vec::new();
+        let mut audio_formats = Vec::new();
+
+        for format in adaptive_formats {
+            if format.get("qualityLabel").is_some() {
+                video_formats.push(Format::from_video(format, API_BACKEND));
+            } else if format.get("audioQuality").is_some() {
+                audio_formats.push(Format::from_audio(format, API_BACKEND));
+            }
+        }
+
+        format_streams.reverse();
+        video_formats.reverse();
+
+        let captions = response["captions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(|caption| Format::from_caption(caption, API_BACKEND))
+            .collect();
+
+        Ok(VideoInfo::new(
+            video_formats,
+            audio_formats,
+            format_streams,
+            captions,
+        ))
     }
 }

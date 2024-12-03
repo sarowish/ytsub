@@ -66,10 +66,10 @@ pub fn get_matches() -> ArgMatches {
                 .value_name("SYMBOL"),
         )
         .arg(
-            Arg::new("video_player")
-                .long("video-player")
+            Arg::new("video_player_path")
+                .long("video-player-path")
                 .help("Path to video player")
-                .value_name("VIDEO PLAYER"),
+                .value_name("VIDEO PLAYER PATH"),
         )
         .subcommand(
             Command::new("import")

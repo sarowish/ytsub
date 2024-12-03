@@ -1,9 +1,14 @@
-use super::{Api, ChannelFeed};
+use super::{Api, ApiBackend, ChannelFeed, Format, VideoInfo};
 use crate::{channel::Video, utils, OPTIONS};
 use anyhow::Result;
 use serde_json::Value;
 use std::time::Duration;
+use std::{io::Write, path::PathBuf};
 use ureq::{Agent, AgentBuilder};
+
+const API_BACKEND: ApiBackend = ApiBackend::Local;
+const ANDROID_USER_AGENT: &str =
+    "com.google.android.youtube/19.09.36 (Linux; U; Android 12; US) gzip";
 
 #[derive(Clone)]
 pub struct Local {
@@ -14,6 +19,7 @@ pub struct Local {
 impl Local {
     pub fn new() -> Self {
         let agent = AgentBuilder::new()
+            .user_agent(ANDROID_USER_AGENT)
             .timeout(Duration::from_secs(OPTIONS.request_timeout))
             .build();
 
@@ -23,15 +29,32 @@ impl Local {
         }
     }
 
-    pub fn post_json(&self, items: &[(&str, &str)]) -> Result<Value> {
-        const URL: &str =
-            "https://www.youtube.com/youtubei/v1/browse?key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8";
+    pub fn post_player(&self, video_id: &str) -> Result<Value> {
+        let url = "https://www.youtube.com/youtubei/v1/player?key=AIzaSyA8eiZmM1FaDVjRy-df2KTyQ_vz_yYM39w";
+
+        let data = ureq::json!({
+            "context": {
+                "client": {
+                    "clientName": "ANDROID",
+                    "clientVersion": "19.09.36",
+                    "androidSdkVersion": 31,
+                    "userAgent": ANDROID_USER_AGENT,
+                },
+            },
+            "videoId": video_id
+        });
+
+        Ok(self.agent.post(url).send_json(data)?.into_json::<Value>()?)
+    }
+
+    pub fn post_browse(&self, items: &[(&str, &str)]) -> Result<Value> {
+        let url = "https://www.youtube.com/youtubei/v1/browse?key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8";
 
         let mut data = ureq::json!({
             "context": {
                 "client": {
                     "clientName": "WEB",
-                    "clientVersion": "2.20230201.01.00"
+                    "clientVersion": "2.20240304.00.00"
                 }
             }
         });
@@ -45,7 +68,7 @@ impl Local {
             );
         }
 
-        Ok(self.agent.post(URL).send_json(data)?.into_json::<Value>()?)
+        Ok(self.agent.post(url).send_json(data)?.into_json::<Value>()?)
     }
 
     fn get_videos_tab(
@@ -56,7 +79,7 @@ impl Local {
         streams_available: &mut bool,
     ) -> Result<Vec<Video>> {
         let response =
-            self.post_json(&[("browseId", channel_id), ("params", "EgZ2aWRlb3PyBgQKAjoA")])?;
+            self.post_browse(&[("browseId", channel_id), ("params", "EgZ2aWRlb3PyBgQKAjoA")])?;
 
         let tabs = &response["contents"]["twoColumnBrowseResultsRenderer"]["tabs"];
 
@@ -137,7 +160,7 @@ impl Local {
     }
 
     fn get_shorts_tab(&mut self, channel_id: &str) -> Result<Vec<Video>> {
-        let response = self.post_json(&[
+        let response = self.post_browse(&[
             ("browseId", channel_id),
             ("params", "EgZzaG9ydHPyBgUKA5oBAA"),
         ])?;
@@ -219,7 +242,7 @@ impl Local {
     }
 
     fn get_streams_tab(&mut self, channel_id: &str) -> Result<Vec<Video>> {
-        let response = self.post_json(&[
+        let response = self.post_browse(&[
             ("browseId", channel_id),
             ("params", "EgdzdHJlYW1z8gYECgJ6AA"),
         ])?;
@@ -301,7 +324,8 @@ impl Local {
     }
 
     fn get_continuation(&mut self) -> Result<Vec<Video>> {
-        let response = self.post_json(&[("continuation", self.continuation.as_ref().unwrap())])?;
+        let response =
+            self.post_browse(&[("continuation", self.continuation.as_ref().unwrap())])?;
 
         let mut videos = response["onResponseReceivedActions"][0]["appendContinuationItemsAction"]
             ["continuationItems"]
@@ -329,6 +353,25 @@ impl Local {
         }
 
         None
+    }
+
+    pub fn get_captions(&self, url: &str, video_id: &str, language_code: &str) -> Result<PathBuf> {
+        let path = utils::get_cache_dir()?.join(format!("{}_{}.srt", video_id, language_code));
+
+        if let Ok(true) = path.try_exists() {
+            return Ok(path);
+        }
+
+        let response = self
+            .agent
+            .get(&url.replace("fmt=srv3", "fmt=vtt"))
+            .call()?
+            .into_string()?;
+
+        let mut file = std::fs::File::create(&path)?;
+        file.write_all(response.as_bytes())?;
+
+        Ok(path)
     }
 }
 
@@ -380,10 +423,50 @@ impl Api for Local {
         let url = format!("https://www.youtube.com/feeds/videos.xml?channel_id={channel_id}");
         let response = self.agent.get(&url).call()?;
 
-        let mut channel_feed: ChannelFeed =
-            quick_xml::de::from_str(&response.into_string()?).unwrap();
+        let mut channel_feed: ChannelFeed = quick_xml::de::from_str(&response.into_string()?)?;
         channel_feed.channel_id = Some(channel_id.to_string());
 
         Ok(channel_feed)
+    }
+
+    fn get_video_formats(&self, video_id: &str) -> Result<VideoInfo> {
+        let response = self.post_player(video_id)?;
+
+        let formats = response["streamingData"]
+            .get("formats")
+            .map_or(&Vec::new(), |formats| formats.as_array().unwrap())
+            .iter()
+            .map(|format| Format::from_stream(format, API_BACKEND))
+            .rev()
+            .collect();
+
+        let Some(adaptive_formats) = response["streamingData"]["adaptiveFormats"].as_array() else {
+            anyhow::bail!("Stream formats are not available")
+        };
+
+        let mut video_formats = Vec::new();
+        let mut audio_formats = Vec::new();
+
+        for format in adaptive_formats {
+            if format.get("qualityLabel").is_some() {
+                video_formats.push(Format::from_video(format, API_BACKEND));
+            } else if format.get("audioQuality").is_some() {
+                audio_formats.push(Format::from_audio(format, API_BACKEND));
+            }
+        }
+
+        let captions = response["captions"]["playerCaptionsTracklistRenderer"]["captionTracks"]
+            .as_array()
+            .unwrap_or(&Vec::new())
+            .iter()
+            .filter_map(|caption| Format::from_caption(caption, API_BACKEND))
+            .collect();
+
+        Ok(VideoInfo::new(
+            video_formats,
+            audio_formats,
+            formats,
+            captions,
+        ))
     }
 }

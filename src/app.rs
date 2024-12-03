@@ -7,13 +7,16 @@ use crate::import::{self, ImportItem};
 use crate::input::InputMode;
 use crate::message::Message;
 use crate::search::{Search, SearchDirection, SearchState};
+use crate::stream_formats::Formats;
 use crate::{database, IoEvent, CLAP_ARGS, OPTIONS};
 use anyhow::{Context, Result};
 use rusqlite::Connection;
+use serde::Deserialize;
 use std::collections::HashSet;
 use std::fmt::Display;
 use std::ops::{Deref, DerefMut};
 use std::path::PathBuf;
+use std::process::Command;
 use std::sync::mpsc::Sender;
 use tui::widgets::{ListState, TableState};
 use unicode_segmentation::UnicodeSegmentation;
@@ -50,6 +53,7 @@ pub struct App {
     pub hide_watched: bool,
     io_tx: Sender<IoEvent>,
     pub channel_selection: SelectionList<Channel>,
+    pub stream_formats: Formats,
 }
 
 impl App {
@@ -79,6 +83,7 @@ impl App {
             help_window_state: HelpWindowState::new(),
             import_state: SelectionList::default(),
             channel_selection: Default::default(),
+            stream_formats: Default::default(),
         };
 
         if CLAP_ARGS.contains_id("tick_rate")
@@ -381,25 +386,203 @@ impl App {
                 "{}/watch?v={}",
                 "https://www.youtube.com", current_video.video_id
             );
-            let video_player = &OPTIONS.video_player;
+
             let video_player_process = || {
-                std::process::Command::new(video_player)
+                std::process::Command::new(&OPTIONS.mpv_path)
                     .arg(url)
                     .spawn()
                     .map(|_| ())
             };
 
-            #[cfg(unix)]
-            let res = self.run_detached(video_player_process);
-            #[cfg(not(unix))]
-            let res = video_player_process();
-
-            if let Err(e) = res {
-                self.set_error_message(&format!("couldn't run \"{video_player}\": {e}"));
-            } else {
-                self.mark_as_watched();
-            }
+            self.run_video_player(video_player_process);
         }
+    }
+
+    fn gen_video_player_command(
+        &self,
+        video_url: &str,
+        audio_url: Option<&str>,
+        captions: &[String],
+        title: &str,
+    ) -> Command {
+        let mut command;
+        match OPTIONS.video_player_for_stream_formats {
+            VideoPlayer::Mpv => {
+                command = std::process::Command::new(&OPTIONS.mpv_path);
+                command
+                    .arg(format!("--force-media-title={}", title))
+                    .arg("--no-ytdl")
+                    .arg(video_url);
+
+                if let Some(audio_url) = audio_url {
+                    command.arg(format!("--audio-file={}", audio_url));
+                }
+
+                for caption in captions {
+                    command.arg(format!("--sub-file={}", caption));
+                }
+            }
+            VideoPlayer::Vlc => {
+                command = std::process::Command::new(&OPTIONS.vlc_path);
+                command
+                    .arg("--no-video-title-show")
+                    .arg(format!("--input-title-format={}", title))
+                    .arg("--play-and-exit")
+                    .arg(video_url);
+
+                if let Some(audio_url) = audio_url {
+                    command.arg(format!("--input-slave={}", audio_url));
+                }
+
+                if !captions.is_empty() {
+                    command.arg(format!("--sub-file={}", captions.join(" ")));
+                }
+            }
+        };
+
+        command
+    }
+
+    pub fn play_from_formats(&mut self) {
+        let Some(current_video) = self.get_current_video() else {
+            return;
+        };
+
+        let stream_formats = match self.instance().get_video_formats(&current_video.video_id) {
+            Ok(video_info) => Formats::new(video_info),
+            Err(e) => {
+                self.set_error_message(&e.to_string());
+                return;
+            }
+        };
+
+        let title = current_video.title.clone();
+        let video_id = current_video.video_id.clone();
+
+        let (video_url, audio_url) = if stream_formats.use_adaptive_streams {
+            (
+                stream_formats.video_formats.get_selected_item().get_url(),
+                Some(stream_formats.audio_formats.get_selected_item().get_url()),
+            )
+        } else {
+            (stream_formats.formats.get_selected_item().get_url(), None)
+        };
+
+        let captions = stream_formats
+            .captions
+            .get_selected_items()
+            .iter()
+            .map(|caption| {
+                let url = caption.get_url();
+                if let ApiBackend::Invidious = self.selected_api {
+                    format!(
+                        "{}{}",
+                        self.invidious_instance.as_ref().unwrap().domain,
+                        url
+                    )
+                } else {
+                    let path = self.local_api.get_captions(url, &video_id, caption.id());
+                    path.unwrap().to_str().unwrap().to_string()
+                }
+            })
+            .collect::<Vec<String>>();
+
+        let mut video_player_command =
+            self.gen_video_player_command(video_url, audio_url, &captions, &title);
+
+        let video_player_process = || video_player_command.spawn().map(|_| ());
+
+        self.run_video_player(video_player_process);
+    }
+
+    fn run_video_player<F: FnOnce() -> Result<(), std::io::Error>>(&mut self, func: F) {
+        #[cfg(unix)]
+        let res = self.run_detached(func);
+        #[cfg(not(unix))]
+        let res = video_player_process();
+
+        if let Err(e) = res {
+            self.set_error_message(&format!(
+                "couldn't run \"{}\": {}",
+                OPTIONS.mpv_path.to_string_lossy(),
+                e
+            ));
+        } else {
+            self.mark_as_watched();
+        }
+    }
+
+    pub fn enter_format_selection(&mut self) {
+        let Some(current_video) = self.get_current_video() else {
+            return;
+        };
+
+        match self.instance().get_video_formats(&current_video.video_id) {
+            Ok(video_info) => {
+                self.input_mode = InputMode::FormatSelection;
+                self.stream_formats = Formats::new(video_info);
+            }
+            Err(e) => {
+                self.set_error_message(&e.to_string());
+            }
+        };
+    }
+
+    pub fn confirm_selected_streams(&mut self) {
+        let (title, video_id) = if let Some(video) = self.get_current_video() {
+            (video.title.clone(), video.video_id.clone())
+        } else {
+            return;
+        };
+
+        let video_url = if self.stream_formats.use_adaptive_streams {
+            self.stream_formats
+                .video_formats
+                .get_selected_item()
+                .get_url()
+        } else {
+            self.stream_formats.formats.get_selected_item().get_url()
+        };
+
+        let audio_url = if self.stream_formats.use_adaptive_streams {
+            Some(
+                self.stream_formats
+                    .audio_formats
+                    .get_selected_item()
+                    .get_url(),
+            )
+        } else {
+            None
+        };
+
+        let captions = self
+            .stream_formats
+            .captions
+            .get_selected_items()
+            .iter()
+            .map(|caption| {
+                let url = caption.get_url();
+                if let ApiBackend::Invidious = self.selected_api {
+                    format!(
+                        "{}{}",
+                        self.invidious_instance.as_ref().unwrap().domain,
+                        url
+                    )
+                } else {
+                    let caption_path = self.local_api.get_captions(url, &video_id, caption.id());
+                    caption_path.unwrap().to_str().unwrap().to_string()
+                }
+            })
+            .collect::<Vec<String>>();
+
+        let mut video_player_command =
+            self.gen_video_player_command(video_url, audio_url, &captions, &title);
+        let video_player_process = || video_player_command.spawn().map(|_| ());
+
+        self.run_video_player(video_player_process);
+
+        self.stream_formats = Default::default();
+        self.input_mode = InputMode::Normal;
     }
 
     pub fn open_in_invidious(&mut self) {
@@ -738,6 +921,9 @@ impl App {
             InputMode::ChannelSelection => {
                 self.search.search(&mut self.channel_selection, &self.input)
             }
+            InputMode::FormatSelection => self
+                .search
+                .search(self.stream_formats.get_mut_selected_tab(), &self.input),
             _ => panic!(),
         }
     }
@@ -756,6 +942,9 @@ impl App {
             InputMode::ChannelSelection => self
                 .search
                 .repeat_last(&mut self.channel_selection, opposite),
+            InputMode::FormatSelection => self
+                .search
+                .repeat_last(self.stream_formats.get_mut_selected_tab(), opposite),
             _ => panic!(),
         }
         if self.no_search_pattern_match() {
@@ -920,6 +1109,9 @@ impl App {
                 InputMode::ChannelSelection => {
                     self.search.recover_item(&mut self.channel_selection)
                 }
+                InputMode::FormatSelection => self
+                    .search
+                    .recover_item(self.stream_formats.get_mut_selected_tab()),
                 _ => panic!(),
             }
         }
@@ -1253,7 +1445,7 @@ impl<T, S: State + Default> StatefulList<T, S> {
         }
     }
 
-    fn get_mut_selected(&mut self) -> Option<&mut T> {
+    pub fn get_mut_selected(&mut self) -> Option<&mut T> {
         match self.state.selected() {
             Some(i) => Some(&mut self.items[i]),
             None => None,
@@ -1298,25 +1490,32 @@ pub enum Mode {
     LatestVideos,
 }
 
-pub struct SelectionItem<T: ListItem> {
-    selected: bool,
+#[derive(Deserialize)]
+#[serde(rename_all(deserialize = "lowercase"))]
+pub enum VideoPlayer {
+    Mpv,
+    Vlc,
+}
+
+pub struct SelectionItem<T> {
+    pub selected: bool,
     pub item: T,
 }
 
-impl<T: ListItem> SelectionItem<T> {
-    fn new(item: T) -> Self {
+impl<T> SelectionItem<T> {
+    pub fn new(item: T) -> Self {
         Self {
             selected: false,
             item,
         }
     }
 
-    fn toggle(&mut self) {
+    pub fn toggle(&mut self) {
         self.selected = !self.selected;
     }
 }
 
-impl<T: Display + ListItem> Display for SelectionItem<T> {
+impl<T: Display> Display for SelectionItem<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -1333,7 +1532,7 @@ impl<T: ListItem> ListItem for SelectionItem<T> {
     }
 }
 
-impl<T: ListItem> Deref for SelectionItem<T> {
+impl<T> Deref for SelectionItem<T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
@@ -1341,7 +1540,7 @@ impl<T: ListItem> Deref for SelectionItem<T> {
     }
 }
 
-impl<T: ListItem> DerefMut for SelectionItem<T> {
+impl<T> DerefMut for SelectionItem<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.item
     }
@@ -1350,7 +1549,7 @@ impl<T: ListItem> DerefMut for SelectionItem<T> {
 pub struct SelectionList<T: ListItem>(StatefulList<SelectionItem<T>, ListState>);
 
 impl<T: ListItem> SelectionList<T> {
-    fn new(items: Vec<T>) -> Self {
+    pub fn new(items: Vec<T>) -> Self {
         let items = items.into_iter().map(SelectionItem::new).collect();
 
         Self(StatefulList::with_items(items))
@@ -1360,6 +1559,14 @@ impl<T: ListItem> SelectionList<T> {
         if let Some(item) = self.get_mut_selected() {
             item.toggle();
         }
+    }
+
+    pub fn select(&mut self) {
+        if let Some(item) = self.items.iter_mut().find(|item| item.selected) {
+            item.selected = false
+        }
+
+        self.toggle_selected();
     }
 
     pub fn select_all(&mut self) {
@@ -1376,6 +1583,10 @@ impl<T: ListItem> SelectionList<T> {
             .filter(|item| item.selected)
             .map(|item| &item.item)
             .collect()
+    }
+
+    pub fn get_selected_item(&self) -> &T {
+        self.items.iter().find(|item| item.selected).unwrap()
     }
 }
 

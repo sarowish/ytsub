@@ -10,6 +10,7 @@ mod import;
 mod input;
 mod message;
 mod search;
+mod stream_formats;
 mod ui;
 mod utils;
 

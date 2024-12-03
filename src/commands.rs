@@ -24,6 +24,8 @@ pub enum Command {
     OpenInInvidious,
     OpenInYoutube,
     PlayVideo,
+    PlayFromFormats,
+    SelectFormats,
     ToggleWatched,
     ToggleHelp,
     ToggleTag,
@@ -59,6 +61,8 @@ impl TryFrom<&str> for Command {
             "open_in_invidious" => Command::OpenInInvidious,
             "open_in_youtube" => Command::OpenInYoutube,
             "play_video" => Command::PlayVideo,
+            "play_from_formats" => Command::PlayFromFormats,
+            "select_formats" => Command::SelectFormats,
             "toggle_watched" => Command::ToggleWatched,
             "toggle_help" => Command::ToggleHelp,
             "toggle_tag" => Command::ToggleTag,
@@ -143,6 +147,34 @@ impl TryFrom<&str> for ChannelSelectionCommand {
             "toggle_selection" => ChannelSelectionCommand::ToggleSelection,
             "select_all" => ChannelSelectionCommand::SelectAll,
             "deselect_all" => ChannelSelectionCommand::DeselectAll,
+            _ => anyhow::bail!("\"{}\" is an invalid command", command),
+        };
+
+        Ok(command)
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum FormatSelectionCommand {
+    PreviousTab,
+    NextTab,
+    SwitchFormatType,
+    Select,
+    PlayVideo,
+    Abort,
+}
+
+impl TryFrom<&str> for FormatSelectionCommand {
+    type Error = anyhow::Error;
+
+    fn try_from(command: &str) -> Result<Self, Self::Error> {
+        let command = match command {
+            "previous_tab" => FormatSelectionCommand::PreviousTab,
+            "next_tab" => FormatSelectionCommand::NextTab,
+            "switch_format_type" => FormatSelectionCommand::SwitchFormatType,
+            "select" => FormatSelectionCommand::Select,
+            "play_video" => FormatSelectionCommand::PlayVideo,
+            "abort" => FormatSelectionCommand::Abort,
             _ => anyhow::bail!("\"{}\" is an invalid command", command),
         };
 

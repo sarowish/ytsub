@@ -20,14 +20,29 @@ pub fn get_config_dir() -> Result<PathBuf> {
     Ok(path)
 }
 
-fn get_data_dir() -> Result<PathBuf> {
+pub fn get_data_dir() -> Result<PathBuf> {
     let path = match dirs::data_local_dir() {
         Some(path) => path.join(PACKAGE_NAME),
         None => bail!("Couldn't find local data directory"),
     };
+
     if !path.exists() {
         std::fs::create_dir_all(&path)?;
     }
+
+    Ok(path)
+}
+
+pub fn get_cache_dir() -> Result<PathBuf> {
+    let path = match dirs::cache_dir() {
+        Some(path) => path.join(PACKAGE_NAME),
+        None => bail!("Couldn't find cache directory"),
+    };
+
+    if !path.exists() {
+        std::fs::create_dir_all(&path)?;
+    }
+
     Ok(path)
 }
 
