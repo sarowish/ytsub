@@ -233,6 +233,21 @@ impl Display for ApiBackend {
 }
 
 pub trait Api: Send + DynClone {
+    fn resolve_channel_id(&mut self, input: &str) -> Result<String> {
+        if let Some((rest, channel_id)) = input.rsplit_once('/') {
+            if let Some((_, path)) = rest.rsplit_once('/') {
+                if path == "channel" {
+                    return Ok(channel_id.to_owned());
+                }
+            }
+            self.resolve_url(input)
+        } else if input.starts_with('@') {
+            self.resolve_url(&format!("youtube.com/{input}"))
+        } else {
+            Ok(input.to_owned())
+        }
+    }
+    fn resolve_url(&mut self, channel_url: &str) -> Result<String>;
     fn get_videos_for_the_first_time(&mut self, channel_id: &str) -> Result<ChannelFeed>;
     fn get_videos_of_channel(&mut self, channel_id: &str) -> Result<ChannelFeed>;
     fn get_rss_feed_of_channel(&self, channel_id: &str) -> Result<ChannelFeed>;

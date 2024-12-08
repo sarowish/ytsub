@@ -232,7 +232,14 @@ async fn clear_message(app: &Arc<Mutex<App>>, duration_seconds: u64) {
     });
 }
 
-async fn subscribe_to_channel(app: &Arc<Mutex<App>>, channel_id: String) {
+async fn subscribe_to_channel(app: &Arc<Mutex<App>>, input: String) {
+    let channel_id = app
+        .lock()
+        .unwrap()
+        .instance()
+        .resolve_channel_id(&input)
+        .unwrap();
+
     if app
         .lock()
         .unwrap()

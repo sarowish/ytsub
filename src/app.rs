@@ -856,17 +856,9 @@ impl App {
     }
 
     pub fn subscribe(&mut self) {
-        let channel_id = if self.input.contains('/') {
-            self.input
-                .rsplit_once('/')
-                .map(|(_, id)| id.to_owned())
-                .unwrap()
-        } else {
-            self.input.drain(..).collect()
-        };
+        let input = self.input.drain(..).collect::<String>();
         self.input_mode = InputMode::Normal;
-        self.input.clear();
-        self.subscribe_to_channel(channel_id);
+        self.subscribe_to_channel(input);
     }
 
     pub fn prompt_for_unsubscribing(&mut self) {
@@ -1180,8 +1172,8 @@ impl App {
         }
     }
 
-    pub fn subscribe_to_channel(&mut self, channel_id: String) {
-        self.dispatch(IoEvent::SubscribeToChannel(channel_id));
+    pub fn subscribe_to_channel(&mut self, input: String) {
+        self.dispatch(IoEvent::SubscribeToChannel(input));
     }
 
     pub fn subscribe_to_channels(&mut self) {

@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 ### Added
 - Add a command to stream videos using formats
+- Resolve channel ID depending on the provided input while subscribing to a channel
 
 ### Fixed
 - Handle short forms in published texts.

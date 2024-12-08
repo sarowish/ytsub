@@ -376,6 +376,32 @@ impl Local {
 }
 
 impl Api for Local {
+    fn resolve_url(&mut self, channel_url: &str) -> Result<String> {
+        let url = "https://www.youtube.com/youtubei/v1/navigation/resolve_url";
+
+        let data = ureq::json!({
+            "context": {
+                "client": {
+                    "clientName": "WEB",
+                    "clientVersion": "2.20240304.00.00"
+                },
+            },
+            "url": channel_url
+        });
+
+        let response = self.agent.post(url).send_json(data)?.into_json::<Value>()?;
+        let endpoint = &response["endpoint"];
+
+        if let Some(browse_endpoint) = endpoint.get("browseEndpoint") {
+            let channel_id = browse_endpoint["browseId"].as_str().unwrap().to_string();
+            Ok(channel_id)
+        } else if let Some(url_endpoint) = endpoint.get("urlEndpoint") {
+            self.resolve_url(url_endpoint["url"].as_str().unwrap())
+        } else {
+            Err(anyhow::anyhow!("Couldn't resolve url"))
+        }
+    }
+
     fn get_videos_for_the_first_time(&mut self, channel_id: &str) -> Result<ChannelFeed> {
         let mut channel_feed = self.get_videos_of_channel(channel_id)?;
 

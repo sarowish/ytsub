@@ -104,6 +104,18 @@ impl Instance {
 }
 
 impl Api for Instance {
+    fn resolve_url(&mut self, channel_url: &str) -> Result<String> {
+        let url = format!("{}/api/v1/resolveurl", self.domain);
+        let response = self
+            .agent
+            .get(&url)
+            .query("url", channel_url)
+            .call()?
+            .into_json::<Value>()?;
+
+        Ok(response["ucid"].as_str().unwrap().to_string())
+    }
+
     fn get_videos_of_channel(&mut self, channel_id: &str) -> Result<ChannelFeed> {
         let mut channel_feed = ChannelFeed {
             channel_title: None,
