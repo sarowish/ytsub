@@ -23,7 +23,7 @@ impl Message {
     }
 
     pub fn set_message(&mut self, message: &str) {
-        self.message = message.to_owned();
+        message.clone_into(&mut self.message);
         self.message_type = MessageType::Normal;
         self.token.cancel();
         self.token = CancellationToken::new();

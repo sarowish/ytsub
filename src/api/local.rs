@@ -16,6 +16,170 @@ pub struct Local {
     continuation: Option<String>,
 }
 
+fn extract_videos_tab(value: &[Value]) -> Result<Vec<Video>> {
+    let mut videos: Vec<Video> = Vec::new();
+
+    for video in value {
+        let video = &video["richItemRenderer"]["content"]["videoRenderer"];
+
+        let title = video["title"]["runs"][0]["text"]
+            .as_str()
+            .unwrap()
+            .to_string();
+
+        let video_id = video["videoId"].as_str().unwrap().to_string();
+
+        let published = if let Some(t) = video.get("publishedTimeText") {
+            let published_text = t["simpleText"].as_str().unwrap().to_string();
+            utils::published(&published_text)?
+        } else if let Some(time) = video["upcomingEventData"]["startTime"].as_str() {
+            time.parse::<u64>().unwrap()
+        } else {
+            utils::now()?
+        };
+
+        let length = video["lengthText"]["simpleText"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        let length = utils::length_as_seconds(&length);
+
+        videos.push(Video {
+            channel_name: None,
+            video_id,
+            title,
+            published,
+            published_text: String::new(),
+            length: Some(length),
+            watched: false,
+            new: true,
+        });
+    }
+
+    Ok(videos)
+}
+
+fn extract_shorts_tab(value: &[Value]) -> Result<Vec<Video>> {
+    let mut videos: Vec<Video> = Vec::new();
+
+    for video in value {
+        let video = &video["richItemRenderer"]["content"]["reelItemRenderer"];
+
+        let title = video["headline"]["simpleText"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        let video_id = video["videoId"].as_str().unwrap().to_string();
+
+        let published_text = &video["navigationEndpoint"]["reelWatchEndpoint"]["overlay"]
+            ["reelPlayerOverlayRenderer"]["reelPlayerHeaderSupportedRenderers"]
+            ["reelPlayerHeaderRenderer"]["timestampText"]["simpleText"];
+
+        if published_text.is_null() {
+            return Ok(Vec::new());
+        }
+        let published = utils::published(published_text.as_str().unwrap())?;
+
+        let accessibility = video["accessibility"]["accessibilityData"]["label"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        let accessibility = accessibility.split(" - ").collect::<Vec<&str>>();
+
+        let length_text = accessibility[accessibility.len() - 2];
+        let mut length = 0;
+
+        for t in length_text.split(", ") {
+            let (num, time_frame) = t.split_once(' ').unwrap();
+
+            if time_frame == "minute" {
+                length = 60;
+            } else {
+                length += num.parse::<u32>().unwrap();
+            }
+        }
+
+        videos.push(Video {
+            channel_name: None,
+            video_id,
+            title,
+            published,
+            published_text: String::new(),
+            length: Some(length),
+            watched: false,
+            new: true,
+        });
+    }
+
+    Ok(videos)
+}
+
+fn extract_streams_tab(value: &[Value]) -> Result<Vec<Video>> {
+    let mut videos: Vec<Video> = Vec::new();
+
+    for video in value {
+        let video = &video["richItemRenderer"]["content"]["videoRenderer"];
+
+        if video.is_null() {
+            continue;
+        }
+
+        let title = video["title"]["runs"][0]["text"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        let video_id = video["videoId"].as_str().unwrap().to_string();
+
+        let published = if let Some(t) = video.get("publishedTimeText") {
+            let published_text = t["simpleText"]
+                .as_str()
+                .unwrap()
+                .splitn(2, ' ')
+                .collect::<Vec<&str>>()[1];
+            utils::published(published_text)?
+        } else if let Some(time) = video["upcomingEventData"]["startTime"].as_str() {
+            time.parse::<u64>().unwrap()
+        } else {
+            utils::now()?
+        };
+
+        let length = if let Some(t) = video.get("lengthText") {
+            let length_text = t["simpleText"].as_str().unwrap().to_string();
+            utils::length_as_seconds(&length_text)
+        } else {
+            0
+        };
+
+        videos.push(Video {
+            channel_name: None,
+            video_id,
+            title,
+            published,
+            published_text: String::new(),
+            length: Some(length),
+            watched: false,
+            new: true,
+        });
+    }
+
+    Ok(videos)
+}
+
+fn extract_continuation_token(value: &[Value]) -> Option<String> {
+    if let Some(video) = value.last() {
+        if let Some(value) = video.get("continuationItemRenderer") {
+            return Some(
+                value["continuationEndpoint"]["continuationCommand"]["token"]
+                    .as_str()
+                    .unwrap()
+                    .to_string(),
+            );
+        }
+    }
+
+    None
+}
+
 impl Local {
     pub fn new() -> Self {
         let agent = AgentBuilder::new()
@@ -110,55 +274,12 @@ impl Local {
             *streams_available = true;
         }
 
-        if let Some(token) = self.extract_continuation_token(videos) {
+        if let Some(token) = extract_continuation_token(videos) {
             self.continuation = Some(token);
             videos = videos.split_last().unwrap().1;
         }
 
-        self.extract_videos_tab(videos)
-    }
-
-    fn extract_videos_tab(&self, value: &[Value]) -> Result<Vec<Video>> {
-        let mut videos: Vec<Video> = Vec::new();
-
-        for video in value {
-            let video = &video["richItemRenderer"]["content"]["videoRenderer"];
-
-            let title = video["title"]["runs"][0]["text"]
-                .as_str()
-                .unwrap()
-                .to_string();
-
-            let video_id = video["videoId"].as_str().unwrap().to_string();
-
-            let published = if let Some(t) = video.get("publishedTimeText") {
-                let published_text = t["simpleText"].as_str().unwrap().to_string();
-                utils::published(&published_text)?
-            } else if let Some(time) = video["upcomingEventData"]["startTime"].as_str() {
-                time.parse::<u64>().unwrap()
-            } else {
-                utils::now()?
-            };
-
-            let length = video["lengthText"]["simpleText"]
-                .as_str()
-                .unwrap()
-                .to_string();
-            let length = utils::length_as_seconds(&length);
-
-            videos.push(Video {
-                channel_name: Default::default(),
-                video_id,
-                title,
-                published,
-                published_text: String::new(),
-                length: Some(length),
-                watched: false,
-                new: true,
-            })
-        }
-
-        Ok(videos)
+        extract_videos_tab(videos)
     }
 
     fn get_shorts_tab(&mut self, channel_id: &str) -> Result<Vec<Video>> {
@@ -181,66 +302,11 @@ impl Local {
 
         let mut videos = videos.as_array().unwrap().as_slice();
 
-        if self.extract_continuation_token(videos).is_some() {
+        if extract_continuation_token(videos).is_some() {
             videos = videos.split_last().unwrap().1;
         }
 
-        self.extract_shorts_tab(videos)
-    }
-
-    fn extract_shorts_tab(&self, value: &[Value]) -> Result<Vec<Video>> {
-        let mut videos: Vec<Video> = Vec::new();
-
-        for video in value {
-            let video = &video["richItemRenderer"]["content"]["reelItemRenderer"];
-
-            let title = video["headline"]["simpleText"]
-                .as_str()
-                .unwrap()
-                .to_string();
-            let video_id = video["videoId"].as_str().unwrap().to_string();
-
-            let published_text = &video["navigationEndpoint"]["reelWatchEndpoint"]["overlay"]
-                ["reelPlayerOverlayRenderer"]["reelPlayerHeaderSupportedRenderers"]
-                ["reelPlayerHeaderRenderer"]["timestampText"]["simpleText"];
-
-            if published_text.is_null() {
-                return Ok(Vec::new());
-            }
-            let published = utils::published(published_text.as_str().unwrap())?;
-
-            let accessibility = video["accessibility"]["accessibilityData"]["label"]
-                .as_str()
-                .unwrap()
-                .to_string();
-            let accessibility = accessibility.split(" - ").collect::<Vec<&str>>();
-
-            let length_text = accessibility[accessibility.len() - 2];
-            let mut length = 0;
-
-            for t in length_text.split(", ") {
-                let (num, time_frame) = t.split_once(' ').unwrap();
-
-                if time_frame == "minute" {
-                    length = 60;
-                } else {
-                    length += num.parse::<u32>().unwrap();
-                }
-            }
-
-            videos.push(Video {
-                channel_name: Default::default(),
-                video_id,
-                title,
-                published,
-                published_text: String::new(),
-                length: Some(length),
-                watched: false,
-                new: true,
-            })
-        }
-
-        Ok(videos)
+        extract_shorts_tab(videos)
     }
 
     fn get_streams_tab(&mut self, channel_id: &str) -> Result<Vec<Video>> {
@@ -267,62 +333,11 @@ impl Local {
 
         let mut videos = videos.as_array().unwrap().as_slice();
 
-        if self.extract_continuation_token(videos).is_some() {
+        if extract_continuation_token(videos).is_some() {
             videos = videos.split_last().unwrap().1;
         }
 
-        self.extract_streams_tab(videos)
-    }
-
-    fn extract_streams_tab(&self, value: &[Value]) -> Result<Vec<Video>> {
-        let mut videos: Vec<Video> = Vec::new();
-
-        for video in value {
-            let video = &video["richItemRenderer"]["content"]["videoRenderer"];
-
-            if video.is_null() {
-                continue;
-            }
-
-            let title = video["title"]["runs"][0]["text"]
-                .as_str()
-                .unwrap()
-                .to_string();
-            let video_id = video["videoId"].as_str().unwrap().to_string();
-
-            let published = if let Some(t) = video.get("publishedTimeText") {
-                let published_text = t["simpleText"]
-                    .as_str()
-                    .unwrap()
-                    .splitn(2, ' ')
-                    .collect::<Vec<&str>>()[1];
-                utils::published(published_text)?
-            } else if let Some(time) = video["upcomingEventData"]["startTime"].as_str() {
-                time.parse::<u64>().unwrap()
-            } else {
-                utils::now()?
-            };
-
-            let length = if let Some(t) = video.get("lengthText") {
-                let length_text = t["simpleText"].as_str().unwrap().to_string();
-                utils::length_as_seconds(&length_text)
-            } else {
-                0
-            };
-
-            videos.push(Video {
-                channel_name: Default::default(),
-                video_id,
-                title,
-                published,
-                published_text: String::new(),
-                length: Some(length),
-                watched: false,
-                new: true,
-            })
-        }
-
-        Ok(videos)
+        extract_streams_tab(videos)
     }
 
     fn get_continuation(&mut self) -> Result<Vec<Video>> {
@@ -335,30 +350,15 @@ impl Local {
             .unwrap()
             .as_slice();
 
-        if self.extract_continuation_token(videos).is_some() {
+        if extract_continuation_token(videos).is_some() {
             videos = videos.split_last().unwrap().1;
         }
 
-        self.extract_videos_tab(videos)
-    }
-
-    fn extract_continuation_token(&mut self, value: &[Value]) -> Option<String> {
-        if let Some(video) = value.last() {
-            if let Some(value) = video.get("continuationItemRenderer") {
-                return Some(
-                    value["continuationEndpoint"]["continuationCommand"]["token"]
-                        .as_str()
-                        .unwrap()
-                        .to_string(),
-                );
-            }
-        }
-
-        None
+        extract_videos_tab(videos)
     }
 
     pub fn get_captions(&self, url: &str, video_id: &str, language_code: &str) -> Result<PathBuf> {
-        let path = utils::get_cache_dir()?.join(format!("{}_{}.srt", video_id, language_code));
+        let path = utils::get_cache_dir()?.join(format!("{video_id}_{language_code}.srt"));
 
         if let Ok(true) = path.try_exists() {
             return Ok(path);

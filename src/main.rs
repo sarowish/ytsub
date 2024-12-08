@@ -78,7 +78,7 @@ fn main() -> Result<()> {
             PathBuf::from(matches.get_one::<String>("source").unwrap()),
             matches
                 .get_one::<String>("format")
-                .map(|s| s.as_str())
+                .map(String::as_str)
                 .unwrap()
                 .into(),
         )?,
@@ -87,7 +87,7 @@ fn main() -> Result<()> {
                 PathBuf::from(matches.get_one::<String>("target").unwrap()),
                 matches
                     .get_one::<String>("format")
-                    .map(|s| s.as_str())
+                    .map(String::as_str)
                     .unwrap()
                     .into(),
             );
@@ -190,54 +190,51 @@ async fn async_io_loop(
 ) -> Result<()> {
     while let Ok(io_event) = io_rx.recv() {
         match io_event {
-            IoEvent::SubscribeToChannel(channel_id) => subscribe_to_channel(&app, channel_id).await,
+            IoEvent::SubscribeToChannel(channel_id) => subscribe_to_channel(&app, &channel_id),
             IoEvent::SubscribeToChannels => subscribe_to_channels(&app).await?,
-            IoEvent::RefreshChannel(channel_id) => refresh_channel(&app, channel_id).await,
+            IoEvent::RefreshChannel(channel_id) => refresh_channel(&app, channel_id),
             IoEvent::RefreshChannels(refresh_failed) => {
-                refresh_channels(&app, refresh_failed).await?
+                refresh_channels(&app, refresh_failed).await?;
             }
             IoEvent::FetchInstances => {
                 app.lock().unwrap().set_message("Fetching instances");
 
-                match utils::fetch_invidious_instances() {
-                    Ok(instances) => {
-                        app.lock().unwrap().invidious_instances = Some(instances);
-                        app.lock().unwrap().message.clear_message();
-                        app.lock().unwrap().set_instance();
-                    }
-                    Err(_) => {
-                        app.lock().unwrap().selected_api = ApiBackend::Local;
-                        app.lock()
-                            .unwrap()
-                            .set_error_message("Couldn't fetch instances. Switching to Local API.");
-                    }
+                if let Ok(instances) = utils::fetch_invidious_instances() {
+                    app.lock().unwrap().invidious_instances = Some(instances);
+                    app.lock().unwrap().message.clear_message();
+                    app.lock().unwrap().set_instance();
+                } else {
+                    app.lock().unwrap().selected_api = ApiBackend::Local;
+                    app.lock()
+                        .unwrap()
+                        .set_error_message("Couldn't fetch instances. Switching to Local API.");
                 }
             }
-            IoEvent::ClearMessage(duration_seconds) => clear_message(&app, duration_seconds).await,
+            IoEvent::ClearMessage(duration_seconds) => clear_message(&app, duration_seconds),
         }
     }
     Ok(())
 }
 
-async fn clear_message(app: &Arc<Mutex<App>>, duration_seconds: u64) {
+fn clear_message(app: &Arc<Mutex<App>>, duration_seconds: u64) {
     let app = app.clone();
     let cloned_token = app.lock().unwrap().message.clone_token();
     tokio::task::spawn(async move {
         tokio::select! {
-            _ = cloned_token.cancelled() => {}
-            _ = tokio::time::sleep(std::time::Duration::from_secs(duration_seconds)) => {
+            () = cloned_token.cancelled() => {}
+            () = tokio::time::sleep(std::time::Duration::from_secs(duration_seconds)) => {
                 app.lock().unwrap().message.clear_message();
             }
         }
     });
 }
 
-async fn subscribe_to_channel(app: &Arc<Mutex<App>>, input: String) {
+fn subscribe_to_channel(app: &Arc<Mutex<App>>, input: &str) {
     let channel_id = app
         .lock()
         .unwrap()
         .instance()
-        .resolve_channel_id(&input)
+        .resolve_channel_id(input)
         .unwrap();
 
     if app
@@ -330,7 +327,7 @@ async fn subscribe_to_channels(app: &Arc<Mutex<App>>) -> Result<()> {
                         .import_state
                         .get_mut_by_id(&channel_id)
                         .unwrap()
-                        .sub_state = RefreshState::Failed
+                        .sub_state = RefreshState::Failed;
                 }
             }
         })
@@ -373,7 +370,7 @@ async fn subscribe_to_channels(app: &Arc<Mutex<App>>) -> Result<()> {
 
     Ok(())
 }
-async fn refresh_channel(app: &Arc<Mutex<App>>, channel_id: String) {
+fn refresh_channel(app: &Arc<Mutex<App>>, channel_id: String) {
     let now = std::time::Instant::now();
     let mut instance = app.lock().unwrap().instance();
     app.lock()
@@ -382,17 +379,14 @@ async fn refresh_channel(app: &Arc<Mutex<App>>, channel_id: String) {
     app.lock().unwrap().set_message("Refreshing channel");
     let app = app.clone();
     tokio::task::spawn(async move {
-        let channel_feed = match instance.get_videos_of_channel(&channel_id) {
-            Ok(channel_feed) => channel_feed,
-            Err(_) => {
-                app.lock()
-                    .unwrap()
-                    .set_channel_refresh_state(&channel_id, RefreshState::Failed);
-                app.lock()
-                    .unwrap()
-                    .set_error_message("failed to refresh channel");
-                return;
-            }
+        let Ok(channel_feed) = instance.get_videos_of_channel(&channel_id) else {
+            app.lock()
+                .unwrap()
+                .set_channel_refresh_state(&channel_id, RefreshState::Failed);
+            app.lock()
+                .unwrap()
+                .set_error_message("failed to refresh channel");
+            return;
         };
         {
             let mut app = app.lock().unwrap();

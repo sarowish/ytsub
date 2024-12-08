@@ -123,11 +123,11 @@ impl From<&Value> for Video {
         }
 
         Video {
-            channel_name: Default::default(),
+            channel_name: None,
             video_id: video_json["videoId"].as_str().unwrap().to_string(),
             title: video_json["title"].as_str().unwrap().to_string(),
             published,
-            published_text: Default::default(),
+            published_text: String::default(),
             length: Some(length as u32),
             watched: false,
             new: true,

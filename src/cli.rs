@@ -71,43 +71,47 @@ pub fn get_matches() -> ArgMatches {
                 .help("Path to video player")
                 .value_name("VIDEO PLAYER PATH"),
         )
-        .subcommand(
-            Command::new("import")
-                .about("Import subscriptions")
-                .arg(
-                    Arg::new("format")
-                        .short('f')
-                        .long("format")
-                        .help("Format of the import file")
-                        .value_name("FORMAT")
-                        .default_value("youtube_csv")
-                        .value_parser(["youtube_csv", "newpipe"]),
-                )
-                .arg(
-                    Arg::new("source")
-                        .help("Path to the import file")
-                        .value_name("FILE")
-                        .required(true),
-                ),
-        )
-        .subcommand(
-            Command::new("export")
-                .about("Export subscriptions")
-                .arg(
-                    Arg::new("format")
-                        .short('f')
-                        .long("format")
-                        .help("Format of the export file")
-                        .value_name("FORMAT")
-                        .default_value("youtube_csv")
-                        .value_parser(["youtube_csv", "newpipe"]),
-                )
-                .arg(
-                    Arg::new("target")
-                        .help("Path to the export file")
-                        .value_name("FILE")
-                        .required(true),
-                ),
-        )
+        .subcommand(create_import_subcommand())
+        .subcommand(create_export_subcommand())
         .get_matches()
+}
+
+fn create_import_subcommand() -> Command {
+    Command::new("import")
+        .about("Import subscriptions")
+        .arg(
+            Arg::new("format")
+                .short('f')
+                .long("format")
+                .help("Format of the import file")
+                .value_name("FORMAT")
+                .default_value("youtube_csv")
+                .value_parser(["youtube_csv", "newpipe"]),
+        )
+        .arg(
+            Arg::new("source")
+                .help("Path to the import file")
+                .value_name("FILE")
+                .required(true),
+        )
+}
+
+fn create_export_subcommand() -> Command {
+    Command::new("export")
+        .about("Export subscriptions")
+        .arg(
+            Arg::new("format")
+                .short('f')
+                .long("format")
+                .help("Format of the export file")
+                .value_name("FORMAT")
+                .default_value("youtube_csv")
+                .value_parser(["youtube_csv", "newpipe"]),
+        )
+        .arg(
+            Arg::new("target")
+                .help("Path to the export file")
+                .value_name("FILE")
+                .required(true),
+        )
 }

@@ -92,7 +92,7 @@ impl Search {
         let pattern = std::mem::take(&mut self.pattern);
 
         if !abort {
-            self.last_search = Some((pattern, self.direction.clone()))
+            self.last_search = Some((pattern, self.direction.clone()));
         }
     }
 
@@ -103,7 +103,7 @@ impl Search {
     }
 
     fn jump_to_match<T, S: State>(
-        &mut self,
+        &self,
         list: &mut StatefulList<T, S>,
         match_index: Option<usize>,
     ) {

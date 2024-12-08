@@ -42,7 +42,7 @@ fn parse_hex(color: &str) -> Result<Color> {
 }
 
 fn parse_rgb(color: &str) -> Result<Color> {
-    let primaries: Vec<&str> = color.split(',').map(|s| s.trim()).collect();
+    let primaries: Vec<&str> = color.split(',').map(str::trim).collect();
 
     if primaries.len() != 3 {
         anyhow::bail!("RGB string must be composed of three primary colors.");

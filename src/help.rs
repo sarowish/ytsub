@@ -120,7 +120,7 @@ pub struct Help<'a> {
     pub format_selection: [(String, &'a str); FORMAT_SELECTION_DESCRIPTIONS_LEN],
 }
 
-impl<'a> Help<'a> {
+impl Help<'_> {
     pub fn new() -> Self {
         let mut help = Self {
             general: [HELP_ENTRY; DESCRIPTIONS_LEN],
@@ -161,7 +161,7 @@ impl<'a> Help<'a> {
             FORMAT_SELECTION_DESCRIPTIONS
         );
 
-        for (keys, _) in help.general.iter_mut() {
+        for (keys, _) in &mut help.general {
             *keys = format!("{keys:10}  ");
         }
 
@@ -177,7 +177,7 @@ impl<'a> Deref for Help<'a> {
     }
 }
 
-impl<'a> DerefMut for Help<'a> {
+impl DerefMut for Help<'_> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.general
     }

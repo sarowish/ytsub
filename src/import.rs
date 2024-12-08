@@ -11,7 +11,6 @@ pub enum Format {
 impl From<&str> for Format {
     fn from(format: &str) -> Self {
         match format {
-            "youtube_csv" => Format::YoutubeCsv,
             "newpipe" => Format::NewPipe,
             _ => Format::YoutubeCsv,
         }
@@ -53,9 +52,9 @@ impl YoutubeCsv {
 
         for channel in channels {
             wtr.serialize(YoutubeCsv {
-                channel_id: channel.channel_id.to_owned(),
+                channel_id: channel.channel_id.clone(),
                 channel_url: format!("http://www.youtube.com/channel/{}", channel.channel_id),
-                channel_title: channel.channel_name.to_owned(),
+                channel_title: channel.channel_name.clone(),
             })?;
         }
 
@@ -67,11 +66,11 @@ impl YoutubeCsv {
 
 impl Import for YoutubeCsv {
     fn channel_id(&self) -> String {
-        self.channel_id.to_owned()
+        self.channel_id.clone()
     }
 
     fn channel_title(&self) -> String {
-        self.channel_title.to_owned()
+        self.channel_title.clone()
     }
 }
 
@@ -87,7 +86,7 @@ impl NewPipeInner {
         Self {
             service_id: 0,
             url: format!("http://www.youtube.com/channel/{}", channel.channel_id),
-            name: channel.channel_name.to_owned(),
+            name: channel.channel_name.clone(),
         }
     }
 }
@@ -142,7 +141,7 @@ impl Import for NewPipeInner {
     }
 
     fn channel_title(&self) -> String {
-        self.name.to_owned()
+        self.name.clone()
     }
 }
 

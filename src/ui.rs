@@ -197,7 +197,7 @@ pub fn draw<B: Backend>(f: &mut Frame<B>, app: &mut App) {
         InputMode::Normal if app.help_window_state.show => draw_help(f, &mut app.help_window_state),
         InputMode::Confirmation => draw_confirmation_window(f, app),
         InputMode::Import => {
-            draw_list_with_help(f, "Import".to_string(), &mut app.import_state, &HELP.import)
+            draw_list_with_help(f, "Import".to_string(), &mut app.import_state, &HELP.import);
         }
         InputMode::Tag => draw_list_with_help(f, "Tags".to_string(), &mut app.tags, &HELP.tag),
         InputMode::ChannelSelection => draw_list_with_help(
@@ -294,7 +294,7 @@ fn draw_videos<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
             let mut columns = Vec::new();
 
             if let Some(channel_name) = &video.channel_name {
-                columns.push(Cell::from(Span::raw(channel_name)))
+                columns.push(Cell::from(Span::raw(channel_name)));
             }
 
             columns.extend([
@@ -332,7 +332,7 @@ fn draw_videos<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
     } else if let Some(channel) = app.get_current_channel() {
         title.title(channel.channel_name.clone()).build_title()
     } else {
-        Default::default()
+        Vec::default()
     };
 
     let videos = Table::new(videos)
@@ -557,7 +557,7 @@ fn draw_format_selection<B: Backend>(f: &mut Frame<B>, stream_formats: &mut Form
         Some(tabs),
         stream_formats.get_mut_selected_tab(),
         &HELP.format_selection,
-    )
+    );
 }
 
 fn draw_list_with_help<T: Display, B: Backend>(
@@ -566,7 +566,7 @@ fn draw_list_with_help<T: Display, B: Backend>(
     list: &mut StatefulList<T, ListState>,
     help_entries: &[(String, &str)],
 ) {
-    draw_list_with_help_tabs(f, title, None, list, help_entries)
+    draw_list_with_help_tabs(f, title, None, list, help_entries);
 }
 
 fn draw_list_with_help_tabs<T: Display, B: Backend>(
@@ -607,7 +607,7 @@ fn draw_list_with_help_tabs<T: Display, B: Backend>(
         + RIGHT_PADDING;
 
     let frame_height = f.size().height;
-    let tabs_height = if tabs.is_some() { 1 } else { 0 };
+    let tabs_height = tabs.is_some() as u16;
 
     let mut max_height = item_texts.len() as u16 + help_text_height + tabs_height + 2;
     max_height = if frame_height <= max_height + VER_MARGIN {

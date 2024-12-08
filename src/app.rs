@@ -59,31 +59,31 @@ pub struct App {
 impl App {
     pub fn new(io_tx: Sender<IoEvent>) -> Result<Self> {
         let mut app = Self {
-            channels: StatefulList::with_items(Default::default()),
-            videos: StatefulList::with_items(Default::default()),
-            tags: Default::default(),
+            channels: StatefulList::with_items(Vec::default()),
+            videos: StatefulList::with_items(Vec::default()),
+            tags: SelectionList::default(),
             selected: Selected::Channels,
             mode: Mode::Subscriptions,
             conn: Connection::open(OPTIONS.database.clone())?,
             message: Message::new(),
-            input: Default::default(),
+            input: String::default(),
             input_mode: InputMode::Normal,
             input_idx: 0,
             prev_input_mode: InputMode::Normal,
             cursor_position: 0,
-            search: Default::default(),
+            search: Search::default(),
             invidious_instances: crate::utils::read_instances().ok(),
             invidious_instance: None,
             local_api: Local::new(),
             selected_api: OPTIONS.api.clone(),
-            new_video_ids: Default::default(),
-            channels_with_new_videos: Default::default(),
+            new_video_ids: HashSet::default(),
+            channels_with_new_videos: HashSet::default(),
             hide_watched: OPTIONS.hide_watched,
             io_tx,
             help_window_state: HelpWindowState::new(),
             import_state: SelectionList::default(),
-            channel_selection: Default::default(),
-            stream_formats: Default::default(),
+            channel_selection: SelectionList::default(),
+            stream_formats: Formats::default(),
         };
 
         if CLAP_ARGS.contains_id("tick_rate")
@@ -271,7 +271,7 @@ impl App {
                 }
                 ApiBackend::Invidious
             }
-            _ => ApiBackend::Local,
+            ApiBackend::Invidious => ApiBackend::Local,
         };
 
         self.set_message_with_default_duration(&format!("Selected API: {}", self.selected_api));
@@ -304,7 +304,7 @@ impl App {
                 &self.get_current_video().unwrap().video_id,
                 is_watched,
             ) {
-                self.set_error_message(&e.to_string())
+                self.set_error_message(&e.to_string());
             }
         }
     }
@@ -410,28 +410,28 @@ impl App {
             VideoPlayer::Mpv => {
                 command = std::process::Command::new(&OPTIONS.mpv_path);
                 command
-                    .arg(format!("--force-media-title={}", title))
+                    .arg(format!("--force-media-title={title}"))
                     .arg("--no-ytdl")
                     .arg(video_url);
 
                 if let Some(audio_url) = audio_url {
-                    command.arg(format!("--audio-file={}", audio_url));
+                    command.arg(format!("--audio-file={audio_url}"));
                 }
 
                 for caption in captions {
-                    command.arg(format!("--sub-file={}", caption));
+                    command.arg(format!("--sub-file={caption}"));
                 }
             }
             VideoPlayer::Vlc => {
                 command = std::process::Command::new(&OPTIONS.vlc_path);
                 command
                     .arg("--no-video-title-show")
-                    .arg(format!("--input-title-format={}", title))
+                    .arg(format!("--input-title-format={title}"))
                     .arg("--play-and-exit")
                     .arg(video_url);
 
                 if let Some(audio_url) = audio_url {
-                    command.arg(format!("--input-slave={}", audio_url));
+                    command.arg(format!("--input-slave={audio_url}"));
                 }
 
                 if !captions.is_empty() {
@@ -581,7 +581,7 @@ impl App {
 
         self.run_video_player(video_player_process);
 
-        self.stream_formats = Default::default();
+        self.stream_formats = Formats::default();
         self.input_mode = InputMode::Normal;
     }
 
@@ -904,14 +904,14 @@ impl App {
             InputMode::Normal => match self.selected {
                 Selected::Channels => {
                     self.search.search(&mut self.channels, &self.input);
-                    self.on_change_channel()
+                    self.on_change_channel();
                 }
                 Selected::Videos => self.search.search(&mut self.videos, &self.input),
             },
             InputMode::Import => self.search.search(&mut self.import_state, &self.input),
             InputMode::Tag => self.search.search(&mut self.tags, &self.input),
             InputMode::ChannelSelection => {
-                self.search.search(&mut self.channel_selection, &self.input)
+                self.search.search(&mut self.channel_selection, &self.input);
             }
             InputMode::FormatSelection => self
                 .search
@@ -925,7 +925,7 @@ impl App {
             InputMode::Normal => match self.selected {
                 Selected::Channels => {
                     self.search.repeat_last(&mut self.channels, opposite);
-                    self.on_change_channel()
+                    self.on_change_channel();
                 }
                 Selected::Videos => self.search.repeat_last(&mut self.videos, opposite),
             },
@@ -1018,8 +1018,7 @@ impl App {
         let idx = self.input[..self.input_idx]
             .unicode_word_indices()
             .last()
-            .map(|(idx, _)| idx)
-            .unwrap_or(0);
+            .map_or(0, |(idx, _)| idx);
         self.cursor_position -= self.input[idx..self.input_idx].width() as u16;
         self.input_idx = idx;
     }
@@ -1029,8 +1028,7 @@ impl App {
         self.input_idx = self.input[self.input_idx..]
             .unicode_word_indices()
             .nth(1)
-            .map(|(idx, _)| self.input_idx + idx)
-            .unwrap_or(self.input.len());
+            .map_or(self.input.len(), |(idx, _)| self.input_idx + idx);
         self.cursor_position += self.input[old_idx..self.input_idx].width() as u16;
     }
 
@@ -1092,14 +1090,14 @@ impl App {
                 InputMode::Normal => match self.selected {
                     Selected::Channels => {
                         self.search.recover_item(&mut self.channels);
-                        self.on_change_channel()
+                        self.on_change_channel();
                     }
                     Selected::Videos => self.search.recover_item(&mut self.videos),
                 },
                 InputMode::Import => self.search.recover_item(&mut self.import_state),
                 InputMode::Tag => self.search.recover_item(&mut self.tags),
                 InputMode::ChannelSelection => {
-                    self.search.recover_item(&mut self.channel_selection)
+                    self.search.recover_item(&mut self.channel_selection);
                 }
                 InputMode::FormatSelection => self
                     .search
@@ -1315,7 +1313,7 @@ impl App {
             if let Err(e) = database::rename_tag(&self.conn, &tag.item, &self.input) {
                 self.set_error_message(&e.to_string());
             } else {
-                tag.item = self.input.clone();
+                self.input.clone_into(&mut tag.item);
             }
         }
 
@@ -1386,7 +1384,7 @@ impl<T, S: State + Default> StatefulList<T, S> {
             None
         } else {
             Some(index)
-        })
+        });
     }
 
     pub fn next(&mut self) {
@@ -1555,7 +1553,7 @@ impl<T: ListItem> SelectionList<T> {
 
     pub fn select(&mut self) {
         if let Some(item) = self.items.iter_mut().find(|item| item.selected) {
-            item.selected = false
+            item.selected = false;
         }
 
         self.toggle_selected();
@@ -1598,6 +1596,6 @@ impl<T: ListItem> DerefMut for SelectionList<T> {
 
 impl<T: ListItem> Default for SelectionList<T> {
     fn default() -> Self {
-        Self(StatefulList::with_items(Default::default()))
+        Self(StatefulList::with_items(Vec::default()))
     }
 }

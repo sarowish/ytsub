@@ -56,11 +56,11 @@ pub struct Options {
 impl Options {
     pub fn override_with_clap_args(&mut self) {
         if let Some(database) = CLAP_ARGS.get_one::<PathBuf>("database") {
-            self.database = database.to_owned();
+            database.clone_into(&mut self.database);
         }
 
         if let Some(instances) = CLAP_ARGS.get_one::<PathBuf>("instances") {
-            self.instances = instances.to_owned();
+            instances.clone_into(&mut self.instances);
         }
 
         if let Some(tick_rate) = CLAP_ARGS.get_one::<u64>("tick_rate") {
@@ -72,12 +72,12 @@ impl Options {
         }
 
         if let Some(highlight_symbol) = CLAP_ARGS.get_one::<String>("highlight_symbol") {
-            self.highlight_symbol = highlight_symbol.to_owned();
+            highlight_symbol.clone_into(&mut self.highlight_symbol);
         }
 
         // Deprecated
         if let Some(video_player) = CLAP_ARGS.get_one::<PathBuf>("video_player") {
-            self.mpv_path = video_player.to_owned()
+            video_player.clone_into(&mut self.mpv_path);
         }
     }
 }
@@ -161,10 +161,7 @@ where
 
     Ok(Some(if quality_str.to_lowercase() == "best" {
         u16::MAX
-    } else if let Some(Ok(quality)) = quality_str
-        .strip_suffix('p')
-        .map(|number| number.parse::<u16>())
-    {
+    } else if let Some(Ok(quality)) = quality_str.strip_suffix('p').map(str::parse::<u16>) {
         quality
     } else if let Ok(quality) = quality_str.parse::<u16>() {
         quality

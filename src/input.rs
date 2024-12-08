@@ -215,9 +215,9 @@ fn handle_key_format_selection_mode(key: KeyEvent, app: &mut App) -> bool {
                 if tab_index == 2
                     && matches!(OPTIONS.video_player_for_stream_formats, VideoPlayer::Mpv)
                 {
-                    formats.toggle_selected()
+                    formats.toggle_selected();
                 } else {
-                    formats.select()
+                    formats.select();
                 }
             }
             FormatSelectionCommand::PreviousTab => app.stream_formats.previous_tab(),
@@ -248,7 +248,7 @@ fn handle_key_editing_mode(key: KeyEvent, app: &mut App) {
         (KeyCode::Right, KeyModifiers::CONTROL) => app.move_cursor_one_word_right(),
         (KeyCode::Left, _) | (KeyCode::Char('b'), KeyModifiers::CONTROL) => app.move_cursor_left(),
         (KeyCode::Right, _) | (KeyCode::Char('f'), KeyModifiers::CONTROL) => {
-            app.move_cursor_right()
+            app.move_cursor_right();
         }
         (KeyCode::Char('a'), KeyModifiers::CONTROL) => app.move_cursor_to_beginning_of_line(),
         (KeyCode::Char('e'), KeyModifiers::CONTROL) => app.move_cursor_to_end_of_line(),

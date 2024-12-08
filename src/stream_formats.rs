@@ -69,7 +69,7 @@ impl Formats {
         self.audio_formats.items[audio_idx.unwrap()].selected = true;
 
         if let Some(item) = self.formats.items.first_mut() {
-            item.selected = true
+            item.selected = true;
         }
 
         for language in &crate::OPTIONS.subtitle_languages {
@@ -146,7 +146,7 @@ impl Display for Format {
                 fps,
                 r#type,
                 ..
-            } => write!(f, "{} @ {} fps, {}", quality, fps, r#type),
+            } => write!(f, "{quality} @ {fps} fps, {type}"),
             Format::Audio {
                 language,
                 bitrate,
@@ -157,7 +157,7 @@ impl Display for Format {
                 "{}{}, {}",
                 language
                     .as_ref()
-                    .map_or(String::from(""), |(language, _)| format!("{}, ", language)),
+                    .map_or(String::new(), |(language, _)| format!("{language}, ")),
                 bitrate,
                 r#type
             ),
@@ -172,10 +172,10 @@ impl Display for Format {
                 "{} @ {} fps, {}, {}",
                 quality,
                 fps,
-                bitrate.clone().unwrap_or("".to_string()),
+                bitrate.clone().unwrap_or_default(),
                 r#type
             ),
-            Format::Caption { label, .. } => write!(f, "{}", label),
+            Format::Caption { label, .. } => write!(f, "{label}"),
         }
     }
 }

@@ -139,9 +139,9 @@ impl Api for Instance {
                     if let Some(ureq::Error::Status(500, _)) = e.downcast_ref::<ureq::Error>() {
                         self.old_version.store(true, Ordering::SeqCst);
                         return self.get_videos_of_channel(channel_id);
-                    } else {
-                        return Err(anyhow::anyhow!(e));
                     }
+
+                    return Err(anyhow::anyhow!(e));
                 }
             }
         }
@@ -179,9 +179,9 @@ impl Api for Instance {
                 if let ureq::Error::Status(400, _) = e {
                     self.old_version.store(true, Ordering::SeqCst);
                     return self.get_videos_for_the_first_time(channel_id);
-                } else {
-                    return Err(anyhow::anyhow!(e));
                 }
+
+                return Err(anyhow::anyhow!(e));
             }
         }
 
