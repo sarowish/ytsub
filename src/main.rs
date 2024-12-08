@@ -32,10 +32,11 @@ use crossterm::terminal::{
 use futures_util::StreamExt;
 use help::Help;
 use input::InputMode;
+use parking_lot::Mutex;
 use std::io;
 use std::panic;
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::time::Duration;
 use std::time::Instant;
 use tui::backend::{Backend, CrosstermBackend};
@@ -74,7 +75,7 @@ fn main() -> Result<()> {
     });
 
     match CLAP_ARGS.subcommand() {
-        Some(("import", matches)) => app.lock().unwrap().select_channels_to_import(
+        Some(("import", matches)) => app.lock().select_channels_to_import(
             PathBuf::from(matches.get_one::<String>("source").unwrap()),
             matches
                 .get_one::<String>("format")
@@ -83,7 +84,7 @@ fn main() -> Result<()> {
                 .into(),
         )?,
         Some(("export", matches)) => {
-            return app.lock().unwrap().export_subscriptions(
+            return app.lock().export_subscriptions(
                 PathBuf::from(matches.get_one::<String>("target").unwrap()),
                 matches
                     .get_one::<String>("format")
@@ -125,14 +126,14 @@ fn run_tui<B: Backend>(terminal: &mut Terminal<B>, app: Arc<Mutex<App>>) -> Resu
 
     let mut last_tick = Instant::now();
     loop {
-        terminal.draw(|f| draw(f, &mut app.lock().unwrap()))?;
+        terminal.draw(|f| draw(f, &mut app.lock()))?;
 
         const SEARCH_MODE_CURSOR_OFFSET: u16 = 1;
         const SUBSCRIBE_MODE_CURSOR_OFFSET: u16 = 25;
         const TAG_CREATION_MODE_CURSOR_OFFSET: u16 = 10;
 
-        let cursor_position = app.lock().unwrap().cursor_position;
-        match &app.lock().unwrap().input_mode {
+        let cursor_position = app.lock().cursor_position;
+        match &app.lock().input_mode {
             mode @ (InputMode::Subscribe
             | InputMode::Search
             | InputMode::TagCreation
@@ -154,7 +155,7 @@ fn run_tui<B: Backend>(terminal: &mut Terminal<B>, app: Arc<Mutex<App>>) -> Resu
         let timeout = tick_rate.saturating_sub(last_tick.elapsed());
         if crossterm::event::poll(timeout)? {
             if let Event::Key(key) = event::read()? {
-                if input::handle_event(key, &mut app.lock().unwrap()) {
+                if input::handle_event(key, &mut app.lock()) {
                     break;
                 }
             }
@@ -197,16 +198,15 @@ async fn async_io_loop(
                 refresh_channels(&app, refresh_failed).await?;
             }
             IoEvent::FetchInstances => {
-                app.lock().unwrap().set_message("Fetching instances");
+                app.lock().set_message("Fetching instances");
 
                 if let Ok(instances) = utils::fetch_invidious_instances() {
-                    app.lock().unwrap().invidious_instances = Some(instances);
-                    app.lock().unwrap().message.clear_message();
-                    app.lock().unwrap().set_instance();
+                    app.lock().invidious_instances = Some(instances);
+                    app.lock().message.clear_message();
+                    app.lock().set_instance();
                 } else {
-                    app.lock().unwrap().selected_api = ApiBackend::Local;
+                    app.lock().selected_api = ApiBackend::Local;
                     app.lock()
-                        .unwrap()
                         .set_error_message("Couldn't fetch instances. Switching to Local API.");
                 }
             }
@@ -218,52 +218,39 @@ async fn async_io_loop(
 
 fn clear_message(app: &Arc<Mutex<App>>, duration_seconds: u64) {
     let app = app.clone();
-    let cloned_token = app.lock().unwrap().message.clone_token();
+    let cloned_token = app.lock().message.clone_token();
     tokio::task::spawn(async move {
         tokio::select! {
             () = cloned_token.cancelled() => {}
             () = tokio::time::sleep(std::time::Duration::from_secs(duration_seconds)) => {
-                app.lock().unwrap().message.clear_message();
+                app.lock().message.clear_message();
             }
         }
     });
 }
 
 fn subscribe_to_channel(app: &Arc<Mutex<App>>, input: &str) {
-    let channel_id = app
-        .lock()
-        .unwrap()
-        .instance()
-        .resolve_channel_id(input)
-        .unwrap();
+    let channel_id = app.lock().instance().resolve_channel_id(input).unwrap();
 
-    if app
-        .lock()
-        .unwrap()
-        .channels
-        .get_mut_by_id(&channel_id)
-        .is_some()
-    {
+    if app.lock().channels.get_mut_by_id(&channel_id).is_some() {
         app.lock()
-            .unwrap()
             .set_warning_message("Already subscribed to the channel");
         return;
     }
 
-    let mut instance = app.lock().unwrap().instance();
-    app.lock().unwrap().set_message("Subscribing to channel");
+    let mut instance = app.lock().instance();
+    app.lock().set_message("Subscribing to channel");
     let app = app.clone();
     tokio::task::spawn(async move {
         let channel_feed = instance.get_videos_for_the_first_time(&channel_id);
 
         match channel_feed {
             Ok(channel_feed) => {
-                app.lock().unwrap().message.clear_message();
-                app.lock().unwrap().add_channel(channel_feed);
+                app.lock().message.clear_message();
+                app.lock().add_channel(channel_feed);
             }
             Err(e) => {
                 app.lock()
-                    .unwrap()
                     .set_error_message(&format!("Failed to subscribe: {e:?}"));
             }
         }
@@ -273,7 +260,7 @@ fn subscribe_to_channel(app: &Arc<Mutex<App>>, input: &str) {
 async fn subscribe_to_channels(app: &Arc<Mutex<App>>) -> Result<()> {
     let mut channel_ids = Vec::new();
 
-    for channel in &mut app.lock().unwrap().import_state.items {
+    for channel in &mut app.lock().import_state.items {
         channel_ids.push(channel.channel_id.clone());
         channel.sub_state = RefreshState::ToBeRefreshed;
     }
@@ -282,16 +269,15 @@ async fn subscribe_to_channels(app: &Arc<Mutex<App>>) -> Result<()> {
 
     let count = Arc::new(Mutex::new(0));
     let total = channel_ids.len();
-    app.lock().unwrap().set_message(&format!(
+    app.lock().set_message(&format!(
         "Subscribing to channels: {}/{}",
-        count.lock().unwrap(),
+        count.lock(),
         total
     ));
-    let instance = app.lock().unwrap().instance();
+    let instance = app.lock().instance();
     let streams = futures_util::stream::iter(channel_ids).map(|channel_id| {
         let mut instance = dyn_clone::clone_box(&*instance);
         app.lock()
-            .unwrap()
             .import_state
             .get_mut_by_id(&channel_id)
             .unwrap()
@@ -307,23 +293,22 @@ async fn subscribe_to_channels(app: &Arc<Mutex<App>>) -> Result<()> {
 
             match channel_feed {
                 Ok(channel_feed) => {
-                    app.lock().unwrap().add_channel(channel_feed);
+                    app.lock().add_channel(channel_feed);
                     {
-                        let mut app = app.lock().unwrap();
+                        let mut app = app.lock();
                         let idx = app.import_state.find_by_id(&channel_id).unwrap();
                         app.import_state.items[idx].sub_state = RefreshState::Completed;
                         app.import_state.items.remove(idx);
                     }
-                    *count.lock().unwrap() += 1;
-                    app.lock().unwrap().set_message(&format!(
+                    *count.lock() += 1;
+                    app.lock().set_message(&format!(
                         "Subscribing to channels: {}/{}",
-                        count.lock().unwrap(),
+                        count.lock(),
                         total
                     ));
                 }
                 Err(_) => {
                     app.lock()
-                        .unwrap()
                         .import_state
                         .get_mut_by_id(&channel_id)
                         .unwrap()
@@ -336,19 +321,17 @@ async fn subscribe_to_channels(app: &Arc<Mutex<App>>) -> Result<()> {
     while buffered.next().await.is_some() {}
 
     let elapsed = now.elapsed();
-    app.lock()
-        .unwrap()
-        .set_message_with_default_duration(&format!(
-            "Subscribed to {} out of {} channels in {:?}",
-            count.lock().unwrap(),
-            total,
-            elapsed
-        ));
+    app.lock().set_message_with_default_duration(&format!(
+        "Subscribed to {} out of {} channels in {:?}",
+        count.lock(),
+        total,
+        elapsed
+    ));
 
-    if *count.lock().unwrap() == total {
-        app.lock().unwrap().input_mode = InputMode::Normal;
+    if *count.lock() == total {
+        app.lock().input_mode = InputMode::Normal;
     } else {
-        let mut app = app.lock().unwrap();
+        let mut app = app.lock();
 
         let list_len = app.import_state.items.len();
         if let Some(idx) = app.import_state.state.selected() {
@@ -372,24 +355,20 @@ async fn subscribe_to_channels(app: &Arc<Mutex<App>>) -> Result<()> {
 }
 fn refresh_channel(app: &Arc<Mutex<App>>, channel_id: String) {
     let now = std::time::Instant::now();
-    let mut instance = app.lock().unwrap().instance();
+    let mut instance = app.lock().instance();
     app.lock()
-        .unwrap()
         .set_channel_refresh_state(&channel_id, RefreshState::Refreshing);
-    app.lock().unwrap().set_message("Refreshing channel");
+    app.lock().set_message("Refreshing channel");
     let app = app.clone();
     tokio::task::spawn(async move {
         let Ok(channel_feed) = instance.get_videos_of_channel(&channel_id) else {
             app.lock()
-                .unwrap()
                 .set_channel_refresh_state(&channel_id, RefreshState::Failed);
-            app.lock()
-                .unwrap()
-                .set_error_message("failed to refresh channel");
+            app.lock().set_error_message("failed to refresh channel");
             return;
         };
         {
-            let mut app = app.lock().unwrap();
+            let mut app = app.lock();
             app.add_videos(channel_feed);
             app.set_channel_refresh_state(&channel_id, RefreshState::Completed);
             let elapsed = now.elapsed();
@@ -402,7 +381,7 @@ async fn refresh_channels(app: &Arc<Mutex<App>>, refresh_failed: bool) -> Result
     let now = std::time::Instant::now();
 
     let mut channel_ids = Vec::new();
-    for channel in &mut app.lock().unwrap().channels.items {
+    for channel in &mut app.lock().channels.items {
         if refresh_failed && !matches!(channel.refresh_state, RefreshState::Failed)
             || !refresh_failed
                 && matches!(
@@ -418,7 +397,7 @@ async fn refresh_channels(app: &Arc<Mutex<App>>, refresh_failed: bool) -> Result
 
     if channel_ids.is_empty() {
         {
-            let mut app = app.lock().unwrap();
+            let mut app = app.lock();
             if !app.channels.items.is_empty() {
                 app.set_warning_message(if refresh_failed {
                     "There are no channels to retry refreshing"
@@ -432,16 +411,12 @@ async fn refresh_channels(app: &Arc<Mutex<App>>, refresh_failed: bool) -> Result
 
     let count = Arc::new(Mutex::new(0));
     let total = channel_ids.len();
-    app.lock().unwrap().set_message(&format!(
-        "Refreshing Channels: {}/{}",
-        count.lock().unwrap(),
-        total
-    ));
-    let instance = app.lock().unwrap().instance();
+    app.lock()
+        .set_message(&format!("Refreshing Channels: {}/{}", count.lock(), total));
+    let instance = app.lock().instance();
     let streams = futures_util::stream::iter(channel_ids).map(|channel_id| {
         let mut instance = dyn_clone::clone_box(&*instance);
         app.lock()
-            .unwrap()
             .set_channel_refresh_state(&channel_id, RefreshState::Refreshing);
         let app = app.clone();
         let count = count.clone();
@@ -454,19 +429,14 @@ async fn refresh_channels(app: &Arc<Mutex<App>>, refresh_failed: bool) -> Result
 
             match channel_feed {
                 Ok(channel_feed) => {
-                    let mut app = app.lock().unwrap();
+                    let mut app = app.lock();
                     app.add_videos(channel_feed);
                     app.set_channel_refresh_state(&channel_id, RefreshState::Completed);
-                    *count.lock().unwrap() += 1;
-                    app.set_message(&format!(
-                        "Refreshing Channels: {}/{}",
-                        count.lock().unwrap(),
-                        total
-                    ));
+                    *count.lock() += 1;
+                    app.set_message(&format!("Refreshing Channels: {}/{}", count.lock(), total));
                 }
                 Err(_) => {
                     app.lock()
-                        .unwrap()
                         .set_channel_refresh_state(&channel_id, RefreshState::Failed);
                 }
             }
@@ -475,17 +445,11 @@ async fn refresh_channels(app: &Arc<Mutex<App>>, refresh_failed: bool) -> Result
     let mut buffered = streams.buffer_unordered(num_cpus::get());
     while buffered.next().await.is_some() {}
     let elapsed = now.elapsed();
-    match *count.lock().unwrap() {
-        0 => app
-            .lock()
-            .unwrap()
-            .set_error_message("Failed to refresh channels"),
-        count => app
-            .lock()
-            .unwrap()
-            .set_message_with_default_duration(&format!(
-                "Refreshed {count} out of {total} channels in {elapsed:?}"
-            )),
+    match *count.lock() {
+        0 => app.lock().set_error_message("Failed to refresh channels"),
+        count => app.lock().set_message_with_default_duration(&format!(
+            "Refreshed {count} out of {total} channels in {elapsed:?}"
+        )),
     }
     Ok(())
 }

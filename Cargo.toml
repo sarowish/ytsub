@@ -34,6 +34,7 @@ csv = "1.1.6"
 quick-xml = { version = "0.27.1", features = ["serialize"] }
 chrono = "0.4.23"
 dyn-clone = "1.0.10"
+parking_lot = "0.12.3"
 
 [target.'cfg(unix)'.dependencies]
 nix = "0.26.2"
