@@ -70,6 +70,19 @@ Options:
 For default key bindings, press `ctrl-h` in the app or refer to
 the [example `config.toml` file](#example-configtoml-with-default-values).
 
+### Subscribing
+Pressing `i` prompts the user to enter a channel id or url. 
+
+#### Example inputs
+
+```
+UCsXVk37bltHxD1rDPwtNM8Q
+https://youtube.com/channel/UCsXVk37bltHxD1rDPwtNM8Q
+<INVIDIOUS_INSTANCE>/channel/UCsXVk37bltHxD1rDPwtNM8Q
+@kurzgesagt
+https://youtube.com/@kurzgesagt
+```
+
 ## Configuration
 
 Default directory of the configuration files is `$HOME/.config/ytsub`.
