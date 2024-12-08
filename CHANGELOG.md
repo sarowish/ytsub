@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Handle short forms in published texts.
 - Take help text into account while determining floating window height.
 - Get channel name from a different field.
+- Don't assume the channel being subscribed to has at least 4 tabs
 
 ## [0.4.0] - 2023-02-06
 ### Added

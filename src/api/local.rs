@@ -98,13 +98,15 @@ impl Local {
                 .to_string(),
         );
 
-        if tabs[2]["tabRenderer"]["title"].as_str().unwrap() == "Shorts" {
-            *shorts_available = true;
-        } else if tabs[2]["tabRenderer"]["title"].as_str().unwrap() == "Live" {
-            *streams_available = true;
+        if let Some(title) = tabs[2]["tabRenderer"]["title"].as_str() {
+            if title == "Shorts" {
+                *shorts_available = true;
+            } else if title == "Live" {
+                *streams_available = true;
+            }
         }
 
-        if tabs[3]["tabRenderer"]["title"].as_str().unwrap() == "Live" {
+        if matches!(tabs[3]["tabRenderer"]["title"].as_str(), Some(title) if title == "Live") {
             *streams_available = true;
         }
 
