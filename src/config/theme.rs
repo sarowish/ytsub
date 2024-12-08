@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
+use ratatui::style::{Color, Modifier, Style};
 use serde::Deserialize;
-use tui::style::{Color, Modifier, Style};
 
 #[derive(Deserialize)]
 struct UserStyle {

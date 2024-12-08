@@ -33,14 +33,14 @@ use futures_util::StreamExt;
 use help::Help;
 use input::InputMode;
 use parking_lot::Mutex;
+use ratatui::backend::{Backend, CrosstermBackend};
+use ratatui::Terminal;
 use std::io;
 use std::panic;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 use std::time::Instant;
-use tui::backend::{Backend, CrosstermBackend};
-use tui::Terminal;
 use ui::draw;
 
 lazy_static::lazy_static! {
@@ -146,7 +146,8 @@ fn run_tui<B: Backend>(terminal: &mut Terminal<B>, app: Arc<Mutex<App>>) -> Resu
                     }
                     _ => 0,
                 };
-                terminal.set_cursor(cursor_position + offset, terminal.size()?.height - 1)?;
+                terminal
+                    .set_cursor_position((cursor_position + offset, terminal.size()?.height - 1))?;
                 terminal.show_cursor()?;
             }
             _ => terminal.hide_cursor()?,

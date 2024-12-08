@@ -24,7 +24,6 @@ serde = { version = "1.0.198", features = ["derive"] }
 serde_json = "1.0.115"
 tokio = { version = "1.25.0", features = ["time", "macros", "rt-multi-thread"] }
 tokio-util = "0.7.4"
-tui = { version = "0.19.0", default-features = false, features = ['crossterm'] }
 ureq = { version = "2.6.2", features = ["json"] }
 unicode-width = "0.1.10"
 unicode-segmentation = "1.10.1"
@@ -35,6 +34,7 @@ quick-xml = { version = "0.27.1", features = ["serialize"] }
 chrono = "0.4.23"
 dyn-clone = "1.0.10"
 parking_lot = "0.12.3"
+ratatui = "0.29.0"
 
 [target.'cfg(unix)'.dependencies]
 nix = "0.26.2"

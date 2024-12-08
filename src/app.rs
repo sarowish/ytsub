@@ -10,6 +10,7 @@ use crate::search::{Search, SearchDirection, SearchState};
 use crate::stream_formats::Formats;
 use crate::{database, IoEvent, CLAP_ARGS, OPTIONS};
 use anyhow::{Context, Result};
+use ratatui::widgets::{ListState, TableState};
 use rusqlite::Connection;
 use serde::Deserialize;
 use std::collections::HashSet;
@@ -18,7 +19,6 @@ use std::ops::{Deref, DerefMut};
 use std::path::PathBuf;
 use std::process::Command;
 use std::sync::mpsc::Sender;
-use tui::widgets::{ListState, TableState};
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 

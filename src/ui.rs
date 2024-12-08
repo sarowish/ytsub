@@ -5,16 +5,15 @@ use crate::message::MessageType;
 use crate::search::SearchDirection;
 use crate::stream_formats::Formats;
 use crate::{utils, HELP, OPTIONS, THEME};
-use std::fmt::Display;
-use tui::backend::Backend;
-use tui::layout::{Alignment, Constraint, Direction, Layout, Rect};
-use tui::style::{Color, Style};
-use tui::text::{Span, Spans};
-use tui::widgets::{
+use ratatui::layout::{Alignment, Constraint, Direction, Layout, Rect};
+use ratatui::style::{Color, Style};
+use ratatui::text::{Line, Span};
+use ratatui::widgets::{
     Block, BorderType, Borders, Cell, Clear, List, ListItem, ListState, Paragraph, Row, Table,
     Tabs, Wrap,
 };
-use tui::Frame;
+use ratatui::Frame;
+use std::fmt::Display;
 use unicode_width::UnicodeWidthStr;
 
 struct TitleBuilder<'a, T, S: State> {
@@ -63,7 +62,7 @@ impl<'a, T, S: State> TitleBuilder<'a, T, S> {
         const MIN_GAP: usize = 2;
 
         let mut title_sections = Vec::with_capacity(7);
-        let border_symbol = BorderType::line_symbols(BorderType::Plain).horizontal;
+        let border_symbol = BorderType::border_symbols(BorderType::Plain).horizontal_top;
 
         if !self.title.is_empty() {
             let title = Span::styled(self.title, THEME.title);
@@ -166,15 +165,15 @@ fn filter_columns(constraints: &[(Constraint, u16)], mut available_width: u16) -
         .collect()
 }
 
-pub fn draw<B: Backend>(f: &mut Frame<B>, app: &mut App) {
+pub fn draw(f: &mut Frame, app: &mut App) {
     let (main_layout, footer) = if app.is_footer_active() {
         let chunks = Layout::default()
             .constraints([Constraint::Min(1), Constraint::Length(1)].as_ref())
             .direction(Direction::Vertical)
-            .split(f.size());
+            .split(f.area());
         (chunks[0], Some(chunks[1]))
     } else {
-        (f.size(), None)
+        (f.area(), None)
     };
     match app.mode {
         Mode::Subscriptions => draw_subscriptions(f, app, main_layout),
@@ -211,7 +210,7 @@ pub fn draw<B: Backend>(f: &mut Frame<B>, app: &mut App) {
     }
 }
 
-fn draw_subscriptions<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
+fn draw_subscriptions(f: &mut Frame, app: &mut App, area: Rect) {
     let chunks = Layout::default()
         .constraints([Constraint::Percentage(30), Constraint::Percentage(70)].as_ref())
         .direction(Direction::Horizontal)
@@ -220,7 +219,7 @@ fn draw_subscriptions<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
     draw_videos(f, app, chunks[1]);
 }
 
-fn draw_channels<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
+fn draw_channels(f: &mut Frame, app: &mut App, area: Rect) {
     let channels = app
         .channels
         .items
@@ -255,7 +254,7 @@ fn draw_channels<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
     f.render_stateful_widget(channels, area, &mut app.channels.state);
 }
 
-fn draw_videos<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
+fn draw_videos(f: &mut Frame, app: &mut App, area: Rect) {
     const COLUMN_SPACING: u16 = 2;
     const COLUMN_CONSTRAINTS: &[(Constraint, u16); 4] = &[
         (Constraint::Percentage(15), 0),
@@ -335,7 +334,7 @@ fn draw_videos<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
         Vec::default()
     };
 
-    let videos = Table::new(videos)
+    let videos = Table::new(videos, shown_column_constraints)
         .block(
             Block::default()
                 .borders(Borders::ALL)
@@ -353,9 +352,8 @@ fn draw_videos<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
             .style(THEME.header),
         )
         .column_spacing(2)
-        .widths(&shown_column_constraints)
-        .highlight_symbol(&OPTIONS.highlight_symbol)
-        .highlight_style({
+        .highlight_symbol(&*OPTIONS.highlight_symbol)
+        .row_highlight_style({
             let mut style = match app.selected {
                 Selected::Channels => THEME.selected,
                 Selected::Videos => THEME.focused,
@@ -381,18 +379,18 @@ fn draw_videos<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
     }
 }
 
-fn draw_video_info<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
+fn draw_video_info(f: &mut Frame, app: &mut App, area: Rect) {
     let current_video = app.get_current_video().unwrap();
     let video_info = Paragraph::new(vec![
-        Spans::from(format!(
+        Line::from(format!(
             "channel: {}",
             match &current_video.channel_name {
                 Some(channel_name) => channel_name,
                 None => &app.get_current_channel().unwrap().channel_name,
             }
         )),
-        Spans::from(format!("title: {}", current_video.title)),
-        Spans::from(format!(
+        Line::from(format!("title: {}", current_video.title)),
+        Line::from(format!(
             "length: {}",
             if let Some(length) = current_video.length {
                 utils::length_as_hhmmss(length)
@@ -400,7 +398,7 @@ fn draw_video_info<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
                 String::new()
             }
         )),
-        Spans::from(format!("date: {}", current_video.published_text)),
+        Line::from(format!("date: {}", current_video.published_text)),
     ])
     .block(
         Block::default()
@@ -410,9 +408,9 @@ fn draw_video_info<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
     f.render_widget(video_info, area);
 }
 
-fn draw_footer<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
+fn draw_footer(f: &mut Frame, app: &mut App, area: Rect) {
     let text = match app.input_mode {
-        InputMode::Search => Paragraph::new(Spans::from(vec![
+        InputMode::Search => Paragraph::new(Line::from(vec![
             Span::raw(match app.search_direction() {
                 SearchDirection::Forward => "/",
                 SearchDirection::Backward => "?",
@@ -426,11 +424,11 @@ fn draw_footer<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
                 },
             ),
         ])),
-        InputMode::TagCreation | InputMode::TagRenaming => Paragraph::new(Spans::from(vec![
+        InputMode::TagCreation | InputMode::TagRenaming => Paragraph::new(Line::from(vec![
             Span::raw("Tag name: "),
             Span::raw(&app.input),
         ])),
-        InputMode::Subscribe => Paragraph::new(Spans::from(vec![
+        InputMode::Subscribe => Paragraph::new(Line::from(vec![
             Span::raw("Enter channel id or url: "),
             Span::raw(&app.input),
         ])),
@@ -443,8 +441,8 @@ fn draw_footer<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
     f.render_widget(text, area);
 }
 
-fn draw_confirmation_window<B: Backend>(f: &mut Frame<B>, app: &App) {
-    let window = popup_window_from_percentage(50, 15, f.size());
+fn draw_confirmation_window(f: &mut Frame, app: &App) {
+    let window = popup_window_from_percentage(50, 15, f.area());
     f.render_widget(Clear, window);
     f.render_widget(Block::default().borders(Borders::ALL), window);
 
@@ -463,7 +461,7 @@ fn draw_confirmation_window<B: Backend>(f: &mut Frame<B>, app: &App) {
     };
 
     let channel_name = &app.get_current_channel().unwrap().channel_name;
-    let mut text = Paragraph::new(Spans::from(format!(
+    let mut text = Paragraph::new(Line::from(format!(
         "Are you sure you want to unsubscribe from '{channel_name}'?"
     )))
     .alignment(Alignment::Center);
@@ -472,12 +470,12 @@ fn draw_confirmation_window<B: Backend>(f: &mut Frame<B>, app: &App) {
         text = text.wrap(Wrap { trim: true });
     }
 
-    let yes = Paragraph::new(Spans::from(vec![
+    let yes = Paragraph::new(Line::from(vec![
         Span::styled("Y", Style::default().fg(Color::Green)),
         Span::raw("es"),
     ]))
     .alignment(Alignment::Center);
-    let no = Paragraph::new(Spans::from(vec![
+    let no = Paragraph::new(Line::from(vec![
         Span::styled("N", Style::default().fg(Color::Red)),
         Span::raw("o"),
     ]))
@@ -488,16 +486,16 @@ fn draw_confirmation_window<B: Backend>(f: &mut Frame<B>, app: &App) {
     f.render_widget(no, no_area);
 }
 
-fn draw_help<B: Backend>(f: &mut Frame<B>, help_window_state: &mut HelpWindowState) {
-    let window = popup_window_from_percentage(80, 70, f.size());
+fn draw_help(f: &mut Frame, help_window_state: &mut HelpWindowState) {
+    let window = popup_window_from_percentage(80, 70, f.area());
     f.render_widget(Clear, window);
 
     let width = std::cmp::max(window.width.saturating_sub(2), 1);
 
     let help_entries = HELP
         .iter()
-        .map(|(key, desc)| Spans::from(vec![Span::styled(key, THEME.help), Span::raw(*desc)]))
-        .collect::<Vec<Spans>>();
+        .map(|(key, desc)| Line::from(vec![Span::styled(key, THEME.help), Span::raw(*desc)]))
+        .collect::<Vec<Line>>();
 
     help_window_state.max_scroll = help_entries
         .iter()
@@ -524,10 +522,10 @@ fn draw_help<B: Backend>(f: &mut Frame<B>, help_window_state: &mut HelpWindowSta
     f.render_widget(help_text, window);
 }
 
-fn draw_format_selection<B: Backend>(f: &mut Frame<B>, stream_formats: &mut Formats) {
+fn draw_format_selection(f: &mut Frame, stream_formats: &mut Formats) {
     let tabs = Tabs::new(vec![
-        Spans::from("Video"),
-        Spans::from(Span::styled(
+        Line::from("Video"),
+        Line::from(Span::styled(
             "Audio",
             if stream_formats.use_adaptive_streams {
                 Style::default()
@@ -535,7 +533,7 @@ fn draw_format_selection<B: Backend>(f: &mut Frame<B>, stream_formats: &mut Form
                 THEME.watched
             },
         )),
-        Spans::from(Span::styled(
+        Line::from(Span::styled(
             "Caption",
             if stream_formats.captions.items.is_empty() {
                 THEME.watched
@@ -560,8 +558,8 @@ fn draw_format_selection<B: Backend>(f: &mut Frame<B>, stream_formats: &mut Form
     );
 }
 
-fn draw_list_with_help<T: Display, B: Backend>(
-    f: &mut Frame<B>,
+fn draw_list_with_help<T: Display>(
+    f: &mut Frame,
     title: String,
     list: &mut StatefulList<T, ListState>,
     help_entries: &[(String, &str)],
@@ -569,8 +567,8 @@ fn draw_list_with_help<T: Display, B: Backend>(
     draw_list_with_help_tabs(f, title, None, list, help_entries);
 }
 
-fn draw_list_with_help_tabs<T: Display, B: Backend>(
-    f: &mut Frame<B>,
+fn draw_list_with_help_tabs<T: Display>(
+    f: &mut Frame,
     title: String,
     tabs: Option<Tabs>,
     list: &mut StatefulList<T, ListState>,
@@ -593,10 +591,10 @@ fn draw_list_with_help_tabs<T: Display, B: Backend>(
         spans.push(Span::raw(entry.1));
     }
 
-    let help_text = Spans::from(spans);
+    let help_text = Line::from(spans);
 
     let help_text_width = help_text.width();
-    let help_text_height = 1 + help_text_width as u16 / f.size().width;
+    let help_text_height = 1 + help_text_width as u16 / f.area().width;
 
     let max_width = item_texts
         .iter()
@@ -606,7 +604,7 @@ fn draw_list_with_help_tabs<T: Display, B: Backend>(
         .max(help_text_width) as u16
         + RIGHT_PADDING;
 
-    let frame_height = f.size().height;
+    let frame_height = f.area().height;
     let tabs_height = tabs.is_some() as u16;
 
     let mut max_height = item_texts.len() as u16 + help_text_height + tabs_height + 2;
@@ -617,7 +615,7 @@ fn draw_list_with_help_tabs<T: Display, B: Backend>(
     }
     .max(10);
 
-    let window = popup_window_from_dimensions(max_height, max_width, f.size());
+    let window = popup_window_from_dimensions(max_height, max_width, f.area());
     f.render_widget(Clear, window);
 
     let title = TitleBuilder::new(window.width.into())
