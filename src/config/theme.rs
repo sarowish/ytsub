@@ -214,7 +214,7 @@ impl TryFrom<UserTheme> for Theme {
 #[cfg(test)]
 mod tests {
     use super::{parse_modifiers, str_to_color};
-    use tui::style::{Color, Modifier};
+    use ratatui::style::{Color, Modifier};
 
     #[test]
     fn valid_hexa() {
