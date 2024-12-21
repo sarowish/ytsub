@@ -74,11 +74,6 @@ impl Options {
         if let Some(highlight_symbol) = CLAP_ARGS.get_one::<String>("highlight_symbol") {
             highlight_symbol.clone_into(&mut self.highlight_symbol);
         }
-
-        // Deprecated
-        if let Some(video_player) = CLAP_ARGS.get_one::<PathBuf>("video_player") {
-            video_player.clone_into(&mut self.mpv_path);
-        }
     }
 }
 
