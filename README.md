@@ -1,6 +1,6 @@
 # ytsub
 
-ytsub is a subscriptions only tui youtube client that uses the invidious api.
+ytsub is a subscriptions only tui youtube client.
 
 ![demo](https://user-images.githubusercontent.com/20581722/169398500-76b61e21-bff6-4286-aadb-8345eaab97a0.gif)
 
@@ -104,7 +104,7 @@ Path to the configuration file can be specified with the `-c` flag.
 database = "/home/username/.local/share/ytsub/videos.db" # Path to database file
 instances = "/home/username/.config/ytsub/instances" # Path to instances file
 tabs = ["videos"] # Tabs to fetch videos from [possible values: videos, shorts, streams]
-api = "invidious" # API to be used for fetching videos [possible values: invidious, local]
+api = "local" # API to be used for fetching videos [possible values: invidious, local]
 refresh_threshold = 600 # Time in seconds that needs to pass before refreshing a channel using the refresh_channels command
 rss_threshold = 125 # Use RSS if the number of channels being refreshed or being subscribed to exceeds the specified amount
 tick_rate = 200 # Tick rate in milliseconds
@@ -215,8 +215,8 @@ fg = "Green"
 "r" = "refresh_channel" # Refresh videos of the selected channel
 "R" = "refresh_channels" # Refresh videos of every channel
 "F" = "refresh_failed_channels" # Refresh videos of channels which their latest refresh was a failure
-"o" = "open_in_invidious" # Open channel or video Invidious page in browser
-"O" = "open_in_youtube" # Open channel or video Youtube page in browser
+"o" = "open_in_youtube" # Open channel or video Youtube page in browser
+"O" = "open_in_invidious" # Open channel or video Invidious page in browser
 "p" = "play_video" # Play selected video in a video player
 "P" = "play_from_formats" # Play selected video in a video player using formats
 "f" = "select_formats" # Toggle format selection window

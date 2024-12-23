@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add a command to stream videos using formats
 - Resolve channel ID depending on the provided input while subscribing to a channel
 
+### Changed
+- Make Local API the default.
+
 ### Fixed
 - Handle short forms in published texts.
 - Take help text into account while determining floating window height.

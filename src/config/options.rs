@@ -85,7 +85,7 @@ impl Default for Options {
             videos_tab: true,
             shorts_tab: false,
             streams_tab: false,
-            api: ApiBackend::Invidious,
+            api: ApiBackend::Local,
             refresh_threshold: 600,
             rss_threshold: 125,
             tick_rate: 200,
