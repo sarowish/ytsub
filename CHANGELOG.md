@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Take help text into account while determining floating window height.
 - Get channel name from a different field.
 - Don't assume the channel being subscribed to has at least 4 tabs
+- Fall back to Local API if no Invidious instance can be set.
 
 ## [0.4.0] - 2023-02-06
 ### Added

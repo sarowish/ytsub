@@ -265,16 +265,15 @@ impl App {
 
     pub fn switch_api(&mut self) {
         self.selected_api = match self.selected_api {
-            ApiBackend::Local => {
-                if self.invidious_instance.is_none() {
-                    self.set_instance();
-                }
-                ApiBackend::Invidious
-            }
+            ApiBackend::Local => ApiBackend::Invidious,
             ApiBackend::Invidious => ApiBackend::Local,
         };
 
         self.set_message_with_default_duration(&format!("Selected API: {}", self.selected_api));
+
+        if self.invidious_instance.is_none() {
+            self.set_instance();
+        }
     }
 
     fn find_channel_by_name(&mut self, channel_name: &str) -> Option<usize> {
@@ -1191,7 +1190,14 @@ impl App {
 
     pub fn set_instance(&mut self) {
         if let Some(invidious_instances) = &self.invidious_instances {
-            self.invidious_instance = Some(Instance::new(invidious_instances));
+            if invidious_instances.is_empty() {
+                self.selected_api = ApiBackend::Local;
+                self.set_warning_message(
+                    "No Invidious instance available. Falling back to Local API.",
+                );
+            } else {
+                self.invidious_instance = Some(Instance::new(invidious_instances));
+            }
         } else {
             self.dispatch(IoEvent::FetchInstances);
         }

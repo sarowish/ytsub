@@ -208,7 +208,7 @@ async fn async_io_loop(
                 } else {
                     app.lock().selected_api = ApiBackend::Local;
                     app.lock()
-                        .set_error_message("Couldn't fetch instances. Switching to Local API.");
+                        .set_error_message("Failed to fetch instances. Falling back to Local API.");
                 }
             }
             IoEvent::ClearMessage(duration_seconds) => clear_message(&app, duration_seconds),
