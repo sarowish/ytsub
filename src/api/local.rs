@@ -13,6 +13,8 @@ const ANDROID_USER_AGENT: &str =
 #[derive(Clone)]
 pub struct Local {
     agent: Agent,
+    shorts_available: bool,
+    streams_available: bool,
     continuation: Option<String>,
 }
 
@@ -180,6 +182,25 @@ fn extract_continuation_token(value: &[Value]) -> Option<String> {
     None
 }
 
+fn get_tab_by_title<'a>(value: &'a Value, title: &str) -> Option<&'a Value> {
+    let tabs = value["contents"]["twoColumnBrowseResultsRenderer"]["tabs"].as_array()?;
+
+    for tab in tabs {
+        let tab = &tab["tabRenderer"];
+        if matches!(tab["title"].as_str(), Some(s) if s == title) {
+            return Some(tab);
+        }
+    }
+
+    None
+}
+
+fn extract_videos_from_tab(tab: &Value) -> Option<&[Value]> {
+    tab["content"]["richGridRenderer"]["contents"]
+        .as_array()
+        .map(Vec::as_slice)
+}
+
 impl Local {
     pub fn new() -> Self {
         let agent = AgentBuilder::new()
@@ -189,6 +210,8 @@ impl Local {
 
         Self {
             agent,
+            shorts_available: false,
+            streams_available: false,
             continuation: None,
         }
     }
@@ -239,39 +262,26 @@ impl Local {
         &mut self,
         channel_id: &str,
         channel_title: &mut Option<String>,
-        shorts_available: &mut bool,
-        streams_available: &mut bool,
     ) -> Result<Vec<Video>> {
         let response =
             self.post_browse(&[("browseId", channel_id), ("params", "EgZ2aWRlb3PyBgQKAjoA")])?;
 
-        let tabs = &response["contents"]["twoColumnBrowseResultsRenderer"]["tabs"];
-
-        let videos = &tabs[1]["tabRenderer"]["content"]["richGridRenderer"]["contents"];
-
-        if videos.is_null() {
+        let Some(mut videos) =
+            get_tab_by_title(&response, "Videos").and_then(|tab| extract_videos_from_tab(tab))
+        else {
             return Err(anyhow::anyhow!("Channel doesn't exist"));
+        };
+
+        *channel_title = response["metadata"]["channelMetadataRenderer"]["title"]
+            .as_str()
+            .map(|title| title.to_string());
+
+        if get_tab_by_title(&response, "Shorts").is_some() {
+            self.shorts_available = true;
         }
 
-        let mut videos = videos.as_array().unwrap().as_slice();
-
-        *channel_title = Some(
-            response["metadata"]["channelMetadataRenderer"]["title"]
-                .as_str()
-                .unwrap()
-                .to_string(),
-        );
-
-        if let Some(title) = tabs[2]["tabRenderer"]["title"].as_str() {
-            if title == "Shorts" {
-                *shorts_available = true;
-            } else if title == "Live" {
-                *streams_available = true;
-            }
-        }
-
-        if matches!(tabs[3]["tabRenderer"]["title"].as_str(), Some(title) if title == "Live") {
-            *streams_available = true;
+        if get_tab_by_title(&response, "Live").is_some() {
+            self.streams_available = true;
         }
 
         if let Some(token) = extract_continuation_token(videos) {
@@ -288,25 +298,17 @@ impl Local {
             ("params", "EgZzaG9ydHPyBgUKA5oBAA"),
         ])?;
 
-        let tab = &response["contents"]["twoColumnBrowseResultsRenderer"]["tabs"][2]["tabRenderer"];
-
-        if tab["title"].as_str().unwrap() != "Shorts" {
+        let Some(mut shorts) =
+            get_tab_by_title(&response, "Shorts").and_then(|tab| extract_videos_from_tab(tab))
+        else {
             return Ok(Vec::new());
+        };
+
+        if extract_continuation_token(shorts).is_some() {
+            shorts = shorts.split_last().unwrap().1;
         }
 
-        let videos = &tab["content"]["richGridRenderer"]["contents"];
-
-        if videos.is_null() {
-            return Ok(Vec::new());
-        }
-
-        let mut videos = videos.as_array().unwrap().as_slice();
-
-        if extract_continuation_token(videos).is_some() {
-            videos = videos.split_last().unwrap().1;
-        }
-
-        extract_shorts_tab(videos)
+        extract_shorts_tab(shorts)
     }
 
     fn get_streams_tab(&mut self, channel_id: &str) -> Result<Vec<Video>> {
@@ -315,29 +317,17 @@ impl Local {
             ("params", "EgdzdHJlYW1z8gYECgJ6AA"),
         ])?;
 
-        let tabs = &response["contents"]["twoColumnBrowseResultsRenderer"]["tabs"];
-
-        let tab = if tabs[2]["tabRenderer"]["title"].as_str().unwrap() == "Live" {
-            &tabs[2]
-        } else if tabs[3]["tabRenderer"]["title"].as_str().unwrap() == "Live" {
-            &tabs[3]
-        } else {
+        let Some(mut streams) =
+            get_tab_by_title(&response, "Live").and_then(|tab| extract_videos_from_tab(tab))
+        else {
             return Ok(Vec::new());
         };
 
-        let videos = &tab["tabRenderer"]["content"]["richGridRenderer"]["contents"];
-
-        if videos.is_null() {
-            return Ok(Vec::new());
+        if extract_continuation_token(streams).is_some() {
+            streams = streams.split_last().unwrap().1;
         }
 
-        let mut videos = videos.as_array().unwrap().as_slice();
-
-        if extract_continuation_token(videos).is_some() {
-            videos = videos.split_last().unwrap().1;
-        }
-
-        extract_streams_tab(videos)
+        extract_streams_tab(streams)
     }
 
     fn get_continuation(&mut self) -> Result<Vec<Video>> {
@@ -417,25 +407,18 @@ impl Api for Local {
 
     fn get_videos_of_channel(&mut self, channel_id: &str) -> Result<ChannelFeed> {
         let mut channel_title = None;
-        let mut shorts_available = false;
-        let mut streams_available = false;
-        let mut videos = self.get_videos_tab(
-            channel_id,
-            &mut channel_title,
-            &mut shorts_available,
-            &mut streams_available,
-        )?;
+        let mut videos = self.get_videos_tab(channel_id, &mut channel_title)?;
 
         if !OPTIONS.videos_tab {
             videos.drain(..);
         }
 
-        if OPTIONS.shorts_tab && shorts_available {
+        if OPTIONS.shorts_tab && self.shorts_available {
             let shorts = self.get_shorts_tab(channel_id)?;
             videos.extend(shorts);
         }
 
-        if OPTIONS.streams_tab && streams_available {
+        if OPTIONS.streams_tab && self.streams_available {
             let streams = self.get_streams_tab(channel_id)?;
             videos.extend(streams);
         }
