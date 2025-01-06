@@ -346,11 +346,10 @@ impl App {
             Parent { .. } => {
                 // check if child process failed to run
                 if let Ok(WaitStatus::Exited(_, 101)) = wait() {
-                    close(pipe_w)?;
-                    let mut file = unsafe { File::from_raw_fd(pipe_r) };
+                    close(pipe_w.into_raw_fd())?;
+                    let mut file = unsafe { File::from_raw_fd(pipe_r.into_raw_fd()) };
                     let mut error_message = String::new();
                     file.read_to_string(&mut error_message)?;
-                    close(pipe_r)?;
                     Err(anyhow::anyhow!(error_message))
                 } else {
                     Ok(())
@@ -368,10 +367,9 @@ impl App {
                 dup2(fd, 1).unwrap();
                 dup2(fd, 2).unwrap();
                 if let Err(e) = func() {
-                    close(pipe_r).unwrap();
-                    dup2(pipe_w, 1).unwrap();
+                    close(pipe_r.into_raw_fd()).unwrap();
+                    dup2(pipe_w.into_raw_fd(), 1).unwrap();
                     println!("{e}");
-                    close(pipe_w).unwrap();
                     std::process::exit(101);
                 }
                 std::process::exit(0);

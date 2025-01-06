@@ -5,20 +5,31 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [0.5.0] - 2025-07-01
 ### Added
 - Add a command to stream videos using formats
+[`ffe7d1`](https://github.com/sarowish/ytsub/commit/ffe7d1)
 - Resolve channel ID depending on the provided input while subscribing to a channel
+[`7411b2`](https://github.com/sarowish/ytsub/commit/7411b2)
 
 ### Changed
 - Make Local API the default.
+[`d28a4c`](https://github.com/sarowish/ytsub/commit/d28a4c)
 
 ### Fixed
 - Handle short forms in published texts.
+[`547f6f`](https://github.com/sarowish/ytsub/commit/547f6f)
 - Take help text into account while determining floating window height.
+[`95c365`](https://github.com/sarowish/ytsub/commit/95c365)
 - Get channel name from a different field.
+[`b5bba5`](https://github.com/sarowish/ytsub/commit/b5bba5)
 - Don't assume the channel being subscribed to has at least 4 tabs
+[`9e3885`](https://github.com/sarowish/ytsub/commit/9e3885)
 - Fall back to Local API if no Invidious instance can be set.
+[`3c3058`](https://github.com/sarowish/ytsub/commit/3c3058)
 - Check for tabs in the whole tabs array.
+[`9abb22`](https://github.com/sarowish/ytsub/commit/9abb22)
 
 ## [0.4.0] - 2023-02-06
 ### Added
