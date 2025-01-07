@@ -1,8 +1,8 @@
 use crate::{
-    app::App,
-    app::VideoPlayer,
+    app::{App, VideoPlayer},
     commands::{
-        ChannelSelectionCommand, Command, FormatSelectionCommand, ImportCommand, TagCommand,
+        ChannelSelectionCommand, Command, FormatSelectionCommand, HelpCommand, ImportCommand,
+        TagCommand,
     },
     help::HelpWindowState,
     KEY_BINDINGS, OPTIONS,
@@ -80,7 +80,15 @@ fn handle_key_normal_mode(key: KeyEvent, app: &mut App) -> bool {
 }
 
 fn handle_key_help_mode(key: KeyEvent, help_window_state: &mut HelpWindowState) -> bool {
-    if let Some(command) = KEY_BINDINGS.get(&key) {
+    if let Some(command) = KEY_BINDINGS.help.get(&key) {
+        match command {
+            HelpCommand::ScrollUp => help_window_state.scroll_up(),
+            HelpCommand::ScrollDown => help_window_state.scroll_down(),
+            HelpCommand::GoToTop => help_window_state.scroll_top(),
+            HelpCommand::GoToBottom => help_window_state.scroll_bottom(),
+            HelpCommand::Abort => help_window_state.toggle(),
+        }
+    } else if let Some(command) = KEY_BINDINGS.get(&key) {
         match command {
             Command::OnDown => help_window_state.scroll_down(),
             Command::OnUp => help_window_state.scroll_up(),
@@ -150,6 +158,7 @@ fn handle_key_tag_mode(key: KeyEvent, app: &mut App) -> bool {
             TagCommand::CreateTag => app.enter_tag_creation(),
             TagCommand::DeleteTag => app.delete_selected_tag(),
             TagCommand::RenameTag => app.enter_tag_renaming(),
+            TagCommand::Abort => app.toggle_tag_selection(),
         }
 
         if updated {

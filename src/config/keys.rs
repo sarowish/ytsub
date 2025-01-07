@@ -1,5 +1,6 @@
 use crate::commands::{
-    ChannelSelectionCommand, Command, FormatSelectionCommand, ImportCommand, TagCommand,
+    ChannelSelectionCommand, Command, FormatSelectionCommand, HelpCommand, ImportCommand,
+    TagCommand,
 };
 use anyhow::{Context, Result};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
@@ -62,6 +63,7 @@ fn parse_binding(binding: &str) -> Result<KeyEvent> {
 #[derive(PartialEq, Eq, Debug)]
 pub struct KeyBindings {
     pub general: HashMap<KeyEvent, Command>,
+    pub help: HashMap<KeyEvent, HelpCommand>,
     pub import: HashMap<KeyEvent, ImportCommand>,
     pub tag: HashMap<KeyEvent, TagCommand>,
     pub channel_selection: HashMap<KeyEvent, ChannelSelectionCommand>,
@@ -72,6 +74,7 @@ impl Default for KeyBindings {
     #[rustfmt::skip]
     fn default() -> Self {
         let mut general = HashMap::new();
+        let mut help = HashMap::new();
         let mut import = HashMap::new();
         let mut tag = HashMap::new();
         let mut channel_selection = HashMap::new();
@@ -126,6 +129,7 @@ impl Default for KeyBindings {
         insert_binding!(tag, "i", TagCommand::CreateTag);
         insert_binding!(tag, "d", TagCommand::DeleteTag);
         insert_binding!(tag, "r", TagCommand::RenameTag);
+        insert_binding!(tag, "escape", TagCommand::Abort);
 
         insert_binding!(import, "space", ImportCommand::ToggleSelection);
         insert_binding!(import, "a", ImportCommand::SelectAll);
@@ -147,8 +151,15 @@ impl Default for KeyBindings {
         insert_binding!(format_selection, "enter", FormatSelectionCommand::PlayVideo);
         insert_binding!(format_selection, "escape", FormatSelectionCommand::Abort);
 
+        insert_binding!(help, "ctrl-y", HelpCommand::ScrollUp);
+        insert_binding!(help, "ctrl-e", HelpCommand::ScrollDown);
+        insert_binding!(help, "g", HelpCommand::GoToTop);
+        insert_binding!(help, "G", HelpCommand::GoToBottom);
+        insert_binding!(help, "esc", HelpCommand::Abort);
+
         Self {
             general,
+            help,
             import,
             tag,
             channel_selection,

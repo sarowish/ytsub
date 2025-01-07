@@ -107,6 +107,7 @@ pub enum TagCommand {
     ToggleSelection,
     SelectAll,
     DeselectAll,
+    Abort,
 }
 
 impl TryFrom<&str> for TagCommand {
@@ -121,6 +122,7 @@ impl TryFrom<&str> for TagCommand {
             "create_tag" => TagCommand::CreateTag,
             "delete_tag" => TagCommand::DeleteTag,
             "rename_tag" => TagCommand::RenameTag,
+            "abort" => TagCommand::Abort,
             _ => anyhow::bail!("\"{}\" is an invalid command", command),
         };
 
@@ -175,6 +177,32 @@ impl TryFrom<&str> for FormatSelectionCommand {
             "select" => FormatSelectionCommand::Select,
             "play_video" => FormatSelectionCommand::PlayVideo,
             "abort" => FormatSelectionCommand::Abort,
+            _ => anyhow::bail!("\"{}\" is an invalid command", command),
+        };
+
+        Ok(command)
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum HelpCommand {
+    ScrollUp,
+    ScrollDown,
+    GoToTop,
+    GoToBottom,
+    Abort,
+}
+
+impl TryFrom<&str> for HelpCommand {
+    type Error = anyhow::Error;
+
+    fn try_from(command: &str) -> Result<Self, Self::Error> {
+        let command = match command {
+            "scroll_up" => HelpCommand::ScrollUp,
+            "scroll_down" => HelpCommand::ScrollDown,
+            "go_to_top" => HelpCommand::GoToTop,
+            "go_to_bottom" => HelpCommand::GoToBottom,
+            "abort" => HelpCommand::Abort,
             _ => anyhow::bail!("\"{}\" is an invalid command", command),
         };
 

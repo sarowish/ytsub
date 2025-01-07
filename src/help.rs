@@ -44,7 +44,7 @@ const IMPORT_DESCRIPTIONS: [&str; IMPORT_DESCRIPTIONS_LEN] = [
     " - Deselect all",
 ];
 
-const TAG_DESCRIPTIONS_LEN: usize = 7;
+const TAG_DESCRIPTIONS_LEN: usize = 8;
 const TAG_DESCRIPTIONS: [&str; TAG_DESCRIPTIONS_LEN] = [
     " - Create tag, ",
     " - Delete tag, ",
@@ -52,7 +52,8 @@ const TAG_DESCRIPTIONS: [&str; TAG_DESCRIPTIONS_LEN] = [
     " - Pick channels, ",
     " - Toggle, ",
     " - Select all, ",
-    " - Deselect all",
+    " - Deselect all, ",
+    " - Abort",
 ];
 
 const CHANNEL_SELECTION_DESCRIPTIONS_LEN: usize = 5;
