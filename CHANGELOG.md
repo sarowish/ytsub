@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - `esc` keybinding closes help and tag windows
 
-## [0.5.0] - 2025-07-01
+## [0.5.0] - 2025-01-07
 ### Added
 - Add a command to stream videos using formats
 [`ffe7d1`](https://github.com/sarowish/ytsub/commit/ffe7d1)
