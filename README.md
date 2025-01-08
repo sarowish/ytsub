@@ -225,6 +225,13 @@ fg = "Green"
 "T" = "toggle_tag" # Toggle tag window
 "q ctrl-c" = "quit" # Quit application
 
+[key_bindings.help]
+"ctrl-y" = "scroll_up" #general "on_up" binding also applies
+"ctrl-e" = "scroll_down" # general "on_down" binding also applies
+"g" = "go_to_top" # general "select_first" binding also applies
+"G" = "go_to_bottom" # general "select_last" binding also applies
+"escape" = "abort"
+
 [key_bindings.import]
 "space" = "toggle_selection" # Select/Unselect channel
 "a" = "select_all" # Select all channels
@@ -239,6 +246,7 @@ fg = "Green"
 "space" = "toggle_selection" # Select/Unselect tag
 "a" = "select_all" # Select all tags
 "z" = "deselect_all" # Deselect all tags
+"escape" = "abort" # Close window
 
 [key_bindings.channel_selection]
 "enter" = "confirm" # Confirm the selection of channels
