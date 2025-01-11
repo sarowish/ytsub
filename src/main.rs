@@ -321,9 +321,9 @@ async fn subscribe_to_channels(app: &Arc<Mutex<App>>) -> Result<()> {
     let mut buffered = streams.buffer_unordered(num_cpus::get());
     while buffered.next().await.is_some() {}
 
-    let elapsed = now.elapsed();
+    let elapsed = now.elapsed().as_secs_f64();
     app.lock().set_message_with_default_duration(&format!(
-        "Subscribed to {} out of {} channels in {:?}",
+        "Subscribed to {} out of {} channels in {:.2}s",
         count.lock(),
         total,
         elapsed
@@ -372,8 +372,8 @@ fn refresh_channel(app: &Arc<Mutex<App>>, channel_id: String) {
             let mut app = app.lock();
             app.add_videos(channel_feed);
             app.set_channel_refresh_state(&channel_id, RefreshState::Completed);
-            let elapsed = now.elapsed();
-            app.set_message_with_default_duration(&format!("Refreshed in {elapsed:?}"));
+            let elapsed = now.elapsed().as_secs_f64();
+            app.set_message_with_default_duration(&format!("Refreshed in {elapsed:.2}s"));
         }
     });
 }
@@ -445,11 +445,11 @@ async fn refresh_channels(app: &Arc<Mutex<App>>, refresh_failed: bool) -> Result
     });
     let mut buffered = streams.buffer_unordered(num_cpus::get());
     while buffered.next().await.is_some() {}
-    let elapsed = now.elapsed();
+    let elapsed = now.elapsed().as_secs_f64();
     match *count.lock() {
         0 => app.lock().set_error_message("Failed to refresh channels"),
         count => app.lock().set_message_with_default_duration(&format!(
-            "Refreshed {count} out of {total} channels in {elapsed:?}"
+            "Refreshed {count} out of {total} channels in {elapsed:.2}s"
         )),
     }
     Ok(())
