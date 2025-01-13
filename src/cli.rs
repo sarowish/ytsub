@@ -1,4 +1,4 @@
-use clap::{Arg, ArgAction, ArgMatches, Command};
+use clap::{builder::ValueParser, Arg, ArgAction, ArgMatches, Command};
 
 pub fn get_matches() -> ArgMatches {
     Command::new(env!("CARGO_PKG_NAME"))
@@ -9,6 +9,7 @@ pub fn get_matches() -> ArgMatches {
                 .short('c')
                 .long("config")
                 .help("Path to configuration file")
+                .value_parser(ValueParser::path_buf())
                 .value_name("FILE"),
         )
         .arg(
@@ -24,6 +25,7 @@ pub fn get_matches() -> ArgMatches {
                 .short('d')
                 .long("database")
                 .help("Path to database file")
+                .value_parser(ValueParser::path_buf())
                 .value_name("FILE"),
         )
         .arg(
@@ -31,6 +33,7 @@ pub fn get_matches() -> ArgMatches {
                 .short('s')
                 .long("instances")
                 .help("Path to instances file")
+                .value_parser(ValueParser::path_buf())
                 .value_name("FILE"),
         )
         .arg(
@@ -65,12 +68,6 @@ pub fn get_matches() -> ArgMatches {
                 .help("Symbol to highlight selected items")
                 .value_name("SYMBOL"),
         )
-        .arg(
-            Arg::new("video_player_path")
-                .long("video-player-path")
-                .help("Path to video player")
-                .value_name("VIDEO PLAYER PATH"),
-        )
         .subcommand(create_import_subcommand())
         .subcommand(create_export_subcommand())
         .get_matches()
@@ -91,6 +88,7 @@ fn create_import_subcommand() -> Command {
         .arg(
             Arg::new("source")
                 .help("Path to the import file")
+                .value_parser(ValueParser::path_buf())
                 .value_name("FILE")
                 .required(true),
         )
@@ -111,6 +109,7 @@ fn create_export_subcommand() -> Command {
         .arg(
             Arg::new("target")
                 .help("Path to the export file")
+                .value_parser(ValueParser::path_buf())
                 .value_name("FILE")
                 .required(true),
         )

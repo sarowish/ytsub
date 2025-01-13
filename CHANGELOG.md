@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Lower the displayed precision of elapsed time on refresh completion.
 
+### Fixed
+-- Add missing value parsers to `database` and `instances` cli arguments.
+
 ## [0.5.0] - 2025-01-07
 ### Added
 - Add a command to stream videos using formats

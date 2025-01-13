@@ -1,7 +1,7 @@
 use crate::channel::{Channel, ListItem, RefreshState};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use std::{fmt::Display, fs::File, io::BufReader, path::PathBuf};
+use std::{fmt::Display, fs::File, io::BufReader, path::Path};
 
 pub enum Format {
     YoutubeCsv,
@@ -33,7 +33,7 @@ pub struct YoutubeCsv {
 }
 
 impl YoutubeCsv {
-    pub fn read_subscriptions(path: PathBuf) -> Result<Vec<ImportItem>> {
+    pub fn read_subscriptions(path: &Path) -> Result<Vec<ImportItem>> {
         let file = File::open(path)?;
         let mut rdr = csv::Reader::from_reader(file);
 
@@ -46,7 +46,7 @@ impl YoutubeCsv {
         Ok(subscriptions.into_iter().map(ImportItem::from).collect())
     }
 
-    pub fn export(channels: &[Channel], path: PathBuf) -> Result<()> {
+    pub fn export(channels: &[Channel], path: &Path) -> Result<()> {
         let file = File::create(path)?;
         let mut wtr = csv::Writer::from_writer(file);
 
@@ -107,7 +107,7 @@ impl NewPipe {
         }
     }
 
-    pub fn read_subscriptions(path: PathBuf) -> Result<Vec<ImportItem>> {
+    pub fn read_subscriptions(path: &Path) -> Result<Vec<ImportItem>> {
         let file = File::open(path)?;
         let rdr = BufReader::new(file);
 
@@ -120,7 +120,7 @@ impl NewPipe {
             .collect())
     }
 
-    pub fn export(channels: &[Channel], path: PathBuf) -> Result<()> {
+    pub fn export(channels: &[Channel], path: &Path) -> Result<()> {
         let file = File::create(path)?;
 
         let subs = channels.iter().map(NewPipeInner::new).collect();

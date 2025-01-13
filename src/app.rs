@@ -16,7 +16,7 @@ use serde::Deserialize;
 use std::collections::HashSet;
 use std::fmt::Display;
 use std::ops::{Deref, DerefMut};
-use std::path::PathBuf;
+use std::path::Path;
 use std::process::Command;
 use std::sync::mpsc::Sender;
 use unicode_segmentation::UnicodeSegmentation;
@@ -1109,11 +1109,7 @@ impl App {
         self.finalize_search(true);
     }
 
-    pub fn select_channels_to_import(
-        &mut self,
-        path: PathBuf,
-        format: import::Format,
-    ) -> Result<()> {
+    pub fn select_channels_to_import(&mut self, path: &Path, format: import::Format) -> Result<()> {
         let mut import_state = match format {
             import::Format::YoutubeCsv => import::YoutubeCsv::read_subscriptions(path),
             import::Format::NewPipe => import::NewPipe::read_subscriptions(path),
@@ -1154,7 +1150,7 @@ impl App {
         self.subscribe_to_channels();
     }
 
-    pub fn export_subscriptions(&mut self, path: PathBuf, format: import::Format) -> Result<()> {
+    pub fn export_subscriptions(&mut self, path: &Path, format: import::Format) -> Result<()> {
         match format {
             import::Format::YoutubeCsv => import::YoutubeCsv::export(&self.channels.items, path),
             import::Format::NewPipe => import::NewPipe::export(&self.channels.items, path),

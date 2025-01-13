@@ -76,7 +76,7 @@ fn main() -> Result<()> {
 
     match CLAP_ARGS.subcommand() {
         Some(("import", matches)) => app.lock().select_channels_to_import(
-            PathBuf::from(matches.get_one::<String>("source").unwrap()),
+            matches.get_one::<PathBuf>("source").unwrap(),
             matches
                 .get_one::<String>("format")
                 .map(String::as_str)
@@ -85,7 +85,7 @@ fn main() -> Result<()> {
         )?,
         Some(("export", matches)) => {
             return app.lock().export_subscriptions(
-                PathBuf::from(matches.get_one::<String>("target").unwrap()),
+                matches.get_one::<PathBuf>("target").unwrap(),
                 matches
                     .get_one::<String>("format")
                     .map(String::as_str)

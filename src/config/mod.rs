@@ -32,8 +32,8 @@ pub struct Config {
 
 impl Config {
     pub fn new() -> Result<Self> {
-        let config_file = match CLAP_ARGS.get_one::<String>("config") {
-            Some(path) => PathBuf::from(path),
+        let config_file = match CLAP_ARGS.get_one::<PathBuf>("config") {
+            Some(path) => path.to_owned(),
             None => utils::get_config_dir()?.join(CONFIG_FILE),
         };
 
