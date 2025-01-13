@@ -57,14 +57,13 @@ Commands:
   help    Print this message or the help of the given subcommand(s)
 
 Options:
-  -c, --config <FILE>                       Path to configuration file
-  -n, --no-config <no_config>               Ignore configuration file
-  -d, --database <FILE>                     Path to database file
-  -s, --instances <FILE>                    Path to instances file
-  -g, --gen-instances <gen_instances_list>  Generate Invidious instances file
-      --video-player <VIDEO PLAYER>         Path to video player
-  -h, --help                                Print help information
-  -V, --version                             Print version information
+  -c, --config <FILE>     Path to configuration file
+  -n, --no-config         Ignore configuration file
+  -d, --database <FILE>   Path to database file
+  -s, --instances <FILE>  Path to instances file
+  -g, --gen-instances     Generate Invidious instances file
+  -h, --help              Print help
+  -V, --version           Print version
 ```
 
 For default key bindings, press `ctrl-h` in the app or refer to
