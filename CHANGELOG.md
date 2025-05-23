@@ -12,7 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Lower the displayed precision of elapsed time on refresh completion.
 
 ### Fixed
--- Add missing value parsers to `database` and `instances` cli arguments.
+- Add missing value parsers to `database` and `instances` cli arguments.
+- Fix adaptive streams
 
 ## [0.5.0] - 2025-01-07
 ### Added

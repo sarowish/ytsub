@@ -8,7 +8,7 @@ use ureq::{Agent, AgentBuilder};
 
 const API_BACKEND: ApiBackend = ApiBackend::Local;
 const ANDROID_USER_AGENT: &str =
-    "com.google.android.youtube/19.09.36 (Linux; U; Android 12; US) gzip";
+    "com.google.android.youtube/20.10.38 (Linux; U; Android 12; US) gzip";
 
 #[derive(Clone)]
 pub struct Local {
@@ -223,8 +223,7 @@ impl Local {
             "context": {
                 "client": {
                     "clientName": "ANDROID",
-                    "clientVersion": "19.09.36",
-                    "androidSdkVersion": 31,
+                    "clientVersion": "20.10.38",
                     "userAgent": ANDROID_USER_AGENT,
                 },
             },
