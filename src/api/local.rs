@@ -451,7 +451,10 @@ impl Api for Local {
             .collect();
 
         let Some(adaptive_formats) = response["streamingData"]["adaptiveFormats"].as_array() else {
-            anyhow::bail!("Stream formats are not available")
+            let reason = response["playabilityStatus"]["reason"]
+                .as_str()
+                .unwrap_or_default();
+            anyhow::bail!("Stream formats are not available: {reason}")
         };
 
         let mut video_formats = Vec::new();

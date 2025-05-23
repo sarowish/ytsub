@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 ### Added
 - `esc` keybinding closes help and tag windows
+- Display a reason in the error message when the stream formats are not available for a video.
 
 ### Changed
 - Lower the displayed precision of elapsed time on refresh completion.

@@ -217,7 +217,20 @@ impl Api for Instance {
 
     fn get_video_formats(&self, video_id: &str) -> Result<VideoInfo> {
         let url = format!("{}/api/v1/videos/{}", self.domain, video_id);
-        let response = self.agent.get(&url).call()?.into_json::<Value>()?;
+        let response = match self.agent.get(&url).call() {
+            Ok(response) => response.into_json::<Value>()?,
+            Err(e) => {
+                anyhow::bail!(format!(
+                    "Stream formats are not available: {}",
+                    e.into_response()
+                        .and_then(|response| response
+                            .into_json::<Value>()
+                            .ok()
+                            .and_then(|value| value["error"].as_str().map(ToOwned::to_owned)))
+                        .unwrap_or_default()
+                ));
+            }
+        };
 
         let mut format_streams: Vec<Format> = response["formatStreams"]
             .as_array()
