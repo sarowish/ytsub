@@ -78,6 +78,11 @@ pub fn generate_instances_file() -> Result<()> {
         std::fs::create_dir_all(instances_dir)?;
     }
 
+    anyhow::ensure!(
+        !instances.is_empty(),
+        "No suitable instance available on api.invidious.io"
+    );
+
     let mut file = File::create(instances_file_path.as_path())?;
     println!(
         "Generated \"{}\" with the following instances:",
