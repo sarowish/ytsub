@@ -36,10 +36,12 @@ pub struct VideoInfo {
 impl VideoInfo {
     pub fn new(
         video_formats: Vec<Format>,
-        audio_formats: Vec<Format>,
+        mut audio_formats: Vec<Format>,
         format_streams: Vec<Format>,
         captions: Vec<Format>,
     ) -> Self {
+        audio_formats.reverse();
+
         Self {
             video_formats,
             audio_formats,

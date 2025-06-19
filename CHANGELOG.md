@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Lower the displayed precision of elapsed time on refresh completion.
+- Reverse the list of audio formats.
 
 ### Fixed
 - Add missing value parsers to `database` and `instances` cli arguments.
