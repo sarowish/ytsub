@@ -46,6 +46,10 @@ pub fn get_cache_dir() -> Result<PathBuf> {
     Ok(path)
 }
 
+fn hyperlink(text: &str, link: &str) -> String {
+    format!("\x1b]8;;{link}\x1b\\{text}\x1b]8;;\x1b\\")
+}
+
 pub fn fetch_invidious_instances() -> Result<Vec<String>> {
     const REQUEST_URL: &str = "https://api.invidious.io/instances.json";
     const ONION: &str = "onion";
@@ -80,7 +84,10 @@ pub fn generate_instances_file() -> Result<()> {
 
     anyhow::ensure!(
         !instances.is_empty(),
-        "No suitable instance available on api.invidious.io"
+        format!(
+            "No suitable instance available on {}",
+            hyperlink("api.invidious.io", "https://api.invidious.io/")
+        )
     );
 
     let mut file = File::create(instances_file_path.as_path())?;
