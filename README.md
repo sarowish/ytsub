@@ -265,12 +265,16 @@ fg = "Green"
 
 ### `instances`
 
+> [!NOTE]
+> At the time of writing, there are no suitable instances available on https://api.invidious.io,
+> and they've rarely been available for quite a while now.
+
 A custom path to the `instances` file can be specified with the `-i` flag.
-The file can either be manually created by adding instances that have api enabled or
+The file can either be manually created by adding instances that have API enabled or
 automatically generated from the instances in https://api.invidious.io by running the app with `-g` flag.
 Every instance entry is separated by a line.
-If the `instances` file doesn't exist, every time the app is launched,
-instances list will be built from https://api.invidious.io.
+If the `instances` file doesn't exist, instances list will be built from https://api.invidious.io when
+Invidious is selected as the API (as opposed to the local API).
 
 #### Example `instances` file
 
