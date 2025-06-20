@@ -6,7 +6,8 @@ ytsub is a subscriptions only tui youtube client.
 
 ## Dependencies
 
-`mpv` and `yt-dlp` are optional dependencies for playing videos.
+`mpv` and `yt-dlp` are optional dependencies for video playback. `yt-dlp` is not
+needed for playback when using the `play_from_formats` command.
 
 `sqlite` is a required dependency. If it is not available on the system,
 it can be compiled and linked by enabling
