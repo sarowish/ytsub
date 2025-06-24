@@ -265,11 +265,9 @@ impl Local {
         let response =
             self.post_browse(&[("browseId", channel_id), ("params", "EgZ2aWRlb3PyBgQKAjoA")])?;
 
-        let Some(mut videos) =
-            get_tab_by_title(&response, "Videos").and_then(|tab| extract_videos_from_tab(tab))
-        else {
-            return Err(anyhow::anyhow!("Channel doesn't exist"));
-        };
+        let mut videos = get_tab_by_title(&response, "Videos")
+            .and_then(|tab| extract_videos_from_tab(tab))
+            .unwrap_or_default();
 
         *channel_title = response["metadata"]["channelMetadataRenderer"]["title"]
             .as_str()

@@ -126,6 +126,10 @@ impl App {
     }
 
     pub fn add_videos(&mut self, mut channel_feed: ChannelFeed) {
+        if channel_feed.videos.is_empty() {
+            return;
+        }
+
         let channel_id = channel_feed.channel_id.as_ref().unwrap();
 
         let present_videos: Vec<Video> = match database::get_videos(&self.conn, channel_id) {
