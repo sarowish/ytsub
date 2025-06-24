@@ -231,7 +231,15 @@ fn clear_message(app: &Arc<Mutex<App>>, duration_seconds: u64) {
 }
 
 fn subscribe_to_channel(app: &Arc<Mutex<App>>, input: &str) {
-    let channel_id = app.lock().instance().resolve_channel_id(input).unwrap();
+    let res = app.lock().instance().resolve_channel_id(input);
+    let channel_id = match res {
+        Ok(id) => id,
+        Err(e) => {
+            app.lock()
+                .set_error_message(&format!("Failed to subscribe: {e}"));
+            return;
+        }
+    };
 
     if app.lock().channels.get_mut_by_id(&channel_id).is_some() {
         app.lock()

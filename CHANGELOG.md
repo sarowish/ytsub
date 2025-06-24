@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add missing value parsers to `database` and `instances` cli arguments.
 - Fix adaptive streams
 - Don't treat channels with no videos as nonexistent.
+- Do error handling for nonexistent channel handles when subscribing.
 
 ## [0.5.0] - 2025-01-07
 ### Added
