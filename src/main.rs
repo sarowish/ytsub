@@ -260,7 +260,7 @@ fn subscribe_to_channel(app: &Arc<Mutex<App>>, input: &str) {
             }
             Err(e) => {
                 app.lock()
-                    .set_error_message(&format!("Failed to subscribe: {e:?}"));
+                    .set_error_message(&format!("Failed to subscribe: {e}"));
             }
         }
     });

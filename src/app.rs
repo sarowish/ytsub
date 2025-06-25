@@ -504,9 +504,8 @@ impl App {
 
         if let Err(e) = res {
             self.set_error_message(&format!(
-                "couldn't run \"{}\": {}",
-                OPTIONS.mpv_path.to_string_lossy(),
-                e
+                "couldn't run \"{}\": {e}",
+                OPTIONS.mpv_path.to_string_lossy()
             ));
         } else {
             self.mark_as_watched();
@@ -640,7 +639,7 @@ impl App {
         let res = browser_process();
 
         if let Err(e) = res {
-            self.set_error_message(&format!("{e}"));
+            self.set_error_message(&e.to_string());
         } else if matches!(self.selected, Selected::Videos) {
             self.mark_as_watched();
         }
