@@ -980,7 +980,7 @@ impl App {
         if self.input_idx != 0 {
             let (idx, ch) = self.input[..self.input_idx]
                 .grapheme_indices(true)
-                .last()
+                .next_back()
                 .unwrap();
             self.cursor_position -= ch.width() as u16;
             self.input.drain(idx..self.input_idx);
@@ -995,7 +995,7 @@ impl App {
         if self.input_idx != 0 {
             let (idx, ch) = self.input[..self.input_idx]
                 .grapheme_indices(true)
-                .last()
+                .next_back()
                 .unwrap();
             self.input_idx = idx;
             self.cursor_position -= ch.width() as u16;
@@ -1017,7 +1017,7 @@ impl App {
     pub fn move_cursor_one_word_left(&mut self) {
         let idx = self.input[..self.input_idx]
             .unicode_word_indices()
-            .last()
+            .next_back()
             .map_or(0, |(idx, _)| idx);
         self.cursor_position -= self.input[idx..self.input_idx].width() as u16;
         self.input_idx = idx;
