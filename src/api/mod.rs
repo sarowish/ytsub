@@ -1,12 +1,16 @@
 pub mod invidious;
 pub mod local;
 
-use crate::channel::{ListItem, Video};
+use crate::{
+    channel::{ListItem, Video},
+    utils,
+};
 use anyhow::Result;
 use dyn_clone::DynClone;
+use regex_lite::Regex;
 use serde::Deserialize;
 use serde_json::Value;
-use std::fmt::Display;
+use std::{fmt::Display, io::Write, path::PathBuf, sync::LazyLock};
 
 #[derive(Deserialize, PartialEq)]
 #[serde(rename_all(deserialize = "lowercase"))]
@@ -31,6 +35,7 @@ pub struct VideoInfo {
     pub audio_formats: Vec<Format>,
     pub format_streams: Vec<Format>,
     pub captions: Vec<Format>,
+    pub chapters: Option<Chapters>,
 }
 
 impl VideoInfo {
@@ -39,6 +44,7 @@ impl VideoInfo {
         mut audio_formats: Vec<Format>,
         format_streams: Vec<Format>,
         captions: Vec<Format>,
+        chapters: Option<Chapters>,
     ) -> Self {
         audio_formats.reverse();
 
@@ -47,6 +53,7 @@ impl VideoInfo {
             audio_formats,
             format_streams,
             captions,
+            chapters,
         }
     }
 }
@@ -210,6 +217,99 @@ impl ListItem for Format {
                 url
             }
             Format::Caption { language_code, .. } => language_code,
+        }
+    }
+}
+
+#[derive(Default)]
+pub struct Chapters {
+    inner: Vec<Chapter>,
+}
+
+impl Chapters {
+    pub fn write_to_file(&self, video_id: &str) -> Result<PathBuf> {
+        let path = utils::get_cache_dir()?.join(format!("{video_id}.ffmetadata"));
+
+        if let Ok(true) = path.try_exists() {
+            return Ok(path);
+        }
+
+        let mut file = std::fs::File::create(&path)?;
+
+        writeln!(file, ";FFMETADATA1")?;
+
+        for chapter in &self.inner {
+            writeln!(file, "[CHAPTER]")?;
+            writeln!(file, "TIMEBASE=1/1")?;
+            writeln!(file, "START={}", chapter.start)?;
+            writeln!(file, "END={}", chapter.end)?;
+            writeln!(file, "TITLE={}", chapter.title)?;
+        }
+
+        Ok(path)
+    }
+}
+
+impl TryFrom<Option<&str>> for Chapters {
+    type Error = anyhow::Error;
+
+    fn try_from(value: Option<&str>) -> std::result::Result<Self, Self::Error> {
+        let Some(description) = value else {
+            return Err(anyhow::anyhow!("There is no description"));
+        };
+
+        let mut chapters = description
+            .lines()
+            .filter_map(|line| Chapter::try_from(line).ok())
+            .collect::<Vec<_>>();
+
+        let len = chapters.len();
+
+        if len == 0 {
+            return Err(anyhow::anyhow!("No chapters available in the description"));
+        } else if len > 1 {
+            // This doesn't set `end` for the last chapter. It should be fine since `end` doesn't
+            // seem to be necessary to have functioning chapters in mpv.
+            for idx in 1..chapters.len() {
+                chapters[idx - 1].end = chapters[idx].start;
+            }
+        }
+
+        Ok(Chapters { inner: chapters })
+    }
+}
+
+// Can also use /next for this
+pub struct Chapter {
+    title: String,
+    start: u64,
+    end: u64,
+}
+
+impl TryFrom<&str> for Chapter {
+    type Error = anyhow::Error;
+
+    fn try_from(value: &str) -> std::result::Result<Self, Self::Error> {
+        static RE: LazyLock<Regex> = LazyLock::new(|| {
+            Regex::new(r"^((?<hours>\d+):)?(?<minutes>\d+):(?<seconds>\d+)(\s*[–—-]\s*(?:\d+:){1,2}\d+)?\s+([–—•-]\s*)?(?<title>.+)$").unwrap()
+        });
+
+        if let Some(captures) = RE.captures(value) {
+            let hours = captures
+                .name("hours")
+                .map_or(0, |num| num.as_str().parse().unwrap());
+            let minutes = captures["minutes"].parse::<u64>()?;
+            let seconds = captures["seconds"].parse::<u64>()?;
+
+            let timestamp = hours * 3600 + minutes * 60 + seconds;
+
+            Ok(Chapter {
+                title: captures["title"].to_owned(),
+                start: timestamp,
+                end: timestamp,
+            })
+        } else {
+            Err(anyhow::anyhow!("No pattern match"))
         }
     }
 }

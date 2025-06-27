@@ -1,4 +1,4 @@
-use super::{Api, ApiBackend, ChannelFeed, Format, VideoInfo};
+use super::{Api, ApiBackend, ChannelFeed, Chapters, Format, VideoInfo};
 use crate::{channel::Video, utils, OPTIONS};
 use anyhow::Result;
 use serde_json::Value;
@@ -473,11 +473,17 @@ impl Api for Local {
             .filter_map(|caption| Format::from_caption(caption, API_BACKEND))
             .collect();
 
+        let chapters = OPTIONS
+            .chapters
+            .then(|| Chapters::try_from(response["videoDetails"]["shortDescription"].as_str()).ok())
+            .flatten();
+
         Ok(VideoInfo::new(
             video_formats,
             audio_formats,
             formats,
             captions,
+            chapters,
         ))
     }
 }

@@ -404,6 +404,7 @@ impl App {
         video_url: &str,
         audio_url: Option<&str>,
         captions: &[String],
+        chapters: Option<&Path>,
         title: &str,
     ) -> Command {
         let mut command;
@@ -421,6 +422,10 @@ impl App {
 
                 for caption in captions {
                     command.arg(format!("--sub-file={caption}"));
+                }
+
+                if let Some(path) = chapters {
+                    command.arg(format!("--chapters-file={}", path.display()));
                 }
             }
             VideoPlayer::Vlc => {
@@ -488,8 +493,17 @@ impl App {
             })
             .collect::<Vec<String>>();
 
-        let mut video_player_command =
-            self.gen_video_player_command(video_url, audio_url, &captions, &title);
+        let chapters = stream_formats
+            .chapters
+            .and_then(|chapters| chapters.write_to_file(&current_video.video_id).ok());
+
+        let mut video_player_command = self.gen_video_player_command(
+            video_url,
+            audio_url,
+            &captions,
+            chapters.as_deref(),
+            &title,
+        );
 
         let video_player_process = || video_player_command.spawn().map(|_| ());
 
@@ -575,8 +589,19 @@ impl App {
             })
             .collect::<Vec<String>>();
 
-        let mut video_player_command =
-            self.gen_video_player_command(video_url, audio_url, &captions, &title);
+        let chapters = self
+            .stream_formats
+            .chapters
+            .as_ref()
+            .and_then(|chapters| chapters.write_to_file(&video_id).ok());
+
+        let mut video_player_command = self.gen_video_player_command(
+            video_url,
+            audio_url,
+            &captions,
+            chapters.as_deref(),
+            &title,
+        );
         let video_player_process = || video_player_command.spawn().map(|_| ());
 
         self.run_video_player(video_player_process);

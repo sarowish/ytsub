@@ -1,3 +1,4 @@
+use crate::api::Chapters;
 use crate::channel::ListItem;
 use crate::OPTIONS;
 use crate::{
@@ -12,6 +13,7 @@ pub struct Formats {
     pub audio_formats: SelectionList<Format>,
     pub formats: SelectionList<Format>,
     pub captions: SelectionList<Format>,
+    pub chapters: Option<Chapters>,
     pub selected_tab: usize,
     pub use_adaptive_streams: bool,
 }
@@ -23,6 +25,7 @@ impl Formats {
             audio_formats: SelectionList::new(video_info.audio_formats),
             formats: SelectionList::new(video_info.format_streams),
             captions: SelectionList::new(video_info.captions),
+            chapters: video_info.chapters,
             selected_tab: 0,
             use_adaptive_streams: OPTIONS.prefer_dash_formats,
         };

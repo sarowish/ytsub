@@ -1,4 +1,4 @@
-use super::{Api, ApiBackend, Format, VideoInfo};
+use super::{Api, ApiBackend, Chapters, Format, VideoInfo};
 use crate::api::{ChannelFeed, ChannelTab};
 use crate::channel::Video;
 use crate::OPTIONS;
@@ -262,11 +262,17 @@ impl Api for Instance {
             .filter_map(|caption| Format::from_caption(caption, API_BACKEND))
             .collect();
 
+        let chapters = OPTIONS
+            .chapters
+            .then(|| Chapters::try_from(response["description"].as_str()).ok())
+            .flatten();
+
         Ok(VideoInfo::new(
             video_formats,
             audio_formats,
             format_streams,
             captions,
+            chapters,
         ))
     }
 }

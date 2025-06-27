@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `esc` keybinding closes help and tag windows
 - Display a reason in the error message when the stream formats are not available for a video.
 - Don't generate instances file if there is no available Invidious instance.
+- Get chapter information for videos being played with `play_from_formats` command.
 
 ### Changed
 - Lower the displayed precision of elapsed time on refresh completion.

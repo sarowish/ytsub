@@ -28,6 +28,7 @@ pub struct UserOptions {
     video_quality: Option<u16>,
     preferred_video_codec: Option<PreferredVideoFormat>,
     preferred_audio_codec: Option<PreferredVideoFormat>,
+    chapters: Option<bool>,
 }
 
 pub struct Options {
@@ -51,6 +52,7 @@ pub struct Options {
     pub video_quality: u16,
     pub preferred_video_codec: PreferredVideoFormat,
     pub preferred_audio_codec: PreferredVideoFormat,
+    pub chapters: bool,
 }
 
 impl Options {
@@ -100,6 +102,7 @@ impl Default for Options {
             video_quality: u16::MAX,
             preferred_video_codec: PreferredVideoFormat::Mp4,
             preferred_audio_codec: PreferredVideoFormat::Mp4,
+            chapters: true,
         }
     }
 }
@@ -139,6 +142,7 @@ impl From<UserOptions> for Options {
         set_options_field!(video_quality);
         set_options_field!(preferred_video_codec);
         set_options_field!(preferred_audio_codec);
+        set_options_field!(chapters);
 
         options
     }

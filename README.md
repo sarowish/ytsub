@@ -119,6 +119,7 @@ prefer_dash_formats = true # Use adaptive formats
 video_quality = "best" # Preferred video quality
 preferred_video_codec = "mp4"
 preferred_audio_codec = "mp4"
+chapters = true # Get chapter information of videos
 
 # Theme
 
