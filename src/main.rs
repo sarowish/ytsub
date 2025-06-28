@@ -14,10 +14,10 @@ mod stream_formats;
 mod ui;
 mod utils;
 
+use crate::config::Config;
 use crate::config::keys::KeyBindings;
 use crate::config::options::Options;
 use crate::config::theme::Theme;
-use crate::config::Config;
 use anyhow::Result;
 use api::ApiBackend;
 use app::App;
@@ -27,14 +27,14 @@ use crossterm::event;
 use crossterm::event::Event;
 use crossterm::execute;
 use crossterm::terminal::{
-    disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
+    EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode,
 };
 use futures_util::StreamExt;
 use help::Help;
 use input::InputMode;
 use parking_lot::Mutex;
-use ratatui::backend::{Backend, CrosstermBackend};
 use ratatui::Terminal;
+use ratatui::backend::{Backend, CrosstermBackend};
 use std::io;
 use std::panic;
 use std::path::PathBuf;

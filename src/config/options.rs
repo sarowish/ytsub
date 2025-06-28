@@ -1,9 +1,9 @@
 use crate::{
+    CLAP_ARGS,
     api::{ApiBackend, ChannelTab, VideoFormat},
     app::VideoPlayer,
-    CLAP_ARGS,
 };
-use serde::{de, Deserialize};
+use serde::{Deserialize, de};
 use std::path::PathBuf;
 
 #[derive(Deserialize)]

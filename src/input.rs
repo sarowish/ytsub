@@ -1,11 +1,11 @@
 use crate::{
+    KEY_BINDINGS, OPTIONS,
     app::{App, VideoPlayer},
     commands::{
         ChannelSelectionCommand, Command, FormatSelectionCommand, HelpCommand, ImportCommand,
         TagCommand,
     },
     help::HelpWindowState,
-    KEY_BINDINGS, OPTIONS,
 };
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
@@ -26,7 +26,7 @@ pub enum InputMode {
 pub fn handle_event(key: KeyEvent, app: &mut App) -> bool {
     match app.input_mode {
         _ if app.help_window_state.show => {
-            return handle_key_help_mode(key, &mut app.help_window_state)
+            return handle_key_help_mode(key, &mut app.help_window_state);
         }
         InputMode::Normal => return handle_key_normal_mode(key, app),
         InputMode::Confirmation => handle_key_confirmation_mode(key, app),

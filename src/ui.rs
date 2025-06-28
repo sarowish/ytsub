@@ -4,7 +4,8 @@ use crate::input::InputMode;
 use crate::message::MessageType;
 use crate::search::SearchDirection;
 use crate::stream_formats::Formats;
-use crate::{utils, HELP, OPTIONS, THEME};
+use crate::{HELP, OPTIONS, THEME, utils};
+use ratatui::Frame;
 use ratatui::layout::{Alignment, Constraint, Direction, Layout, Rect};
 use ratatui::style::{Color, Style};
 use ratatui::text::{Line, Span};
@@ -12,7 +13,6 @@ use ratatui::widgets::{
     Block, BorderType, Borders, Cell, Clear, List, ListItem, ListState, Paragraph, Row, Table,
     Tabs, Wrap,
 };
-use ratatui::Frame;
 use std::fmt::Display;
 use unicode_width::UnicodeWidthStr;
 

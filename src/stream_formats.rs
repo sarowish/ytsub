@@ -1,6 +1,6 @@
+use crate::OPTIONS;
 use crate::api::Chapters;
 use crate::channel::ListItem;
-use crate::OPTIONS;
 use crate::{
     api::{Format, VideoInfo},
     app::SelectionList,

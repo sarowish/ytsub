@@ -242,7 +242,7 @@ impl DerefMut for KeyBindings {
 
 #[cfg(test)]
 mod tests {
-    use super::{parse_binding, KeyBindings, UserKeyBindings};
+    use super::{KeyBindings, UserKeyBindings, parse_binding};
     use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
     #[test]
@@ -354,8 +354,10 @@ mod tests {
 
         let key_bindings = KeyBindings::try_from(user_key_bindings).unwrap();
 
-        assert!(!key_bindings
-            .general
-            .contains_key(&KeyEvent::new(KeyCode::Char('q'), KeyModifiers::NONE)));
+        assert!(
+            !key_bindings
+                .general
+                .contains_key(&KeyEvent::new(KeyCode::Char('q'), KeyModifiers::NONE))
+        );
     }
 }

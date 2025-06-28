@@ -1,4 +1,4 @@
-use clap::{builder::ValueParser, Arg, ArgAction, ArgMatches, Command};
+use clap::{Arg, ArgAction, ArgMatches, Command, builder::ValueParser};
 
 pub fn get_matches() -> ArgMatches {
     Command::new(env!("CARGO_PKG_NAME"))

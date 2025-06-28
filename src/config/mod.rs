@@ -7,7 +7,7 @@ use self::{
     options::{Options, UserOptions},
     theme::{Theme, UserTheme},
 };
-use crate::{utils, CLAP_ARGS};
+use crate::{CLAP_ARGS, utils};
 use anyhow::Result;
 use serde::Deserialize;
 use std::{fs, path::PathBuf};

@@ -1,5 +1,5 @@
 use chrono::DateTime;
-use serde::{de, Deserialize};
+use serde::{Deserialize, de};
 use serde_json::Value;
 use std::fmt::Display;
 

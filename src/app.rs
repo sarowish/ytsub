@@ -8,7 +8,7 @@ use crate::input::InputMode;
 use crate::message::Message;
 use crate::search::{Search, SearchDirection, SearchState};
 use crate::stream_formats::Formats;
-use crate::{database, IoEvent, CLAP_ARGS, OPTIONS};
+use crate::{CLAP_ARGS, IoEvent, OPTIONS, database};
 use anyhow::{Context, Result};
 use ratatui::widgets::{ListState, TableState};
 use rusqlite::Connection;
@@ -337,7 +337,7 @@ impl App {
 
     #[cfg(unix)]
     fn run_detached<F: FnOnce() -> Result<(), std::io::Error>>(&mut self, func: F) -> Result<()> {
-        use nix::sys::wait::{wait, WaitStatus};
+        use nix::sys::wait::{WaitStatus, wait};
         use nix::unistd::ForkResult::{Child, Parent};
         use nix::unistd::{close, dup2, fork, pipe, setsid};
         use std::fs::File;

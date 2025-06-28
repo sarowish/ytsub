@@ -1,13 +1,13 @@
 use super::{Api, ApiBackend, Chapters, Format, VideoInfo};
+use crate::OPTIONS;
 use crate::api::{ChannelFeed, ChannelTab};
 use crate::channel::Video;
-use crate::OPTIONS;
 use anyhow::Result;
 use rand::prelude::*;
 use rand::thread_rng;
 use serde_json::Value;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 use ureq::{Agent, AgentBuilder};
 

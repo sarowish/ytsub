@@ -3,7 +3,7 @@ use crate::{
     utils,
 };
 use anyhow::Result;
-use rusqlite::{params, Connection};
+use rusqlite::{Connection, params};
 
 const LATEST_USER_VERSION: u8 = 2;
 

@@ -1,5 +1,5 @@
 use super::{Api, ApiBackend, ChannelFeed, Chapters, Format, VideoInfo};
-use crate::{channel::Video, utils, OPTIONS};
+use crate::{OPTIONS, channel::Video, utils};
 use anyhow::Result;
 use serde_json::Value;
 use std::time::Duration;
@@ -73,9 +73,8 @@ fn extract_shorts_tab(value: &[Value]) -> Result<Vec<Video>> {
             .to_string();
         let video_id = video["videoId"].as_str().unwrap().to_string();
 
-        let published_text = &video["navigationEndpoint"]["reelWatchEndpoint"]["overlay"]
-            ["reelPlayerOverlayRenderer"]["reelPlayerHeaderSupportedRenderers"]
-            ["reelPlayerHeaderRenderer"]["timestampText"]["simpleText"];
+        let published_text = &video["navigationEndpoint"]["reelWatchEndpoint"]["overlay"]["reelPlayerOverlayRenderer"]
+            ["reelPlayerHeaderSupportedRenderers"]["reelPlayerHeaderRenderer"]["timestampText"]["simpleText"];
 
         if published_text.is_null() {
             return Ok(Vec::new());
