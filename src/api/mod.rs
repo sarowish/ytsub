@@ -362,10 +362,10 @@ impl Display for ApiBackend {
 pub trait Api: Send + DynClone {
     fn resolve_channel_id(&mut self, input: &str) -> Result<String> {
         if let Some((rest, channel_id)) = input.rsplit_once('/') {
-            if let Some((_, path)) = rest.rsplit_once('/') {
-                if path == "channel" {
-                    return Ok(channel_id.to_owned());
-                }
+            if let Some((_, path)) = rest.rsplit_once('/')
+                && path == "channel"
+            {
+                return Ok(channel_id.to_owned());
             }
             self.resolve_url(input)
         } else if input.starts_with('@') {

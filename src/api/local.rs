@@ -168,15 +168,15 @@ fn extract_streams_tab(value: &[Value]) -> Result<Vec<Video>> {
 }
 
 fn extract_continuation_token(value: &[Value]) -> Option<String> {
-    if let Some(video) = value.last() {
-        if let Some(value) = video.get("continuationItemRenderer") {
-            return Some(
-                value["continuationEndpoint"]["continuationCommand"]["token"]
-                    .as_str()
-                    .unwrap()
-                    .to_string(),
-            );
-        }
+    if let Some(video) = value.last()
+        && let Some(value) = video.get("continuationItemRenderer")
+    {
+        return Some(
+            value["continuationEndpoint"]["continuationCommand"]["token"]
+                .as_str()
+                .unwrap()
+                .to_string(),
+        );
     }
 
     None

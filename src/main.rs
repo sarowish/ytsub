@@ -154,12 +154,11 @@ fn run_tui<B: Backend>(terminal: &mut Terminal<B>, app: Arc<Mutex<App>>) -> Resu
         }
 
         let timeout = tick_rate.saturating_sub(last_tick.elapsed());
-        if crossterm::event::poll(timeout)? {
-            if let Event::Key(key) = event::read()? {
-                if input::handle_event(key, &mut app.lock()) {
-                    break;
-                }
-            }
+        if crossterm::event::poll(timeout)?
+            && let Event::Key(key) = event::read()?
+            && input::handle_event(key, &mut app.lock())
+        {
+            break;
         }
         if last_tick.elapsed() >= tick_rate {
             last_tick = Instant::now();

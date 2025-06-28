@@ -358,16 +358,16 @@ fn draw_videos(f: &mut Frame, app: &mut App, area: Rect) {
                 Selected::Channels => THEME.selected,
                 Selected::Videos => THEME.focused,
             };
-            if let Some(video) = app.get_current_video() {
-                if video.watched {
-                    let overriding_style = match app.selected {
-                        Selected::Channels => THEME.selected_watched,
-                        Selected::Videos => THEME.focused_watched,
-                    };
-                    style = style.patch(overriding_style);
-                    style.add_modifier = overriding_style.add_modifier;
-                    style.sub_modifier = overriding_style.sub_modifier;
-                }
+            if let Some(video) = app.get_current_video()
+                && video.watched
+            {
+                let overriding_style = match app.selected {
+                    Selected::Channels => THEME.selected_watched,
+                    Selected::Videos => THEME.focused_watched,
+                };
+                style = style.patch(overriding_style);
+                style.add_modifier = overriding_style.add_modifier;
+                style.sub_modifier = overriding_style.sub_modifier;
             }
             style
         });

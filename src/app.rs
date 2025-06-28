@@ -844,17 +844,16 @@ impl App {
     }
 
     pub fn jump_to_channel(&mut self) {
-        if let Mode::LatestVideos = self.mode {
-            if let Some(video) = self.get_current_video() {
-                if let Some(channel_name) = &video.channel_name {
-                    let channel_name = channel_name.clone();
-                    let index = self.find_channel_by_name(&channel_name).unwrap();
-                    self.mode = Mode::Subscriptions;
-                    self.selected = Selected::Videos;
-                    self.channels.select_with_index(index);
-                    self.on_change_channel();
-                }
-            }
+        if let Mode::LatestVideos = self.mode
+            && let Some(video) = self.get_current_video()
+            && let Some(channel_name) = &video.channel_name
+        {
+            let channel_name = channel_name.clone();
+            let index = self.find_channel_by_name(&channel_name).unwrap();
+            self.mode = Mode::Subscriptions;
+            self.selected = Selected::Videos;
+            self.channels.select_with_index(index);
+            self.on_change_channel();
         }
     }
 

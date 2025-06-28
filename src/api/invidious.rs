@@ -92,11 +92,12 @@ impl Instance {
             _ => value["videos"].take(),
         };
 
-        if let Some(video) = videos_array.get(0) {
-            // if the key doesn't exist, assume that the tab is not available
-            if video.get("videoId").is_none() {
-                return Ok(Vec::new());
-            }
+        // if the key doesn't exist, assume that the tab is not available
+        if (videos_array.get(0))
+            .and_then(|video| video.get("videoId"))
+            .is_none()
+        {
+            return Ok(Vec::new());
         }
 
         Ok(Video::vec_from_json(videos_array))
@@ -123,10 +124,10 @@ impl Api for Instance {
             videos: Vec::new(),
         };
 
-        if OPTIONS.videos_tab {
-            if let Ok(videos) = self.get_tab_of_channel(channel_id, ChannelTab::Videos) {
-                channel_feed.videos.extend(videos);
-            }
+        if OPTIONS.videos_tab
+            && let Ok(videos) = self.get_tab_of_channel(channel_id, ChannelTab::Videos)
+        {
+            channel_feed.videos.extend(videos);
         }
 
         let old_version = self.old_version.load(Ordering::SeqCst);
@@ -146,10 +147,11 @@ impl Api for Instance {
             }
         }
 
-        if OPTIONS.streams_tab && !old_version {
-            if let Ok(videos) = self.get_tab_of_channel(channel_id, ChannelTab::Streams) {
-                channel_feed.videos.extend(videos);
-            }
+        if OPTIONS.streams_tab
+            && !old_version
+            && let Ok(videos) = self.get_tab_of_channel(channel_id, ChannelTab::Streams)
+        {
+            channel_feed.videos.extend(videos);
         }
 
         Ok(channel_feed)
@@ -192,16 +194,16 @@ impl Api for Instance {
                 channel_feed.videos.drain(..);
             }
 
-            if OPTIONS.shorts_tab {
-                if let Ok(videos) = self.get_tab_of_channel(channel_id, ChannelTab::Shorts) {
-                    channel_feed.videos.extend(videos);
-                }
+            if OPTIONS.shorts_tab
+                && let Ok(videos) = self.get_tab_of_channel(channel_id, ChannelTab::Shorts)
+            {
+                channel_feed.videos.extend(videos);
             }
 
-            if OPTIONS.streams_tab {
-                if let Ok(videos) = self.get_tab_of_channel(channel_id, ChannelTab::Streams) {
-                    channel_feed.videos.extend(videos);
-                }
+            if OPTIONS.streams_tab
+                && let Ok(videos) = self.get_tab_of_channel(channel_id, ChannelTab::Streams)
+            {
+                channel_feed.videos.extend(videos);
             }
         }
 
