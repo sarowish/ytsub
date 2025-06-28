@@ -1,5 +1,5 @@
 use crate::{
-    api::{ApiBackend, ChannelTab, PreferredVideoFormat},
+    api::{ApiBackend, ChannelTab, VideoFormat},
     app::VideoPlayer,
     CLAP_ARGS,
 };
@@ -26,8 +26,8 @@ pub struct UserOptions {
     prefer_dash_formats: Option<bool>,
     #[serde(deserialize_with = "deserialize_video_quality")]
     video_quality: Option<u16>,
-    preferred_video_codec: Option<PreferredVideoFormat>,
-    preferred_audio_codec: Option<PreferredVideoFormat>,
+    preferred_video_codec: Option<VideoFormat>,
+    preferred_audio_codec: Option<VideoFormat>,
     chapters: Option<bool>,
 }
 
@@ -50,8 +50,8 @@ pub struct Options {
     pub subtitle_languages: Vec<String>,
     pub prefer_dash_formats: bool,
     pub video_quality: u16,
-    pub preferred_video_codec: PreferredVideoFormat,
-    pub preferred_audio_codec: PreferredVideoFormat,
+    pub preferred_video_codec: Option<VideoFormat>,
+    pub preferred_audio_codec: Option<VideoFormat>,
     pub chapters: bool,
 }
 
@@ -100,8 +100,8 @@ impl Default for Options {
             subtitle_languages: Vec::new(),
             prefer_dash_formats: true,
             video_quality: u16::MAX,
-            preferred_video_codec: PreferredVideoFormat::Mp4,
-            preferred_audio_codec: PreferredVideoFormat::Mp4,
+            preferred_video_codec: None,
+            preferred_audio_codec: None,
             chapters: true,
         }
     }
@@ -116,6 +116,9 @@ impl From<UserOptions> for Options {
                 if let Some(option) = user_options.$name {
                     options.$name = option;
                 }
+            };
+            ($name: ident |) => {
+                options.$name = user_options.$name;
             };
         }
 
@@ -140,8 +143,8 @@ impl From<UserOptions> for Options {
         set_options_field!(subtitle_languages);
         set_options_field!(prefer_dash_formats);
         set_options_field!(video_quality);
-        set_options_field!(preferred_video_codec);
-        set_options_field!(preferred_audio_codec);
+        set_options_field!(preferred_video_codec |);
+        set_options_field!(preferred_audio_codec |);
         set_options_field!(chapters);
 
         options

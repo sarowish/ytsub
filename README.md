@@ -117,8 +117,9 @@ vlc_path = "vlc" # Path to vlc
 subtitle_languages = [] # Subtitle languages to add
 prefer_dash_formats = true # Use adaptive formats
 video_quality = "best" # Preferred video quality
-preferred_video_codec = "mp4"
-preferred_audio_codec = "mp4"
+# the commented out options below are `None` by default
+# preferred_video_codec = "webm" # [possible values: webm, mp4]
+# preferred_audio_codec = "webm"
 chapters = true # Get chapter information of videos
 
 # Theme

@@ -38,44 +38,59 @@ impl Formats {
     fn set_preferred(&mut self) {
         let mut video_idx = None;
 
-        for (idx, video_format) in self.video_formats.items.iter().enumerate() {
-            let (quality, _) = video_format.item.get_quality().split_once('p').unwrap();
+        for (idx, format) in self.video_formats.items.iter().enumerate() {
+            if let Some(preferred_codec) = &OPTIONS.preferred_video_codec {
+                if OPTIONS.video_quality == format.get_quality() {
+                    video_idx = Some(idx);
+                }
 
-            let quality: u16 = quality.parse().unwrap();
-
-            if quality == OPTIONS.video_quality {
+                if *preferred_codec == format.get_codec() {
+                    match video_idx {
+                        Some(video_idx) if idx == video_idx => break,
+                        None => video_idx = Some(idx),
+                        _ => (),
+                    }
+                }
+            } else if OPTIONS.video_quality == format.get_quality() {
                 video_idx = Some(idx);
                 break;
             }
         }
 
-        if video_idx.is_none() {
-            video_idx = Some(0);
-        }
-
-        self.video_formats.items[video_idx.unwrap()].selected = true;
+        self.video_formats.items[video_idx.unwrap_or_default()].selected = true;
 
         let mut audio_idx = None;
 
-        for (idx, audio_format) in self.audio_formats.items.iter().enumerate() {
-            if matches!(&audio_format.item, Format::Audio { language,.. } if language.as_ref().is_some_and(|(_, is_default)| *is_default))
+        for (idx, format) in self.audio_formats.items.iter().enumerate() {
+            if matches!(&format.item, Format::Audio { language,.. } if language.as_ref().is_some_and(|(_, is_default)| *is_default))
             {
                 audio_idx = Some(idx);
-                break;
+
+                if OPTIONS.preferred_audio_codec.is_none() {
+                    break;
+                }
+            }
+
+            if OPTIONS
+                .preferred_audio_codec
+                .as_ref()
+                .is_some_and(|preferred| *preferred == format.get_codec())
+            {
+                match audio_idx {
+                    Some(audio_idx) if idx == audio_idx => break,
+                    None => audio_idx = Some(idx),
+                    _ => (),
+                }
             }
         }
 
-        if audio_idx.is_none() {
-            audio_idx = Some(0);
-        }
-
-        self.audio_formats.items[audio_idx.unwrap()].selected = true;
+        self.audio_formats.items[audio_idx.unwrap_or_default()].selected = true;
 
         if let Some(item) = self.formats.items.first_mut() {
             item.selected = true;
         }
 
-        for language in &crate::OPTIONS.subtitle_languages {
+        for language in &OPTIONS.subtitle_languages {
             if let Some(caption) = self
                 .captions
                 .items
@@ -87,7 +102,7 @@ impl Formats {
         }
 
         for caption in &mut self.captions.items {
-            if crate::OPTIONS
+            if OPTIONS
                 .subtitle_languages
                 .iter()
                 .any(|language| *language == caption.item.id() || matches!(caption.item.id().split_once('-'), Some((lang, _)) if lang == *language))

@@ -181,30 +181,55 @@ impl Format {
         }
     }
 
-    pub fn get_quality(&self) -> &str {
+    pub fn get_quality(&self) -> u16 {
         if let Format::Video { quality, .. } = self {
             quality
+                .split_once('p')
+                .and_then(|(quality, _)| quality.parse().ok())
+                .unwrap_or_default()
         } else {
             panic!()
         }
     }
+
+    pub fn get_codec(&self) -> VideoFormat {
+        let r#type = match self {
+            Format::Video { r#type, .. } => r#type,
+            Format::Audio { r#type, .. } => r#type,
+            Format::Stream { r#type, .. } => r#type,
+            _ => unreachable!(),
+        };
+
+        static RE: LazyLock<Regex> =
+            LazyLock::new(|| Regex::new(r"(video|audio)\/(?<codec>webm|mp4);").unwrap());
+
+        let Some(captures) = RE.captures(r#type) else {
+            return VideoFormat::Mp4;
+        };
+
+        match &captures["codec"] {
+            "mp4" => VideoFormat::Mp4,
+            "webm" => VideoFormat::WebM,
+            _ => unreachable!(),
+        }
+    }
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Eq, PartialEq)]
 #[serde(rename_all(deserialize = "lowercase"))]
-pub enum PreferredVideoFormat {
+pub enum VideoFormat {
     WebM,
     Mp4,
 }
 
-impl Display for PreferredVideoFormat {
+impl Display for VideoFormat {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
             "{}",
             match self {
-                PreferredVideoFormat::Mp4 => "mp4",
-                PreferredVideoFormat::WebM => "webm",
+                VideoFormat::Mp4 => "mp4",
+                VideoFormat::WebM => "webm",
             }
         )
     }

@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fix adaptive streams
 - Don't treat channels with no videos as nonexistent.
 - Do error handling for nonexistent channel handles when subscribing.
+- Apply the configurations for preferred video and audio codecs.
 
 ## [0.5.0] - 2025-01-07
 ### Added
