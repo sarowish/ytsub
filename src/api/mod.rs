@@ -113,7 +113,7 @@ impl Format {
                 mime_type = &format_json["type"];
                 bitrate = format_json["bitrate"].as_str().unwrap().to_string();
             }
-        };
+        }
 
         let language = format_json.get("audioTrack").map(|audio_track| {
             (
@@ -193,11 +193,11 @@ impl Format {
     }
 
     pub fn get_codec(&self) -> VideoFormat {
-        let r#type = match self {
-            Format::Video { r#type, .. } => r#type,
-            Format::Audio { r#type, .. } => r#type,
-            Format::Stream { r#type, .. } => r#type,
-            _ => unreachable!(),
+        let (Format::Video { r#type, .. }
+        | Format::Audio { r#type, .. }
+        | Format::Stream { r#type, .. }) = self
+        else {
+            unreachable!()
         };
 
         static RE: LazyLock<Regex> =
