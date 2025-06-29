@@ -5,22 +5,35 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [0.6.0] - 2025-06-29
 ### Added
 - `esc` keybinding closes help and tag windows
+[`ac35ee`](https://github.com/sarowish/ytsub/commit/ac35ee)
 - Display a reason in the error message when the stream formats are not available for a video.
+[`9e1ce2`](https://github.com/sarowish/ytsub/commit/9e1ce2)
 - Don't generate instances file if there is no available Invidious instance.
+[`9af0c4`](https://github.com/sarowish/ytsub/commit/9af0c4)
 - Get chapter information for videos being played with `play_from_formats` command.
+[`3d47fb`](https://github.com/sarowish/ytsub/commit/3d47fb)
 
 ### Changed
 - Lower the displayed precision of elapsed time on refresh completion.
+[`8dd27a`](https://github.com/sarowish/ytsub/commit/8dd27a)
 - Reverse the list of audio formats.
+[`2eaecb`](https://github.com/sarowish/ytsub/commit/2eaecb)
 
 ### Fixed
 - Add missing value parsers to `database` and `instances` cli arguments.
+[`80ffdf`](https://github.com/sarowish/ytsub/commit/80ffdf)
 - Fix adaptive streams
+[`4e4b12`](https://github.com/sarowish/ytsub/commit/4e4b12)
 - Don't treat channels with no videos as nonexistent.
+[`578f36`](https://github.com/sarowish/ytsub/commit/578f36)
 - Do error handling for nonexistent channel handles when subscribing.
+[`2fdbce`](https://github.com/sarowish/ytsub/commit/2fdbce)
 - Apply the configurations for preferred video and audio codecs.
+[`97449e`](https://github.com/sarowish/ytsub/commit/97449e)
 
 ## [0.5.0] - 2025-01-07
 ### Added

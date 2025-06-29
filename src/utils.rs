@@ -54,7 +54,7 @@ pub fn fetch_invidious_instances() -> Result<Vec<String>> {
     const REQUEST_URL: &str = "https://api.invidious.io/instances.json";
     const ONION: &str = "onion";
     let agent = ureq::agent();
-    let instances: Value = agent.get(REQUEST_URL).call()?.into_json()?;
+    let instances: Value = agent.get(REQUEST_URL).call()?.body_mut().read_json()?;
     Ok(instances
         .as_array()
         .unwrap()

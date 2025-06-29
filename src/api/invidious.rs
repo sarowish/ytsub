@@ -4,12 +4,11 @@ use crate::api::{ChannelFeed, ChannelTab};
 use crate::channel::Video;
 use anyhow::Result;
 use rand::prelude::*;
-use rand::thread_rng;
 use serde_json::Value;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
-use ureq::{Agent, AgentBuilder};
+use ureq::Agent;
 
 const API_BACKEND: ApiBackend = ApiBackend::Invidious;
 
@@ -46,11 +45,13 @@ pub struct Instance {
 
 impl Instance {
     pub fn new(invidious_instances: &[String]) -> Self {
-        let mut rng = thread_rng();
-        let domain = invidious_instances[rng.gen_range(0..invidious_instances.len())].to_string();
-        let agent = AgentBuilder::new()
-            .timeout(Duration::from_secs(OPTIONS.request_timeout))
-            .build();
+        let mut rng = rand::rng();
+        let domain =
+            invidious_instances[rng.random_range(0..invidious_instances.len())].to_string();
+        let agent = Agent::config_builder()
+            .timeout_global(Some(Duration::from_secs(OPTIONS.request_timeout)))
+            .build()
+            .into();
 
         Self {
             domain,
@@ -85,7 +86,8 @@ impl Instance {
                 ),
             )
             .call()?
-            .into_json::<Value>()?;
+            .body_mut()
+            .read_json::<Value>()?;
 
         let videos_array = match tab {
             ChannelTab::Videos => value["latestVideos"].take(),
@@ -112,7 +114,8 @@ impl Api for Instance {
             .get(&url)
             .query("url", channel_url)
             .call()?
-            .into_json::<Value>()?;
+            .body_mut()
+            .read_json::<Value>()?;
 
         Ok(response["ucid"].as_str().unwrap().to_string())
     }
@@ -137,7 +140,7 @@ impl Api for Instance {
                 Ok(videos) => channel_feed.videos.extend(videos),
                 Err(e) => {
                     // if the error code is 500 don't try to fetch shorts and streams tabs
-                    if let Some(ureq::Error::Status(500, _)) = e.downcast_ref::<ureq::Error>() {
+                    if let Some(ureq::Error::StatusCode(500)) = e.downcast_ref::<ureq::Error>() {
                         self.old_version.store(true, Ordering::SeqCst);
                         return self.get_videos_of_channel(channel_id);
                     }
@@ -175,10 +178,12 @@ impl Api for Instance {
             .call();
 
         match response {
-            Ok(response) => channel_feed = ChannelFeed::from(response.into_json::<Value>()?),
+            Ok(mut response) => {
+                channel_feed = ChannelFeed::from(response.body_mut().read_json::<Value>()?)
+            }
             Err(e) => {
                 // if the error code is 400, retry with the old api
-                if let ureq::Error::Status(400, _) = e {
+                if let ureq::Error::StatusCode(400) = e {
                     self.old_version.store(true, Ordering::SeqCst);
                     return self.get_videos_for_the_first_time(channel_id);
                 }
@@ -212,25 +217,19 @@ impl Api for Instance {
 
     fn get_rss_feed_of_channel(&self, channel_id: &str) -> Result<ChannelFeed> {
         let url = format!("{}/feed/channel/{}", self.domain, channel_id);
-        let response = self.agent.get(&url).call()?;
+        let mut response = self.agent.get(&url).call()?;
 
-        Ok(quick_xml::de::from_str(&response.into_string()?).unwrap())
+        Ok(quick_xml::de::from_str(
+            &response.body_mut().read_to_string()?,
+        )?)
     }
 
     fn get_video_formats(&self, video_id: &str) -> Result<VideoInfo> {
         let url = format!("{}/api/v1/videos/{}", self.domain, video_id);
         let response = match self.agent.get(&url).call() {
-            Ok(response) => response.into_json::<Value>()?,
-            Err(e) => {
-                anyhow::bail!(format!(
-                    "Stream formats are not available: {}",
-                    e.into_response()
-                        .and_then(|response| response
-                            .into_json::<Value>()
-                            .ok()
-                            .and_then(|value| value["error"].as_str().map(ToOwned::to_owned)))
-                        .unwrap_or_default()
-                ));
+            Ok(mut response) => response.body_mut().read_json::<Value>()?,
+            Err(_e) => {
+                anyhow::bail!(format!("Stream formats are not available: ",));
             }
         };
 

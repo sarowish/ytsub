@@ -339,9 +339,10 @@ impl App {
     fn run_detached<F: FnOnce() -> Result<(), std::io::Error>>(&mut self, func: F) -> Result<()> {
         use nix::sys::wait::{WaitStatus, wait};
         use nix::unistd::ForkResult::{Child, Parent};
-        use nix::unistd::{close, dup2, fork, pipe, setsid};
+        use nix::unistd::{close, dup2_stderr, dup2_stdin, dup2_stdout, fork, pipe, setsid};
         use std::fs::File;
         use std::io::prelude::*;
+        use std::os::fd::AsFd;
         use std::os::unix::io::{FromRawFd, IntoRawFd};
 
         let (pipe_r, pipe_w) = pipe().unwrap();
@@ -361,18 +362,20 @@ impl App {
             }
             Child => {
                 setsid().unwrap();
-                let fd = std::fs::OpenOptions::new()
+                let dev_null = std::fs::OpenOptions::new()
                     .write(true)
                     .read(true)
                     .open("/dev/null")
-                    .unwrap()
-                    .into_raw_fd();
-                dup2(fd, 0).unwrap();
-                dup2(fd, 1).unwrap();
-                dup2(fd, 2).unwrap();
+                    .unwrap();
+                let null_fd = dev_null.as_fd();
+
+                dup2_stdin(null_fd)?;
+                dup2_stdout(null_fd)?;
+                dup2_stderr(null_fd)?;
+
                 if let Err(e) = func() {
-                    close(pipe_r.into_raw_fd()).unwrap();
-                    dup2(pipe_w.into_raw_fd(), 1).unwrap();
+                    close(pipe_r.into_raw_fd())?;
+                    dup2_stdout(pipe_w.as_fd())?;
                     println!("{e}");
                     std::process::exit(101);
                 }

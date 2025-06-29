@@ -4,7 +4,7 @@ use anyhow::Result;
 use serde_json::Value;
 use std::time::Duration;
 use std::{io::Write, path::PathBuf};
-use ureq::{Agent, AgentBuilder};
+use ureq::Agent;
 
 const API_BACKEND: ApiBackend = ApiBackend::Local;
 const ANDROID_USER_AGENT: &str =
@@ -202,10 +202,11 @@ fn extract_videos_from_tab(tab: &Value) -> Option<&[Value]> {
 
 impl Local {
     pub fn new() -> Self {
-        let agent = AgentBuilder::new()
+        let agent = Agent::config_builder()
             .user_agent(ANDROID_USER_AGENT)
-            .timeout(Duration::from_secs(OPTIONS.request_timeout))
-            .build();
+            .timeout_global(Some(Duration::from_secs(OPTIONS.request_timeout)))
+            .build()
+            .into();
 
         Self {
             agent,
@@ -218,7 +219,7 @@ impl Local {
     pub fn post_player(&self, video_id: &str) -> Result<Value> {
         let url = "https://www.youtube.com/youtubei/v1/player?key=AIzaSyA8eiZmM1FaDVjRy-df2KTyQ_vz_yYM39w";
 
-        let data = ureq::json!({
+        let data = serde_json::json!({
             "context": {
                 "client": {
                     "clientName": "ANDROID",
@@ -229,13 +230,18 @@ impl Local {
             "videoId": video_id
         });
 
-        Ok(self.agent.post(url).send_json(data)?.into_json::<Value>()?)
+        Ok(self
+            .agent
+            .post(url)
+            .send_json(data)?
+            .body_mut()
+            .read_json::<Value>()?)
     }
 
     pub fn post_browse(&self, items: &[(&str, &str)]) -> Result<Value> {
         let url = "https://www.youtube.com/youtubei/v1/browse?key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8";
 
-        let mut data = ureq::json!({
+        let mut data = serde_json::json!({
             "context": {
                 "client": {
                     "clientName": "WEB",
@@ -253,7 +259,12 @@ impl Local {
             );
         }
 
-        Ok(self.agent.post(url).send_json(data)?.into_json::<Value>()?)
+        Ok(self
+            .agent
+            .post(url)
+            .send_json(data)?
+            .body_mut()
+            .read_json::<Value>()?)
     }
 
     fn get_videos_tab(
@@ -354,7 +365,8 @@ impl Local {
             .agent
             .get(&url.replace("fmt=srv3", "fmt=vtt"))
             .call()?
-            .into_string()?;
+            .body_mut()
+            .read_to_string()?;
 
         let mut file = std::fs::File::create(&path)?;
         file.write_all(response.as_bytes())?;
@@ -367,7 +379,7 @@ impl Api for Local {
     fn resolve_url(&mut self, channel_url: &str) -> Result<String> {
         let url = "https://www.youtube.com/youtubei/v1/navigation/resolve_url";
 
-        let data = ureq::json!({
+        let data = serde_json::json!({
             "context": {
                 "client": {
                     "clientName": "WEB",
@@ -377,7 +389,12 @@ impl Api for Local {
             "url": channel_url
         });
 
-        let response = self.agent.post(url).send_json(data)?.into_json::<Value>()?;
+        let response = self
+            .agent
+            .post(url)
+            .send_json(data)?
+            .body_mut()
+            .read_json::<Value>()?;
         let endpoint = &response["endpoint"];
 
         if let Some(browse_endpoint) = endpoint.get("browseEndpoint") {
@@ -428,9 +445,10 @@ impl Api for Local {
 
     fn get_rss_feed_of_channel(&self, channel_id: &str) -> Result<ChannelFeed> {
         let url = format!("https://www.youtube.com/feeds/videos.xml?channel_id={channel_id}");
-        let response = self.agent.get(&url).call()?;
+        let mut response = self.agent.get(&url).call()?;
 
-        let mut channel_feed: ChannelFeed = quick_xml::de::from_str(&response.into_string()?)?;
+        let mut channel_feed: ChannelFeed =
+            quick_xml::de::from_str(&response.body_mut().read_to_string()?)?;
         channel_feed.channel_id = Some(channel_id.to_string());
 
         Ok(channel_feed)
