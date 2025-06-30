@@ -121,6 +121,12 @@ pub struct Help<'a> {
     pub format_selection: [(String, &'a str); FORMAT_SELECTION_DESCRIPTIONS_LEN],
 }
 
+impl Default for Help<'_> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Help<'_> {
     pub fn new() -> Self {
         let mut help = Self {

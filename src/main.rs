@@ -38,25 +38,23 @@ use ratatui::backend::{Backend, CrosstermBackend};
 use std::io;
 use std::panic;
 use std::path::PathBuf;
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
 use std::time::Duration;
 use std::time::Instant;
 use ui::draw;
 
-lazy_static::lazy_static! {
-    static ref CLAP_ARGS: ArgMatches = cli::get_matches();
-    static ref CONFIG: Config = match Config::new() {
-        Ok(config) => config,
-        Err(e) => {
-            eprintln!("{e:?}");
-            std::process::exit(1);
-        }
-    };
-    static ref OPTIONS: &'static Options = &CONFIG.options;
-    static ref THEME: &'static Theme = &CONFIG.theme;
-    static ref KEY_BINDINGS: &'static KeyBindings = &CONFIG.key_bindings;
-    static ref HELP: Help<'static> = Help::new();
-}
+static CLAP_ARGS: LazyLock<ArgMatches> = LazyLock::new(cli::get_matches);
+static CONFIG: LazyLock<Config> = LazyLock::new(|| match Config::new() {
+    Ok(config) => config,
+    Err(e) => {
+        eprintln!("{e:?}");
+        std::process::exit(1);
+    }
+});
+static OPTIONS: LazyLock<&Options> = LazyLock::new(|| &CONFIG.options);
+static KEY_BINDINGS: LazyLock<&KeyBindings> = LazyLock::new(|| &CONFIG.key_bindings);
+static THEME: LazyLock<&Theme> = LazyLock::new(|| &CONFIG.theme);
+static HELP: LazyLock<Help> = LazyLock::new(Help::new);
 
 fn main() -> Result<()> {
     if CLAP_ARGS.get_flag("gen_instances_list") {
