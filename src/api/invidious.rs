@@ -77,7 +77,7 @@ impl Instance {
             .get(&url)
             .query(
                 "fields",
-                &format!(
+                format!(
                     "{}(title,videoId,published,lengthSeconds,isUpcoming,premiereTimestamp)",
                     match tab {
                         ChannelTab::Videos => "latestVideos",
