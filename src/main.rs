@@ -228,7 +228,14 @@ fn clear_message(app: &Arc<Mutex<App>>, duration_seconds: u64) {
 }
 
 fn subscribe_to_channel(app: &Arc<Mutex<App>>, input: &str) {
-    let res = app.lock().instance().resolve_channel_id(input);
+    let mut instance = {
+        let mut app = app.lock();
+        app.set_message("Resolving channel id");
+        app.instance()
+    };
+
+    let res = instance.resolve_channel_id(input);
+
     let channel_id = match res {
         Ok(id) => id,
         Err(e) => {
@@ -244,7 +251,6 @@ fn subscribe_to_channel(app: &Arc<Mutex<App>>, input: &str) {
         return;
     }
 
-    let mut instance = app.lock().instance();
     app.lock().set_message("Subscribing to channel");
     let app = app.clone();
     tokio::task::spawn(async move {
