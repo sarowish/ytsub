@@ -161,6 +161,10 @@ impl App {
             }
         }
 
+        if videos.is_empty() {
+            return;
+        }
+
         if let Err(e) = database::add_videos(&self.conn, channel_id, &videos) {
             self.set_error_message(&e.to_string());
             return;
