@@ -90,7 +90,7 @@ impl Default for Options {
             api: ApiBackend::Local,
             refresh_threshold: 600,
             rss_threshold: 125,
-            tick_rate: 200,
+            tick_rate: 10,
             request_timeout: 5,
             highlight_symbol: String::new(),
             video_player_for_stream_formats: VideoPlayer::Mpv,
