@@ -1,10 +1,11 @@
 use super::{Api, ApiBackend, ChannelFeed, Chapters, Format, VideoInfo};
 use crate::{OPTIONS, channel::Video, utils};
 use anyhow::Result;
+use async_trait::async_trait;
+use reqwest::Client;
 use serde_json::Value;
 use std::time::Duration;
 use std::{io::Write, path::PathBuf};
-use ureq::Agent;
 
 const API_BACKEND: ApiBackend = ApiBackend::Local;
 const ANDROID_USER_AGENT: &str =
@@ -12,7 +13,7 @@ const ANDROID_USER_AGENT: &str =
 
 #[derive(Clone)]
 pub struct Local {
-    agent: Agent,
+    client: Client,
     shorts_available: bool,
     streams_available: bool,
     continuation: Option<String>,
@@ -202,21 +203,21 @@ fn extract_videos_from_tab(tab: &Value) -> Option<&[Value]> {
 
 impl Local {
     pub fn new() -> Self {
-        let agent = Agent::config_builder()
+        let client = Client::builder()
             .user_agent(ANDROID_USER_AGENT)
-            .timeout_global(Some(Duration::from_secs(OPTIONS.request_timeout)))
+            .timeout(Duration::from_secs(OPTIONS.request_timeout))
             .build()
-            .into();
+            .unwrap();
 
         Self {
-            agent,
+            client,
             shorts_available: false,
             streams_available: false,
             continuation: None,
         }
     }
 
-    pub fn post_player(&self, video_id: &str) -> Result<Value> {
+    pub async fn post_player(&self, video_id: &str) -> Result<Value> {
         let url = "https://www.youtube.com/youtubei/v1/player?key=AIzaSyA8eiZmM1FaDVjRy-df2KTyQ_vz_yYM39w";
 
         let data = serde_json::json!({
@@ -230,15 +231,11 @@ impl Local {
             "videoId": video_id
         });
 
-        Ok(self
-            .agent
-            .post(url)
-            .send_json(data)?
-            .body_mut()
-            .read_json::<Value>()?)
+        let response = self.client.post(url).json(&data).send().await?;
+        Ok(response.error_for_status()?.json().await?)
     }
 
-    pub fn post_browse(&self, items: &[(&str, &str)]) -> Result<Value> {
+    pub async fn post_browse(&self, items: &[(&str, &str)]) -> Result<Value> {
         let url = "https://www.youtube.com/youtubei/v1/browse?key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8";
 
         let mut data = serde_json::json!({
@@ -259,21 +256,18 @@ impl Local {
             );
         }
 
-        Ok(self
-            .agent
-            .post(url)
-            .send_json(data)?
-            .body_mut()
-            .read_json::<Value>()?)
+        let response = self.client.post(url).json(&data).send().await?;
+        Ok(response.error_for_status()?.json().await?)
     }
 
-    fn get_videos_tab(
+    async fn get_videos_tab(
         &mut self,
         channel_id: &str,
         channel_title: &mut Option<String>,
     ) -> Result<Vec<Video>> {
-        let response =
-            self.post_browse(&[("browseId", channel_id), ("params", "EgZ2aWRlb3PyBgQKAjoA")])?;
+        let response = self
+            .post_browse(&[("browseId", channel_id), ("params", "EgZ2aWRlb3PyBgQKAjoA")])
+            .await?;
 
         let mut videos = get_tab_by_title(&response, "Videos")
             .and_then(|tab| extract_videos_from_tab(tab))
@@ -299,11 +293,13 @@ impl Local {
         extract_videos_tab(videos)
     }
 
-    fn get_shorts_tab(&mut self, channel_id: &str) -> Result<Vec<Video>> {
-        let response = self.post_browse(&[
-            ("browseId", channel_id),
-            ("params", "EgZzaG9ydHPyBgUKA5oBAA"),
-        ])?;
+    async fn get_shorts_tab(&mut self, channel_id: &str) -> Result<Vec<Video>> {
+        let response = self
+            .post_browse(&[
+                ("browseId", channel_id),
+                ("params", "EgZzaG9ydHPyBgUKA5oBAA"),
+            ])
+            .await?;
 
         let Some(mut shorts) =
             get_tab_by_title(&response, "Shorts").and_then(|tab| extract_videos_from_tab(tab))
@@ -318,11 +314,13 @@ impl Local {
         extract_shorts_tab(shorts)
     }
 
-    fn get_streams_tab(&mut self, channel_id: &str) -> Result<Vec<Video>> {
-        let response = self.post_browse(&[
-            ("browseId", channel_id),
-            ("params", "EgdzdHJlYW1z8gYECgJ6AA"),
-        ])?;
+    async fn get_streams_tab(&mut self, channel_id: &str) -> Result<Vec<Video>> {
+        let response = self
+            .post_browse(&[
+                ("browseId", channel_id),
+                ("params", "EgdzdHJlYW1z8gYECgJ6AA"),
+            ])
+            .await?;
 
         let Some(mut streams) =
             get_tab_by_title(&response, "Live").and_then(|tab| extract_videos_from_tab(tab))
@@ -337,9 +335,10 @@ impl Local {
         extract_streams_tab(streams)
     }
 
-    fn get_continuation(&mut self) -> Result<Vec<Video>> {
-        let response =
-            self.post_browse(&[("continuation", self.continuation.as_ref().unwrap())])?;
+    async fn get_continuation(&mut self) -> Result<Vec<Video>> {
+        let response = self
+            .post_browse(&[("continuation", self.continuation.as_ref().unwrap())])
+            .await?;
 
         let mut videos = response["onResponseReceivedActions"][0]["appendContinuationItemsAction"]
             ["continuationItems"]
@@ -354,7 +353,12 @@ impl Local {
         extract_videos_tab(videos)
     }
 
-    pub fn get_captions(&self, url: &str, video_id: &str, language_code: &str) -> Result<PathBuf> {
+    pub async fn get_captions(
+        &self,
+        url: &str,
+        video_id: &str,
+        language_code: &str,
+    ) -> Result<PathBuf> {
         let path = utils::get_cache_dir()?.join(format!("{video_id}_{language_code}.srt"));
 
         if let Ok(true) = path.try_exists() {
@@ -362,21 +366,22 @@ impl Local {
         }
 
         let response = self
-            .agent
-            .get(&url.replace("fmt=srv3", "fmt=vtt"))
-            .call()?
-            .body_mut()
-            .read_to_string()?;
+            .client
+            .get(url.replace("fmt=srv3", "fmt=vtt"))
+            .send()
+            .await?
+            .error_for_status()?;
 
         let mut file = std::fs::File::create(&path)?;
-        file.write_all(response.as_bytes())?;
+        file.write_all(response.text().await?.as_bytes())?;
 
         Ok(path)
     }
 }
 
+#[async_trait]
 impl Api for Local {
-    fn resolve_url(&mut self, channel_url: &str) -> Result<String> {
+    async fn resolve_url(&self, channel_url: &str) -> Result<String> {
         let url = "https://www.youtube.com/youtubei/v1/navigation/resolve_url";
 
         let data = serde_json::json!({
@@ -389,50 +394,46 @@ impl Api for Local {
             "url": channel_url
         });
 
-        let response = self
-            .agent
-            .post(url)
-            .send_json(data)?
-            .body_mut()
-            .read_json::<Value>()?;
-        let endpoint = &response["endpoint"];
+        let response = self.client.post(url).json(&data).send().await?;
+        let value = response.json::<Value>().await?;
+        let endpoint = &value["endpoint"];
 
         if let Some(browse_endpoint) = endpoint.get("browseEndpoint") {
             let channel_id = browse_endpoint["browseId"].as_str().unwrap().to_string();
             Ok(channel_id)
         } else if let Some(url_endpoint) = endpoint.get("urlEndpoint") {
-            self.resolve_url(url_endpoint["url"].as_str().unwrap())
+            Box::pin(self.resolve_url(url_endpoint["url"].as_str().unwrap())).await
         } else {
             Err(anyhow::anyhow!("Couldn't resolve url"))
         }
     }
 
-    fn get_videos_for_the_first_time(&mut self, channel_id: &str) -> Result<ChannelFeed> {
-        let mut channel_feed = self.get_videos_of_channel(channel_id)?;
+    async fn get_videos_for_the_first_time(&mut self, channel_id: &str) -> Result<ChannelFeed> {
+        let mut channel_feed = self.get_videos_of_channel(channel_id).await?;
 
         if OPTIONS.videos_tab && self.continuation.is_some() {
-            let videos = self.get_continuation()?;
+            let videos = self.get_continuation().await?;
             channel_feed.videos.extend(videos);
         }
 
         Ok(channel_feed)
     }
 
-    fn get_videos_of_channel(&mut self, channel_id: &str) -> Result<ChannelFeed> {
+    async fn get_videos_of_channel(&mut self, channel_id: &str) -> Result<ChannelFeed> {
         let mut channel_title = None;
-        let mut videos = self.get_videos_tab(channel_id, &mut channel_title)?;
+        let mut videos = self.get_videos_tab(channel_id, &mut channel_title).await?;
 
         if !OPTIONS.videos_tab {
             videos.drain(..);
         }
 
         if OPTIONS.shorts_tab && self.shorts_available {
-            let shorts = self.get_shorts_tab(channel_id)?;
+            let shorts = self.get_shorts_tab(channel_id).await?;
             videos.extend(shorts);
         }
 
         if OPTIONS.streams_tab && self.streams_available {
-            let streams = self.get_streams_tab(channel_id)?;
+            let streams = self.get_streams_tab(channel_id).await?;
             videos.extend(streams);
         }
 
@@ -443,19 +444,18 @@ impl Api for Local {
         })
     }
 
-    fn get_rss_feed_of_channel(&self, channel_id: &str) -> Result<ChannelFeed> {
+    async fn get_rss_feed_of_channel(&self, channel_id: &str) -> Result<ChannelFeed> {
         let url = format!("https://www.youtube.com/feeds/videos.xml?channel_id={channel_id}");
-        let mut response = self.agent.get(&url).call()?;
+        let response = self.client.get(&url).send().await?.error_for_status()?;
 
-        let mut channel_feed: ChannelFeed =
-            quick_xml::de::from_str(&response.body_mut().read_to_string()?)?;
+        let mut channel_feed: ChannelFeed = quick_xml::de::from_str(&response.text().await?)?;
         channel_feed.channel_id = Some(channel_id.to_string());
 
         Ok(channel_feed)
     }
 
-    fn get_video_formats(&self, video_id: &str) -> Result<VideoInfo> {
-        let response = self.post_player(video_id)?;
+    async fn get_video_formats(&self, video_id: &str) -> Result<VideoInfo> {
+        let response = self.post_player(video_id).await?;
 
         let formats = response["streamingData"]
             .get("formats")

@@ -6,6 +6,7 @@ use crate::{
     utils,
 };
 use anyhow::Result;
+use async_trait::async_trait;
 use dyn_clone::DynClone;
 use regex_lite::Regex;
 use serde::Deserialize;
@@ -359,24 +360,25 @@ impl Display for ApiBackend {
     }
 }
 
-pub trait Api: Send + DynClone {
-    fn resolve_channel_id(&mut self, input: &str) -> Result<String> {
+#[async_trait]
+pub trait Api: Sync + Send + DynClone {
+    async fn resolve_channel_id(&self, input: &str) -> Result<String> {
         if let Some((rest, channel_id)) = input.rsplit_once('/') {
             if let Some((_, path)) = rest.rsplit_once('/')
                 && path == "channel"
             {
                 return Ok(channel_id.to_owned());
             }
-            self.resolve_url(input)
+            self.resolve_url(input).await
         } else if input.starts_with('@') {
-            self.resolve_url(&format!("youtube.com/{input}"))
+            self.resolve_url(&format!("youtube.com/{input}")).await
         } else {
             Ok(input.to_owned())
         }
     }
-    fn resolve_url(&mut self, channel_url: &str) -> Result<String>;
-    fn get_videos_for_the_first_time(&mut self, channel_id: &str) -> Result<ChannelFeed>;
-    fn get_videos_of_channel(&mut self, channel_id: &str) -> Result<ChannelFeed>;
-    fn get_rss_feed_of_channel(&self, channel_id: &str) -> Result<ChannelFeed>;
-    fn get_video_formats(&self, video_id: &str) -> Result<VideoInfo>;
+    async fn resolve_url(&self, channel_url: &str) -> Result<String>;
+    async fn get_videos_for_the_first_time(&mut self, channel_id: &str) -> Result<ChannelFeed>;
+    async fn get_videos_of_channel(&mut self, channel_id: &str) -> Result<ChannelFeed>;
+    async fn get_rss_feed_of_channel(&self, channel_id: &str) -> Result<ChannelFeed>;
+    async fn get_video_formats(&self, video_id: &str) -> Result<VideoInfo>;
 }

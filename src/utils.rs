@@ -50,11 +50,10 @@ fn hyperlink(text: &str, link: &str) -> String {
     format!("\x1b]8;;{link}\x1b\\{text}\x1b]8;;\x1b\\")
 }
 
-pub fn fetch_invidious_instances() -> Result<Vec<String>> {
+pub async fn fetch_invidious_instances() -> Result<Vec<String>> {
     const REQUEST_URL: &str = "https://api.invidious.io/instances.json";
     const ONION: &str = "onion";
-    let agent = ureq::agent();
-    let instances: Value = agent.get(REQUEST_URL).call()?.body_mut().read_json()?;
+    let instances: Value = reqwest::get(REQUEST_URL).await?.json().await?;
     Ok(instances
         .as_array()
         .unwrap()
@@ -73,8 +72,8 @@ pub fn get_default_instances_file() -> Result<PathBuf> {
     Ok(get_config_dir()?.join(INSTANCES_FILE))
 }
 
-pub fn generate_instances_file() -> Result<()> {
-    let instances = fetch_invidious_instances()?;
+pub async fn generate_instances_file() -> Result<()> {
+    let instances = fetch_invidious_instances().await?;
     let instances_file_path = &CONFIG.options.instances;
     let instances_dir = instances_file_path.parent().unwrap();
 

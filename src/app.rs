@@ -8,7 +8,7 @@ use crate::input::InputMode;
 use crate::message::Message;
 use crate::search::{Search, SearchDirection, SearchState};
 use crate::stream_formats::Formats;
-use crate::{CLAP_ARGS, IoEvent, OPTIONS, database};
+use crate::{CLAP_ARGS, IoEvent, OPTIONS, database, utils};
 use anyhow::{Context, Result};
 use ratatui::widgets::{ListState, TableState};
 use rusqlite::Connection;
@@ -18,7 +18,7 @@ use std::fmt::Display;
 use std::ops::{Deref, DerefMut};
 use std::path::Path;
 use std::process::Command;
-use std::sync::mpsc::Sender;
+use tokio::sync::mpsc::UnboundedSender;
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
@@ -51,13 +51,13 @@ pub struct App {
     local_api: Local,
     pub selected_api: ApiBackend,
     pub hide_watched: bool,
-    io_tx: Sender<IoEvent>,
+    io_tx: UnboundedSender<IoEvent>,
     pub channel_selection: SelectionList<Channel>,
     pub stream_formats: Formats,
 }
 
 impl App {
-    pub fn new(io_tx: Sender<IoEvent>) -> Result<Self> {
+    pub fn new(io_tx: UnboundedSender<IoEvent>) -> Result<Self> {
         let mut app = Self {
             channels: StatefulList::with_items(Vec::default()),
             videos: StatefulList::with_items(Vec::default()),
@@ -456,12 +456,16 @@ impl App {
         command
     }
 
-    pub fn play_from_formats(&mut self) {
+    pub async fn play_from_formats(&mut self) {
         let Some(current_video) = self.get_current_video() else {
             return;
         };
 
-        let stream_formats = match self.instance().get_video_formats(&current_video.video_id) {
+        let stream_formats = match self
+            .instance()
+            .get_video_formats(&current_video.video_id)
+            .await
+        {
             Ok(video_info) => Formats::new(video_info),
             Err(e) => {
                 self.set_error_message(&e.to_string());
@@ -481,24 +485,26 @@ impl App {
             (stream_formats.formats.get_selected_item().get_url(), None)
         };
 
-        let captions = stream_formats
-            .captions
-            .get_selected_items()
-            .iter()
-            .map(|caption| {
-                let url = caption.get_url();
-                if let ApiBackend::Invidious = self.selected_api {
-                    format!(
-                        "{}{}",
-                        self.invidious_instance.as_ref().unwrap().domain,
-                        url
-                    )
-                } else {
-                    let path = self.local_api.get_captions(url, &video_id, caption.id());
-                    path.unwrap().to_str().unwrap().to_string()
-                }
-            })
-            .collect::<Vec<String>>();
+        let mut captions = Vec::new();
+
+        for caption in stream_formats.captions.get_selected_items() {
+            let url = caption.get_url();
+            let s = if let ApiBackend::Invidious = self.selected_api {
+                format!(
+                    "{}{}",
+                    self.invidious_instance.as_ref().unwrap().domain,
+                    url
+                )
+            } else {
+                let path = self
+                    .local_api
+                    .get_captions(url, &video_id, caption.id())
+                    .await;
+                path.unwrap().to_str().unwrap().to_string()
+            };
+
+            captions.push(s);
+        }
 
         let chapters = stream_formats
             .chapters
@@ -533,12 +539,16 @@ impl App {
         }
     }
 
-    pub fn enter_format_selection(&mut self) {
+    pub async fn enter_format_selection(&mut self) {
         let Some(current_video) = self.get_current_video() else {
             return;
         };
 
-        match self.instance().get_video_formats(&current_video.video_id) {
+        match self
+            .instance()
+            .get_video_formats(&current_video.video_id)
+            .await
+        {
             Ok(video_info) => {
                 self.input_mode = InputMode::FormatSelection;
                 self.stream_formats = Formats::new(video_info);
@@ -549,7 +559,7 @@ impl App {
         };
     }
 
-    pub fn confirm_selected_streams(&mut self) {
+    pub async fn confirm_selected_streams(&mut self) {
         let (title, video_id) = if let Some(video) = self.get_current_video() {
             (video.title.clone(), video.video_id.clone())
         } else {
@@ -576,25 +586,26 @@ impl App {
             None
         };
 
-        let captions = self
-            .stream_formats
-            .captions
-            .get_selected_items()
-            .iter()
-            .map(|caption| {
-                let url = caption.get_url();
-                if let ApiBackend::Invidious = self.selected_api {
-                    format!(
-                        "{}{}",
-                        self.invidious_instance.as_ref().unwrap().domain,
-                        url
-                    )
-                } else {
-                    let caption_path = self.local_api.get_captions(url, &video_id, caption.id());
-                    caption_path.unwrap().to_str().unwrap().to_string()
-                }
-            })
-            .collect::<Vec<String>>();
+        let mut captions = Vec::new();
+
+        for caption in self.stream_formats.captions.get_selected_items() {
+            let url = caption.get_url();
+            let s = if let ApiBackend::Invidious = self.selected_api {
+                format!(
+                    "{}{}",
+                    self.invidious_instance.as_ref().unwrap().domain,
+                    url
+                )
+            } else {
+                let caption_path = self
+                    .local_api
+                    .get_captions(url, &video_id, caption.id())
+                    .await;
+                caption_path.unwrap().to_str().unwrap().to_string()
+            };
+
+            captions.push(s);
+        }
 
         let chapters = self
             .stream_formats
@@ -1168,7 +1179,7 @@ impl App {
         Ok(())
     }
 
-    pub fn import_subscriptions(&mut self) {
+    pub fn confirm_import(&mut self) {
         self.import_state.items = self
             .import_state
             .items
@@ -1181,7 +1192,7 @@ impl App {
             return;
         }
 
-        self.subscribe_to_channels();
+        self.import_channels();
     }
 
     pub fn export_subscriptions(&mut self, path: &Path, format: import::Format) -> Result<()> {
@@ -1198,22 +1209,62 @@ impl App {
     }
 
     pub fn subscribe_to_channel(&mut self, input: String) {
-        self.dispatch(IoEvent::SubscribeToChannel(input));
+        self.set_message("Resolving channel id");
+        self.dispatch(IoEvent::SubscribeToChannel(input, self.instance()));
     }
 
-    pub fn subscribe_to_channels(&mut self) {
-        self.dispatch(IoEvent::SubscribeToChannels);
+    pub fn import_channels(&mut self) {
+        let ids = self
+            .import_state
+            .items
+            .iter_mut()
+            .map(|channel| {
+                channel.sub_state = RefreshState::ToBeRefreshed;
+                channel.channel_id.clone()
+            })
+            .collect();
+
+        self.dispatch(IoEvent::ImportChannels(ids, self.instance()));
+    }
+
+    fn get_channels_for_refreshing(&mut self, filter_failed: bool) -> Vec<String> {
+        self.channels
+            .items
+            .iter_mut()
+            .filter(|channel| {
+                filter_failed && matches!(channel.refresh_state, RefreshState::Failed)
+                    || !filter_failed
+                        && !matches!(
+                            channel.last_refreshed,
+                            Some(time) if utils::time_passed(time).is_ok_and(|t| t < OPTIONS.refresh_threshold)
+                        )
+            })
+            .map(|channel| {
+                channel.set_to_be_refreshed();
+                channel.channel_id.clone()
+            })
+            .collect::<Vec<String>>()
     }
 
     pub fn refresh_channel(&mut self) {
         if let Some(current_channel) = self.get_current_channel() {
             let channel_id = current_channel.channel_id.clone();
-            self.dispatch(IoEvent::RefreshChannel(channel_id));
+            self.dispatch(IoEvent::RefreshChannels(vec![channel_id], self.instance()));
         }
     }
 
     pub fn refresh_channels(&mut self) {
-        self.dispatch(IoEvent::RefreshChannels(false));
+        if self.channels.items.is_empty() {
+            return;
+        }
+
+        let ids = self.get_channels_for_refreshing(false);
+
+        if ids.is_empty() {
+            self.set_warning_message("All the channels have been recently refreshed");
+        }
+
+        self.dispatch(IoEvent::RefreshChannels(ids, self.instance()));
     }
 
     pub fn set_instance(&mut self) {
@@ -1236,7 +1287,17 @@ impl App {
             self.set_instance();
         }
 
-        self.dispatch(IoEvent::RefreshChannels(true));
+        if self.channels.items.is_empty() {
+            return;
+        }
+
+        let ids = self.get_channels_for_refreshing(true);
+
+        if ids.is_empty() {
+            self.set_warning_message("There are no channels to retry refreshing");
+        }
+
+        self.dispatch(IoEvent::RefreshChannels(ids, self.instance()));
     }
 
     pub fn set_message(&mut self, message: &str) {
@@ -1262,7 +1323,10 @@ impl App {
     }
 
     pub fn clear_message_after_duration(&mut self, duration_seconds: u64) {
-        self.dispatch(IoEvent::ClearMessage(duration_seconds));
+        self.dispatch(IoEvent::ClearMessage(
+            self.message.clone_token(),
+            duration_seconds,
+        ));
     }
 
     pub fn toggle_tag_selection(&mut self) {

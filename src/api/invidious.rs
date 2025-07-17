@@ -3,12 +3,13 @@ use crate::OPTIONS;
 use crate::api::{ChannelFeed, ChannelTab};
 use crate::channel::Video;
 use anyhow::Result;
+use async_trait::async_trait;
 use rand::prelude::*;
+use reqwest::Client;
 use serde_json::Value;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
-use ureq::Agent;
 
 const API_BACKEND: ApiBackend = ApiBackend::Invidious;
 
@@ -39,7 +40,7 @@ impl From<Value> for ChannelFeed {
 #[derive(Clone)]
 pub struct Instance {
     pub domain: String,
-    agent: Agent,
+    client: Client,
     old_version: Arc<AtomicBool>,
 }
 
@@ -48,19 +49,19 @@ impl Instance {
         let mut rng = rand::rng();
         let domain =
             invidious_instances[rng.random_range(0..invidious_instances.len())].to_string();
-        let agent = Agent::config_builder()
-            .timeout_global(Some(Duration::from_secs(OPTIONS.request_timeout)))
+        let client = Client::builder()
+            .timeout(Duration::from_secs(OPTIONS.request_timeout))
             .build()
-            .into();
+            .unwrap();
 
         Self {
             domain,
-            agent,
+            client,
             old_version: Arc::new(AtomicBool::new(false)),
         }
     }
 
-    fn get_tab_of_channel(&self, channel_id: &str, tab: ChannelTab) -> Result<Vec<Video>> {
+    async fn get_tab_of_channel(&self, channel_id: &str, tab: ChannelTab) -> Result<Vec<Video>> {
         let url = format!(
             "{}/api/v1/channels/{}/{}",
             self.domain,
@@ -72,22 +73,22 @@ impl Instance {
             }
         );
 
-        let mut value = self
-            .agent
+        let response = self
+            .client
             .get(&url)
-            .query(
+            .query(&[(
                 "fields",
-                format!(
+                &format!(
                     "{}(title,videoId,published,lengthSeconds,isUpcoming,premiereTimestamp)",
                     match tab {
                         ChannelTab::Videos => "latestVideos",
                         _ => "videos",
                     },
                 ),
-            )
-            .call()?
-            .body_mut()
-            .read_json::<Value>()?;
+            )])
+            .send()
+            .await?;
+        let mut value = response.error_for_status()?.json::<Value>().await?;
 
         let videos_array = match tab {
             ChannelTab::Videos => value["latestVideos"].take(),
@@ -106,21 +107,23 @@ impl Instance {
     }
 }
 
+#[async_trait]
 impl Api for Instance {
-    fn resolve_url(&mut self, channel_url: &str) -> Result<String> {
+    async fn resolve_url(&self, channel_url: &str) -> Result<String> {
         let url = format!("{}/api/v1/resolveurl", self.domain);
         let response = self
-            .agent
+            .client
             .get(&url)
-            .query("url", channel_url)
-            .call()?
-            .body_mut()
-            .read_json::<Value>()?;
+            .query(&[("url", channel_url)])
+            .send()
+            .await?;
 
-        Ok(response["ucid"].as_str().unwrap().to_string())
+        let value: Value = response.error_for_status()?.json().await?;
+
+        Ok(value["ucid"].as_str().unwrap().to_string())
     }
 
-    fn get_videos_of_channel(&mut self, channel_id: &str) -> Result<ChannelFeed> {
+    async fn get_videos_of_channel(&mut self, channel_id: &str) -> Result<ChannelFeed> {
         let mut channel_feed = ChannelFeed {
             channel_title: None,
             channel_id: Some(channel_id.to_string()),
@@ -128,7 +131,9 @@ impl Api for Instance {
         };
 
         if OPTIONS.videos_tab
-            && let Ok(videos) = self.get_tab_of_channel(channel_id, ChannelTab::Videos)
+            && let Ok(videos) = self
+                .get_tab_of_channel(channel_id, ChannelTab::Videos)
+                .await
         {
             channel_feed.videos.extend(videos);
         }
@@ -136,13 +141,18 @@ impl Api for Instance {
         let old_version = self.old_version.load(Ordering::SeqCst);
 
         if OPTIONS.shorts_tab && !old_version {
-            match self.get_tab_of_channel(channel_id, ChannelTab::Shorts) {
+            match self
+                .get_tab_of_channel(channel_id, ChannelTab::Shorts)
+                .await
+            {
                 Ok(videos) => channel_feed.videos.extend(videos),
                 Err(e) => {
                     // if the error code is 500 don't try to fetch shorts and streams tabs
-                    if let Some(ureq::Error::StatusCode(500)) = e.downcast_ref::<ureq::Error>() {
+                    if let Some(reqwest::StatusCode::INTERNAL_SERVER_ERROR) =
+                        e.downcast_ref::<reqwest::Error>().and_then(|e| e.status())
+                    {
                         self.old_version.store(true, Ordering::SeqCst);
-                        return self.get_videos_of_channel(channel_id);
+                        return Box::pin(self.get_videos_of_channel(channel_id)).await;
                     }
 
                     return Err(anyhow::anyhow!(e));
@@ -152,7 +162,9 @@ impl Api for Instance {
 
         if OPTIONS.streams_tab
             && !old_version
-            && let Ok(videos) = self.get_tab_of_channel(channel_id, ChannelTab::Streams)
+            && let Ok(videos) = self
+                .get_tab_of_channel(channel_id, ChannelTab::Streams)
+                .await
         {
             channel_feed.videos.extend(videos);
         }
@@ -160,32 +172,30 @@ impl Api for Instance {
         Ok(channel_feed)
     }
 
-    fn get_videos_for_the_first_time(&mut self, channel_id: &str) -> Result<ChannelFeed> {
+    async fn get_videos_for_the_first_time(&mut self, channel_id: &str) -> Result<ChannelFeed> {
         let mut channel_feed;
         let url = format!("{}/api/v1/channels/{}/videos", self.domain, channel_id,);
         let response = self
-            .agent
+            .client
             .get(&url)
-            .query(
+            .query(&[(
                 "fields",
                 if self.old_version.load(Ordering::SeqCst) {
                     "author,title,videoId,published,lengthSeconds,isUpcoming,premiereTimestamp"
                 }
                 else {
                     "videos(author,title,videoId,published,lengthSeconds,isUpcoming,premiereTimestamp)"
-                },
+                })],
             )
-            .call();
+            .send().await?;
 
-        match response {
-            Ok(mut response) => {
-                channel_feed = ChannelFeed::from(response.body_mut().read_json::<Value>()?)
-            }
+        match response.error_for_status() {
+            Ok(response) => channel_feed = ChannelFeed::from(response.json::<Value>().await?),
             Err(e) => {
                 // if the error code is 400, retry with the old api
-                if let ureq::Error::StatusCode(400) = e {
+                if let Some(reqwest::StatusCode::BAD_REQUEST) = e.status() {
                     self.old_version.store(true, Ordering::SeqCst);
-                    return self.get_videos_for_the_first_time(channel_id);
+                    return Box::pin(self.get_videos_for_the_first_time(channel_id)).await;
                 }
 
                 return Err(anyhow::anyhow!(e));
@@ -200,13 +210,17 @@ impl Api for Instance {
             }
 
             if OPTIONS.shorts_tab
-                && let Ok(videos) = self.get_tab_of_channel(channel_id, ChannelTab::Shorts)
+                && let Ok(videos) = self
+                    .get_tab_of_channel(channel_id, ChannelTab::Shorts)
+                    .await
             {
                 channel_feed.videos.extend(videos);
             }
 
             if OPTIONS.streams_tab
-                && let Ok(videos) = self.get_tab_of_channel(channel_id, ChannelTab::Streams)
+                && let Ok(videos) = self
+                    .get_tab_of_channel(channel_id, ChannelTab::Streams)
+                    .await
             {
                 channel_feed.videos.extend(videos);
             }
@@ -215,32 +229,31 @@ impl Api for Instance {
         Ok(channel_feed)
     }
 
-    fn get_rss_feed_of_channel(&self, channel_id: &str) -> Result<ChannelFeed> {
+    async fn get_rss_feed_of_channel(&self, channel_id: &str) -> Result<ChannelFeed> {
         let url = format!("{}/feed/channel/{}", self.domain, channel_id);
-        let mut response = self.agent.get(&url).call()?;
+        let response = self.client.get(&url).send().await?.error_for_status()?;
 
-        Ok(quick_xml::de::from_str(
-            &response.body_mut().read_to_string()?,
-        )?)
+        Ok(quick_xml::de::from_str(&response.text().await?)?)
     }
 
-    fn get_video_formats(&self, video_id: &str) -> Result<VideoInfo> {
+    async fn get_video_formats(&self, video_id: &str) -> Result<VideoInfo> {
         let url = format!("{}/api/v1/videos/{}", self.domain, video_id);
-        let response = match self.agent.get(&url).call() {
-            Ok(mut response) => response.body_mut().read_json::<Value>()?,
+        let response = self.client.get(&url).send().await?;
+        let value = match response.error_for_status() {
+            Ok(response) => response.json::<Value>().await?,
             Err(_e) => {
                 anyhow::bail!(format!("Stream formats are not available: ",));
             }
         };
 
-        let mut format_streams: Vec<Format> = response["formatStreams"]
+        let mut format_streams: Vec<Format> = value["formatStreams"]
             .as_array()
             .unwrap()
             .iter()
             .map(|format| Format::from_stream(format, API_BACKEND))
             .collect();
 
-        let adaptive_formats = response["adaptiveFormats"].as_array().unwrap();
+        let adaptive_formats = value["adaptiveFormats"].as_array().unwrap();
 
         let mut video_formats = Vec::new();
         let mut audio_formats = Vec::new();
@@ -256,7 +269,7 @@ impl Api for Instance {
         format_streams.reverse();
         video_formats.reverse();
 
-        let captions = response["captions"]
+        let captions = value["captions"]
             .as_array()
             .unwrap()
             .iter()
@@ -265,7 +278,7 @@ impl Api for Instance {
 
         let chapters = OPTIONS
             .chapters
-            .then(|| Chapters::try_from(response["description"].as_str()).ok())
+            .then(|| Chapters::try_from(value["description"].as_str()).ok())
             .flatten();
 
         Ok(VideoInfo::new(

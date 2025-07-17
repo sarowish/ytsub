@@ -23,24 +23,24 @@ pub enum InputMode {
     FormatSelection,
 }
 
-pub fn handle_event(key: KeyEvent, app: &mut App) -> bool {
+pub async fn handle_event(key: KeyEvent, app: &mut App) -> bool {
     match app.input_mode {
         _ if app.help_window_state.show => {
             return handle_key_help_mode(key, &mut app.help_window_state);
         }
-        InputMode::Normal => return handle_key_normal_mode(key, app),
+        InputMode::Normal => return handle_key_normal_mode(key, app).await,
         InputMode::Confirmation => handle_key_confirmation_mode(key, app),
         InputMode::Import => return handle_key_import_mode(key, app),
         InputMode::Tag => return handle_key_tag_mode(key, app),
         InputMode::ChannelSelection => return handle_key_channel_selection_mode(key, app),
-        InputMode::FormatSelection => return handle_key_format_selection_mode(key, app),
+        InputMode::FormatSelection => return handle_key_format_selection_mode(key, app).await,
         _ => handle_key_editing_mode(key, app),
     }
 
     false
 }
 
-fn handle_key_normal_mode(key: KeyEvent, app: &mut App) -> bool {
+async fn handle_key_normal_mode(key: KeyEvent, app: &mut App) -> bool {
     if let Some(command) = KEY_BINDINGS.get(&key) {
         match command {
             Command::SetModeSubs => app.set_mode_subs(),
@@ -67,8 +67,8 @@ fn handle_key_normal_mode(key: KeyEvent, app: &mut App) -> bool {
             Command::OpenInInvidious => app.open_in_invidious(),
             Command::OpenInYoutube => app.open_in_youtube(),
             Command::PlayVideo => app.play_video(),
-            Command::PlayFromFormats => app.play_from_formats(),
-            Command::SelectFormats => app.enter_format_selection(),
+            Command::PlayFromFormats => app.play_from_formats().await,
+            Command::SelectFormats => app.enter_format_selection().await,
             Command::ToggleWatched => app.toggle_watched(),
             Command::ToggleHelp => app.toggle_help(),
             Command::ToggleTag => app.toggle_tag_selection(),
@@ -117,7 +117,7 @@ fn handle_key_import_mode(key: KeyEvent, app: &mut App) -> bool {
             ImportCommand::ToggleSelection => app.import_state.toggle_selected(),
             ImportCommand::SelectAll => app.import_state.select_all(),
             ImportCommand::DeselectAll => app.import_state.deselect_all(),
-            ImportCommand::Import => app.import_subscriptions(),
+            ImportCommand::Import => app.confirm_import(),
         }
     } else if let Some(command) = KEY_BINDINGS.get(&key) {
         match command {
@@ -212,10 +212,10 @@ fn handle_key_channel_selection_mode(key: KeyEvent, app: &mut App) -> bool {
     false
 }
 
-fn handle_key_format_selection_mode(key: KeyEvent, app: &mut App) -> bool {
+async fn handle_key_format_selection_mode(key: KeyEvent, app: &mut App) -> bool {
     if let Some(command) = KEY_BINDINGS.format_selection.get(&key) {
         match command {
-            FormatSelectionCommand::PlayVideo => app.confirm_selected_streams(),
+            FormatSelectionCommand::PlayVideo => app.confirm_selected_streams().await,
             FormatSelectionCommand::Abort => app.input_mode = InputMode::Normal,
             FormatSelectionCommand::Select => {
                 let tab_index = app.stream_formats.selected_tab;
