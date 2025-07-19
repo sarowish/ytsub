@@ -336,7 +336,11 @@ async fn fetch_formats(
     video_id: String,
     play_selected: bool,
 ) -> Result<()> {
-    let formats = match instance.get_video_formats(&video_id).await {
+    emit_msg!(perm, "Fetching formats");
+    let video_info = instance.get_video_formats(&video_id).await;
+    emit_msg!();
+
+    let formats = match video_info {
         Ok(video_info) => Formats::new(title, video_id, video_info),
         Err(e) => {
             emit_msg!(error, e.to_string());

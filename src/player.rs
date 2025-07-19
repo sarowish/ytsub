@@ -6,7 +6,7 @@ use anyhow::Result;
 use std::{path::Path, process::Command};
 
 #[cfg(unix)]
-pub fn run_detached<F: FnOnce() -> Result<(), std::io::Error>>(func: F) -> Result<()> {
+pub fn run_detached<F: FnOnce() -> Result<i32, std::io::Error>>(func: F) -> Result<()> {
     use nix::sys::wait::{WaitStatus, wait};
     use nix::unistd::ForkResult::{Child, Parent};
     use nix::unistd::{close, dup2_stderr, dup2_stdin, dup2_stdout, fork, pipe, setsid};
@@ -15,46 +15,61 @@ pub fn run_detached<F: FnOnce() -> Result<(), std::io::Error>>(func: F) -> Resul
     use std::os::fd::AsFd;
     use std::os::unix::io::{FromRawFd, IntoRawFd};
 
-    let (pipe_r, pipe_w) = pipe().unwrap();
-    let pid = unsafe { fork().unwrap() };
+    let (pipe_r, pipe_w) = pipe()?;
+    let pid = unsafe { fork()? };
     match pid {
         Parent { .. } => {
-            // check if child process failed to run
-            if let Ok(WaitStatus::Exited(_, 101)) = wait() {
-                close(pipe_w.into_raw_fd())?;
-                let mut file = unsafe { File::from_raw_fd(pipe_r.into_raw_fd()) };
-                let mut error_message = String::new();
-                file.read_to_string(&mut error_message)?;
-                Err(anyhow::anyhow!(error_message))
-            } else {
-                Ok(())
-            }
+            tokio::spawn(async move {
+                if let Ok(WaitStatus::Exited(_, exit_code)) = wait() {
+                    if exit_code == 101 {
+                        close(pipe_w.into_raw_fd())?;
+                        let mut file = unsafe { File::from_raw_fd(pipe_r.into_raw_fd()) };
+                        let mut error_message = String::new();
+                        file.read_to_string(&mut error_message)?;
+                        emit_msg!(error, error_message);
+                    } else if exit_code != 0 {
+                        emit_msg!(
+                            error,
+                            format!("Process exited with status code {exit_code}")
+                        );
+                    }
+                }
+
+                anyhow::Ok(())
+            });
+
+            Ok(())
         }
         Child => {
-            setsid().unwrap();
+            setsid()?;
             let dev_null = std::fs::OpenOptions::new()
                 .write(true)
                 .read(true)
-                .open("/dev/null")
-                .unwrap();
+                .open("/dev/null")?;
             let null_fd = dev_null.as_fd();
 
             dup2_stdin(null_fd)?;
             dup2_stdout(null_fd)?;
             dup2_stderr(null_fd)?;
 
-            if let Err(e) = func() {
-                close(pipe_r.into_raw_fd())?;
-                dup2_stdout(pipe_w.as_fd())?;
-                println!("{e}");
-                std::process::exit(101);
+            match func() {
+                Ok(exit_status) => {
+                    std::process::exit(exit_status);
+                }
+                Err(e) => {
+                    close(pipe_r.into_raw_fd())?;
+                    dup2_stdout(pipe_w.as_fd())?;
+                    println!("{e}");
+                    std::process::exit(101);
+                }
             }
-            std::process::exit(0);
         }
     }
 }
 
 pub async fn play_video(instance: Box<dyn Api>, formats: Formats) -> Result<()> {
+    emit_msg!("Launching video player");
+
     let (video_url, audio_url) = if formats.use_adaptive_streams {
         (
             formats.video_formats.get_selected_item().get_url(),
@@ -78,16 +93,15 @@ pub async fn play_video(instance: Box<dyn Api>, formats: Formats) -> Result<()> 
         &formats.title,
     );
 
-    let video_player_process = || video_player_command.spawn().map(|_| ());
+    let video_player_process = || {
+        video_player_command
+            .spawn()
+            .and_then(|mut child| child.wait())
+            .map(|status| status.code().unwrap_or_default())
+    };
 
     if let Err(e) = run_detached(video_player_process) {
-        emit_msg!(
-            error,
-            &format!(
-                "couldn't run \"{}\": {e}",
-                OPTIONS.mpv_path.to_string_lossy()
-            )
-        );
+        emit_msg!(error, e.to_string());
     } else {
         TX.send(ClientRequest::MarkAsWatched(formats.id))?;
     }
@@ -105,7 +119,7 @@ fn gen_video_player_command(
     let mut command;
     match OPTIONS.video_player_for_stream_formats {
         VideoPlayer::Mpv => {
-            command = std::process::Command::new(&OPTIONS.mpv_path);
+            command = Command::new(&OPTIONS.mpv_path);
             command
                 .arg(format!("--force-media-title={title}"))
                 .arg("--no-ytdl")
@@ -124,7 +138,7 @@ fn gen_video_player_command(
             }
         }
         VideoPlayer::Vlc => {
-            command = std::process::Command::new(&OPTIONS.vlc_path);
+            command = Command::new(&OPTIONS.vlc_path);
             command
                 .arg("--no-video-title-show")
                 .arg(format!("--input-title-format={title}"))
@@ -139,7 +153,7 @@ fn gen_video_player_command(
                 command.arg(format!("--sub-file={}", captions.join(" ")));
             }
         }
-    };
+    }
 
     command
 }
@@ -164,7 +178,7 @@ pub fn open_in_youtube(url_component: &str) -> Result<()> {
 }
 
 pub fn open_in_browser(url: &str) -> Result<()> {
-    let browser_process = || webbrowser::open(url);
+    let browser_process = || webbrowser::open(url).map(|()| 0);
 
     #[cfg(unix)]
     let res = run_detached(browser_process);

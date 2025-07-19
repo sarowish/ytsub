@@ -307,6 +307,8 @@ impl App {
     }
 
     pub fn play_video(&mut self) {
+        self.set_message_with_default_duration("Launching video player");
+
         if let Some(current_video) = self.get_current_video() {
             let url = format!(
                 "{}/watch?v={}",
@@ -317,14 +319,12 @@ impl App {
                 std::process::Command::new(&OPTIONS.mpv_path)
                     .arg(url)
                     .spawn()
-                    .map(|_| ())
+                    .and_then(|mut child| child.wait())
+                    .map(|status| status.code().unwrap_or_default())
             };
 
             if let Err(e) = run_detached(video_player_process) {
-                self.set_error_message(&format!(
-                    "couldn't run \"{}\": {e}",
-                    OPTIONS.mpv_path.to_string_lossy()
-                ));
+                self.set_error_message(&e.to_string());
             } else {
                 self.mark_as_watched();
             }
@@ -977,7 +977,7 @@ impl App {
         self.message.set_message(message);
     }
 
-    pub fn _set_message_with_default_duration(&mut self, message: &str) {
+    pub fn set_message_with_default_duration(&mut self, message: &str) {
         const DEFAULT_DURATION: u64 = 5;
         self.set_message(message);
         self.clear_message_after_duration(DEFAULT_DURATION);
