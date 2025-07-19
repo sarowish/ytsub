@@ -1,169 +1,22 @@
-use crate::app::{App, Mode, Selected, State, StatefulList};
+use crate::app::{App, Mode, Selected, StatefulList};
 use crate::help::HelpWindowState;
 use crate::input::InputMode;
 use crate::message::MessageType;
 use crate::search::SearchDirection;
 use crate::stream_formats::Formats;
-use crate::{HELP, OPTIONS, THEME, utils};
+use crate::{HELP, OPTIONS, THEME};
 use ratatui::Frame;
 use ratatui::layout::{Alignment, Constraint, Direction, Layout, Rect};
 use ratatui::style::{Color, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{
-    Block, BorderType, Borders, Cell, Clear, List, ListItem, ListState, Paragraph, Row, Table,
-    Tabs, Wrap,
+    Block, Borders, Cell, Clear, List, ListItem, ListState, Paragraph, Row, Table, Tabs, Wrap,
 };
 use std::fmt::Display;
 use unicode_width::UnicodeWidthStr;
+use utils::{TitleBuilder, filter_columns};
 
-struct TitleBuilder<'a, T, S: State> {
-    title: String,
-    hide_flag: bool,
-    list: Option<&'a StatefulList<T, S>>,
-    tags: Option<Vec<&'a String>>,
-    available_width: usize,
-}
-
-impl<'a, T, S: State> TitleBuilder<'a, T, S> {
-    fn new(available_width: usize) -> Self {
-        Self {
-            title: String::new(),
-            hide_flag: false,
-            list: None,
-            tags: None,
-            available_width: available_width.saturating_sub(2),
-        }
-    }
-
-    fn title(mut self, title: String) -> Self {
-        self.title = title;
-        self
-    }
-
-    fn hide_flag(mut self, hide: bool) -> Self {
-        self.hide_flag = hide;
-        self
-    }
-
-    fn list(mut self, list: &'a StatefulList<T, S>) -> Self {
-        self.list = Some(list);
-        self
-    }
-
-    fn tags(mut self, tags: Vec<&'a String>) -> Self {
-        if !tags.is_empty() {
-            self.tags = Some(tags);
-        }
-
-        self
-    }
-
-    fn build_title<'b>(mut self) -> Vec<Span<'b>> {
-        const MIN_GAP: usize = 2;
-
-        let mut title_sections = Vec::with_capacity(7);
-        let border_symbol = BorderType::border_symbols(BorderType::Plain).horizontal_top;
-
-        if !self.title.is_empty() {
-            let title = Span::styled(self.title, THEME.title);
-            self.available_width = self.available_width.saturating_sub(title.width());
-
-            title_sections.push(title);
-        }
-
-        if self.hide_flag {
-            self.available_width = self.available_width.saturating_sub(4);
-        }
-
-        let position = if let Some(list) = self.list {
-            Span::styled(
-                format!(
-                    "{}/{}",
-                    if let Some(index) = list.state.selected() {
-                        index + 1
-                    } else {
-                        0
-                    },
-                    list.items.len()
-                ),
-                THEME.title,
-            )
-        } else {
-            Span::raw("")
-        };
-
-        let required_width_for_position = if self.list.is_some() {
-            position.width() + MIN_GAP
-        } else {
-            0
-        };
-
-        if let Some(tags) = self.tags {
-            let mut available_width = self
-                .available_width
-                .saturating_sub(required_width_for_position + 3);
-
-            let mut shown_tags = Vec::new();
-
-            for tag in tags {
-                if tag.len() > available_width {
-                    if 2 > available_width {
-                        shown_tags.pop();
-                    }
-
-                    shown_tags.push("..".to_string());
-                    break;
-                }
-
-                shown_tags.push(tag.to_string());
-                available_width = available_width.saturating_sub(tag.width() + 2);
-            }
-
-            let tag_text = format!("[{}]", shown_tags.join(", "));
-            self.available_width = self.available_width.saturating_sub(tag_text.width() + 1);
-
-            title_sections.push(Span::raw(border_symbol));
-            title_sections.push(Span::styled(tag_text, THEME.title));
-        }
-
-        if self.hide_flag {
-            title_sections.push(Span::raw(border_symbol));
-            title_sections.push(Span::styled("[H]", THEME.title));
-        }
-
-        if let Some(p_gap_width) = self
-            .available_width
-            .checked_sub(required_width_for_position)
-        {
-            let fill = Span::raw(border_symbol.repeat(p_gap_width + MIN_GAP));
-            title_sections.push(fill);
-            title_sections.push(position);
-        }
-
-        title_sections
-    }
-}
-
-fn filter_columns(constraints: &[(Constraint, u16)], mut available_width: u16) -> Vec<Constraint> {
-    constraints
-        .iter()
-        .filter_map(|(constraint, min_width)| match constraint {
-            Constraint::Percentage(perc) => {
-                available_width = available_width.saturating_sub((available_width * perc) / 100);
-                Some(*constraint)
-            }
-            Constraint::Min(width) => {
-                if *min_width >= available_width {
-                    None
-                } else {
-                    available_width = available_width.saturating_sub(*width);
-                    Some(*constraint)
-                }
-            }
-            _ => panic!(),
-        })
-        .collect()
-}
+mod utils;
 
 pub fn draw(f: &mut Frame, app: &mut App) {
     let (main_layout, footer) = if app.is_footer_active() {
@@ -255,35 +108,37 @@ fn draw_channels(f: &mut Frame, app: &mut App, area: Rect) {
 }
 
 fn draw_videos(f: &mut Frame, app: &mut App, area: Rect) {
-    const COLUMN_SPACING: u16 = 2;
-    const COLUMN_CONSTRAINTS: &[(Constraint, u16); 4] = &[
-        (Constraint::Percentage(15), 0),
-        (Constraint::Min(90), 0),
-        (Constraint::Min(20), 4),
-        (Constraint::Min(30), 11),
+    const COLUMN_SPACING: i16 = 2;
+    const COLUMNS: &[(&str, Constraint, i16); 4] = &[
+        ("Channel", Constraint::Length(45), 1),
+        ("Title", Constraint::Min(90), 0),
+        ("Length", Constraint::Fill(1), 5),
+        ("Date", Constraint::Fill(1), 11),
     ];
 
-    let column_constraints = match app.mode {
-        Mode::LatestVideos => &COLUMN_CONSTRAINTS[0..],
-        Mode::Subscriptions => &COLUMN_CONSTRAINTS[1..],
+    let columns = match app.mode {
+        Mode::LatestVideos => &COLUMNS[0..],
+        Mode::Subscriptions => &COLUMNS[1..],
     };
-    let shown_column_constraints = filter_columns(
-        column_constraints,
-        area.width
-            .saturating_sub((column_constraints.len() as u16 - 1) * COLUMN_SPACING),
+    let shown_columns = filter_columns(
+        columns,
+        (area.width - 2 - OPTIONS.highlight_symbol.width() as u16) as i16,
+        COLUMN_SPACING,
     );
+    let channel_header_present = shown_columns
+        .first()
+        .is_some_and(|item| item.0 == "Channel");
 
-    let (video_area, video_info_area) = if shown_column_constraints.len() < column_constraints.len()
-        && app.get_current_video().is_some()
-    {
-        let chunks = Layout::default()
-            .constraints([Constraint::Min(10), Constraint::Length(6)])
-            .direction(Direction::Vertical)
-            .split(area);
-        (chunks[0], Some(chunks[1]))
-    } else {
-        (area, None)
-    };
+    let (video_area, video_info_area) =
+        if shown_columns.len() < columns.len() && app.get_current_video().is_some() {
+            let chunks = Layout::default()
+                .constraints([Constraint::Min(10), Constraint::Length(6)])
+                .direction(Direction::Vertical)
+                .split(area);
+            (chunks[0], Some(chunks[1]))
+        } else {
+            (area, None)
+        };
 
     let videos = app
         .videos
@@ -292,7 +147,7 @@ fn draw_videos(f: &mut Frame, app: &mut App, area: Rect) {
         .map(|video| {
             let mut columns = Vec::new();
 
-            if let Some(channel_name) = &video.channel_name {
+            if channel_header_present && let Some(channel_name) = &video.channel_name {
                 columns.push(Cell::from(Span::raw(channel_name)));
             }
 
@@ -303,7 +158,7 @@ fn draw_videos(f: &mut Frame, app: &mut App, area: Rect) {
                     if video.new { "[N]" } else { "" }
                 ))),
                 Cell::from(Span::raw(if let Some(length) = video.length {
-                    utils::length_as_hhmmss(length)
+                    crate::utils::length_as_hhmmss(length)
                 } else {
                     String::new()
                 })),
@@ -334,43 +189,40 @@ fn draw_videos(f: &mut Frame, app: &mut App, area: Rect) {
         Vec::default()
     };
 
-    let videos = Table::new(videos, shown_column_constraints)
-        .block(
-            Block::default()
-                .borders(Borders::ALL)
-                .title(title)
-                .border_style(match app.selected {
-                    Selected::Channels => Style::default(),
-                    Selected::Videos => THEME.selected_block,
-                }),
-        )
-        .header(
-            Row::new(match app.mode {
-                Mode::Subscriptions => vec!["Title", "Length", "Date"],
-                Mode::LatestVideos => vec!["Channel", "Title", "Length", "Date"],
-            })
-            .style(THEME.header),
-        )
-        .column_spacing(2)
-        .highlight_symbol(&*OPTIONS.highlight_symbol)
-        .row_highlight_style({
-            let mut style = match app.selected {
-                Selected::Channels => THEME.selected,
-                Selected::Videos => THEME.focused,
+    let videos = Table::new(
+        videos,
+        shown_columns.iter().map(|(_, constraint)| constraint),
+    )
+    .block(
+        Block::default()
+            .borders(Borders::ALL)
+            .title(title)
+            .border_style(match app.selected {
+                Selected::Channels => Style::default(),
+                Selected::Videos => THEME.selected_block,
+            }),
+    )
+    .header(Row::new(shown_columns.iter().map(|(header, _)| *header)).style(THEME.header))
+    .column_spacing(2)
+    .highlight_symbol(&*OPTIONS.highlight_symbol)
+    .row_highlight_style({
+        let mut style = match app.selected {
+            Selected::Channels => THEME.selected,
+            Selected::Videos => THEME.focused,
+        };
+        if let Some(video) = app.get_current_video()
+            && video.watched
+        {
+            let overriding_style = match app.selected {
+                Selected::Channels => THEME.selected_watched,
+                Selected::Videos => THEME.focused_watched,
             };
-            if let Some(video) = app.get_current_video()
-                && video.watched
-            {
-                let overriding_style = match app.selected {
-                    Selected::Channels => THEME.selected_watched,
-                    Selected::Videos => THEME.focused_watched,
-                };
-                style = style.patch(overriding_style);
-                style.add_modifier = overriding_style.add_modifier;
-                style.sub_modifier = overriding_style.sub_modifier;
-            }
-            style
-        });
+            style = style.patch(overriding_style);
+            style.add_modifier = overriding_style.add_modifier;
+            style.sub_modifier = overriding_style.sub_modifier;
+        }
+        style
+    });
 
     f.render_stateful_widget(videos, video_area, &mut app.videos.state);
 
@@ -393,7 +245,7 @@ fn draw_video_info(f: &mut Frame, app: &mut App, area: Rect) {
         Line::from(format!(
             "length: {}",
             if let Some(length) = current_video.length {
-                utils::length_as_hhmmss(length)
+                crate::utils::length_as_hhmmss(length)
             } else {
                 String::new()
             }
