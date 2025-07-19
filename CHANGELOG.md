@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Reduce `tick_rate` default value to 10 milliseconds.
 - Change the constraint type of the `Channel` column to `Length` from `Percentage`.
+- Rename `play_videos` command to `play_using_ytdlp` and swap its default
+key binding with `play_from_formats` command.
 
 ### Fixed
 - Don't block when resolving channel ids.

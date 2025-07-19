@@ -113,8 +113,8 @@ impl Default for KeyBindings {
         insert_binding!(general, "F", Command::RefreshFailedChannels);
         insert_binding!(general, "o", Command::OpenInYoutube);
         insert_binding!(general, "O", Command::OpenInInvidious);
-        insert_binding!(general, "p", Command::PlayVideo);
-        insert_binding!(general, "P", Command::PlayFromFormats);
+        insert_binding!(general, "p", Command::PlayFromFormats);
+        insert_binding!(general, "P", Command::PlayUsingYtdlp);
         insert_binding!(general, "f", Command::SelectFormats);
         insert_binding!(general, "m", Command::ToggleWatched);
         insert_binding!(general, "ctrl-h", Command::ToggleHelp);
