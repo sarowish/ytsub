@@ -1,7 +1,10 @@
 use super::{Api, ApiBackend, ChannelFeed, Chapters, Format, VideoInfo};
+use crate::channel::ListItem;
+use crate::stream_formats::Formats;
 use crate::{OPTIONS, channel::Video, utils};
 use anyhow::Result;
 use async_trait::async_trait;
+use futures_util::future::join_all;
 use reqwest::Client;
 use serde_json::Value;
 use std::time::Duration;
@@ -353,7 +356,7 @@ impl Local {
         extract_videos_tab(videos)
     }
 
-    pub async fn get_captions(
+    pub async fn get_caption(
         &self,
         url: &str,
         video_id: &str,
@@ -502,5 +505,19 @@ impl Api for Local {
             captions,
             chapters,
         ))
+    }
+
+    async fn get_caption_paths(&self, formats: &Formats) -> Vec<String> {
+        let captions = formats.captions.get_selected_items();
+
+        join_all(captions.iter().map(|captions| async {
+            self.get_caption(captions.get_url(), &formats.id, captions.id())
+                .await
+        }))
+        .await
+        .into_iter()
+        .map_while(Result::ok)
+        .map(|path| path.to_string_lossy().to_string())
+        .collect()
     }
 }

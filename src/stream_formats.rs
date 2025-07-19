@@ -9,6 +9,8 @@ use std::fmt::Display;
 
 #[derive(Default)]
 pub struct Formats {
+    pub title: String,
+    pub id: String,
     pub video_formats: SelectionList<Format>,
     pub audio_formats: SelectionList<Format>,
     pub formats: SelectionList<Format>,
@@ -19,8 +21,10 @@ pub struct Formats {
 }
 
 impl Formats {
-    pub fn new(video_info: VideoInfo) -> Self {
+    pub fn new(title: String, id: String, video_info: VideoInfo) -> Self {
         let mut formats = Formats {
+            title,
+            id,
             video_formats: SelectionList::new(video_info.video_formats),
             audio_formats: SelectionList::new(video_info.audio_formats),
             formats: SelectionList::new(video_info.format_streams),

@@ -3,6 +3,7 @@ pub mod local;
 
 use crate::{
     channel::{ListItem, Video},
+    stream_formats::Formats,
     utils,
 };
 use anyhow::Result;
@@ -381,4 +382,5 @@ pub trait Api: Sync + Send + DynClone {
     async fn get_videos_of_channel(&mut self, channel_id: &str) -> Result<ChannelFeed>;
     async fn get_rss_feed_of_channel(&self, channel_id: &str) -> Result<ChannelFeed>;
     async fn get_video_formats(&self, video_id: &str) -> Result<VideoInfo>;
+    async fn get_caption_paths(&self, formats: &Formats) -> Vec<String>;
 }

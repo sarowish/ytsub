@@ -1,9 +1,11 @@
 use crate::{
     IoEvent, OPTIONS,
-    api::{Api, ChannelFeed},
+    api::{Api, ApiBackend, ChannelFeed, invidious::Instance, local::Local},
     channel::RefreshState,
     message::MessageType,
+    player::{self, open_in_invidious, open_in_youtube, play_video},
     ro_cell::RoCell,
+    stream_formats::Formats,
     utils,
 };
 use anyhow::Result;
@@ -22,41 +24,41 @@ pub enum ClientRequest {
     SetRefreshState(String, RefreshState),
     SetImportState(String, RefreshState),
     AddChannel(ChannelFeed),
-    UpdateChannel(ChannelFeed),
-    FinalizeImport(bool),
-    SetMessage(String, MessageType, Option<u64>),
-    SetInstances(Result<Vec<String>>),
     CheckChannel(String, Sender<bool>),
+    FinalizeImport(bool),
+    UpdateChannel(ChannelFeed),
+    EnterFormatSelection(Box<Formats>),
+    MarkAsWatched(String),
+    SetMessage(String, MessageType, Option<u64>),
     ClearMessage,
 }
 
-const MESSAGE_DURATION: u64 = 5;
-
+#[macro_export]
 macro_rules! emit_msg {
     () => {
-        TX.send(ClientRequest::ClearMessage)?
+        TX.send($crate::client::ClientRequest::ClearMessage)?
     };
     ($message: expr) => {
-        emit_msg!($message, MessageType::Normal)
+        emit_msg!($message, $crate::message::MessageType::Normal)
     };
     (perm, $message: expr) => {
-        TX.send(ClientRequest::SetMessage(
+        TX.send($crate::client::ClientRequest::SetMessage(
             $message.to_owned(),
-            MessageType::Normal,
+            $crate::message::MessageType::Normal,
             None,
         ))?
     };
     (error, $message: expr) => {
-        emit_msg!($message, MessageType::Error)
+        emit_msg!($message, $crate::message::MessageType::Error)
     };
     (warning, $message: expr) => {
-        emit_msg!($message, MessageType::Warning)
+        emit_msg!($message, $crate::message::MessageType::Warning)
     };
     ($message: expr, $message_type: expr) => {
-        TX.send(ClientRequest::SetMessage(
+        TX.send($crate::client::ClientRequest::SetMessage(
             $message.to_owned(),
             $message_type,
-            Some(MESSAGE_DURATION),
+            Some(5),
         ))?
     };
 }
@@ -65,34 +67,114 @@ pub static TX: RoCell<UnboundedSender<ClientRequest>> = RoCell::new();
 
 pub struct Client {
     rx: UnboundedReceiver<IoEvent>,
+    pub invidious_instances: Option<Vec<String>>,
+    pub invidious_instance: Option<Instance>,
+    local_api: Local,
+    pub selected_api: ApiBackend,
 }
 
 impl Client {
-    pub fn new(rx: UnboundedReceiver<IoEvent>) -> Self {
-        Self { rx }
+    pub async fn new(rx: UnboundedReceiver<IoEvent>) -> Result<Self> {
+        let mut client = Self {
+            rx,
+            invidious_instances: utils::read_instances().ok(),
+            invidious_instance: None,
+            local_api: Local::new(),
+            selected_api: OPTIONS.api.clone(),
+        };
+
+        if let ApiBackend::Invidious = client.selected_api {
+            client.set_instance().await?;
+        }
+
+        Ok(client)
     }
 
     pub async fn run(&mut self) -> Result<()> {
         while let Some(event) = self.rx.recv().await {
             match event {
-                IoEvent::SubscribeToChannel(id, instance) => {
+                IoEvent::SubscribeToChannel(id) => {
+                    let instance = self.instance();
                     tokio::spawn(async move { subscribe_to_channel(instance, id).await });
                 }
-                IoEvent::ImportChannels(ids, instance) => {
+                IoEvent::ImportChannels(ids) => {
+                    let instance = self.instance();
                     import_channels(instance, ids).await?;
                 }
-                IoEvent::RefreshChannels(ids, instance) => {
+                IoEvent::RefreshChannels(ids) => {
+                    let instance = self.instance();
                     tokio::spawn(async move { refresh_channels(instance, ids).await });
                 }
-                IoEvent::FetchInstances => {
+                IoEvent::FetchFormats(title, video_id, play_selected) => {
+                    let instance = self.instance();
                     tokio::spawn(async move {
-                        let instances = utils::fetch_invidious_instances().await;
-                        TX.send(ClientRequest::SetInstances(instances))
+                        fetch_formats(instance, title, video_id, play_selected).await
                     });
                 }
+                IoEvent::PlayFromFormats(formats) => {
+                    let instance = self.instance();
+                    tokio::spawn(async move { play_video(instance, *formats).await });
+                }
+                IoEvent::OpenInBrowser(url_component, api) => match api {
+                    ApiBackend::Local => open_in_youtube(&url_component),
+                    ApiBackend::Invidious => open_in_invidious(self, &url_component),
+                }?,
                 IoEvent::ClearMessage(token, duration) => {
                     tokio::spawn(async move { clear_message(token, duration).await });
                 }
+                IoEvent::SwitchApi => self.switch_api().await?,
+            }
+        }
+
+        Ok(())
+    }
+
+    fn instance(&self) -> Box<dyn Api> {
+        match self.selected_api {
+            ApiBackend::Invidious => Box::new(self.invidious_instance.as_ref().unwrap().clone()),
+            ApiBackend::Local => Box::new(self.local_api.clone()),
+        }
+    }
+
+    async fn switch_api(&mut self) -> Result<()> {
+        self.selected_api = match self.selected_api {
+            ApiBackend::Local => ApiBackend::Invidious,
+            ApiBackend::Invidious => ApiBackend::Local,
+        };
+
+        emit_msg!(format!("Selected API: {}", self.selected_api));
+
+        if self.invidious_instance.is_none() {
+            self.set_instance().await?;
+        }
+
+        Ok(())
+    }
+
+    async fn set_instance(&mut self) -> Result<()> {
+        if let Some(invidious_instances) = &self.invidious_instances {
+            if invidious_instances.is_empty() {
+                self.selected_api = ApiBackend::Local;
+                emit_msg!(
+                    warning,
+                    "No Invidious instance available. Falling back to Local API."
+                );
+            } else {
+                self.invidious_instance = Some(Instance::new(invidious_instances));
+            }
+        } else {
+            emit_msg!(perm, "Fetching instances");
+
+            if let Ok(instances) = utils::fetch_invidious_instances().await {
+                emit_msg!();
+                self.invidious_instances = Some(instances);
+                Box::pin(self.set_instance()).await?;
+            } else {
+                emit_msg!(
+                    error,
+                    "Failed to fetch instances. Falling back to Local API."
+                );
+                self.selected_api = ApiBackend::Local;
             }
         }
 
@@ -243,6 +325,29 @@ async fn refresh_channels(instance: Box<dyn Api>, channel_ids: Vec<String>) -> R
         (count, total) => emit_msg!(format!(
             "Refreshed {count} out of {total} channels in {elapsed:.2}s"
         )),
+    }
+
+    Ok(())
+}
+
+async fn fetch_formats(
+    instance: Box<dyn Api>,
+    title: String,
+    video_id: String,
+    play_selected: bool,
+) -> Result<()> {
+    let formats = match instance.get_video_formats(&video_id).await {
+        Ok(video_info) => Formats::new(title, video_id, video_info),
+        Err(e) => {
+            emit_msg!(error, e.to_string());
+            return Ok(());
+        }
+    };
+
+    if play_selected {
+        player::play_video(instance, formats).await?;
+    } else {
+        TX.send(ClientRequest::EnterFormatSelection(Box::new(formats)))?;
     }
 
     Ok(())

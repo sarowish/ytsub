@@ -1,5 +1,6 @@
 use crate::{
     KEY_BINDINGS, OPTIONS,
+    api::ApiBackend,
     app::{App, VideoPlayer},
     commands::{
         ChannelSelectionCommand, Command, FormatSelectionCommand, HelpCommand, ImportCommand,
@@ -23,24 +24,24 @@ pub enum InputMode {
     FormatSelection,
 }
 
-pub async fn handle_event(key: KeyEvent, app: &mut App) -> bool {
+pub fn handle_event(key: KeyEvent, app: &mut App) -> bool {
     match app.input_mode {
         _ if app.help_window_state.show => {
             return handle_key_help_mode(key, &mut app.help_window_state);
         }
-        InputMode::Normal => return handle_key_normal_mode(key, app).await,
+        InputMode::Normal => return handle_key_normal_mode(key, app),
         InputMode::Confirmation => handle_key_confirmation_mode(key, app),
         InputMode::Import => return handle_key_import_mode(key, app),
         InputMode::Tag => return handle_key_tag_mode(key, app),
         InputMode::ChannelSelection => return handle_key_channel_selection_mode(key, app),
-        InputMode::FormatSelection => return handle_key_format_selection_mode(key, app).await,
+        InputMode::FormatSelection => return handle_key_format_selection_mode(key, app),
         _ => handle_key_editing_mode(key, app),
     }
 
     false
 }
 
-async fn handle_key_normal_mode(key: KeyEvent, app: &mut App) -> bool {
+fn handle_key_normal_mode(key: KeyEvent, app: &mut App) -> bool {
     if let Some(command) = KEY_BINDINGS.get(&key) {
         match command {
             Command::SetModeSubs => app.set_mode_subs(),
@@ -64,11 +65,11 @@ async fn handle_key_normal_mode(key: KeyEvent, app: &mut App) -> bool {
             Command::RefreshChannel => app.refresh_channel(),
             Command::RefreshChannels => app.refresh_channels(),
             Command::RefreshFailedChannels => app.refresh_failed_channels(),
-            Command::OpenInInvidious => app.open_in_invidious(),
-            Command::OpenInYoutube => app.open_in_youtube(),
+            Command::OpenInInvidious => app.open_in_browser(ApiBackend::Invidious),
+            Command::OpenInYoutube => app.open_in_browser(ApiBackend::Local),
             Command::PlayVideo => app.play_video(),
-            Command::PlayFromFormats => app.play_from_formats().await,
-            Command::SelectFormats => app.enter_format_selection().await,
+            Command::PlayFromFormats => app.play_from_formats(),
+            Command::SelectFormats => app.enter_format_selection(),
             Command::ToggleWatched => app.toggle_watched(),
             Command::ToggleHelp => app.toggle_help(),
             Command::ToggleTag => app.toggle_tag_selection(),
@@ -212,10 +213,10 @@ fn handle_key_channel_selection_mode(key: KeyEvent, app: &mut App) -> bool {
     false
 }
 
-async fn handle_key_format_selection_mode(key: KeyEvent, app: &mut App) -> bool {
+fn handle_key_format_selection_mode(key: KeyEvent, app: &mut App) -> bool {
     if let Some(command) = KEY_BINDINGS.format_selection.get(&key) {
         match command {
-            FormatSelectionCommand::PlayVideo => app.confirm_selected_streams().await,
+            FormatSelectionCommand::PlayVideo => app.confirm_selected_streams(),
             FormatSelectionCommand::Abort => app.input_mode = InputMode::Normal,
             FormatSelectionCommand::Select => {
                 let tab_index = app.stream_formats.selected_tab;

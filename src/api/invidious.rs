@@ -2,6 +2,7 @@ use super::{Api, ApiBackend, Chapters, Format, VideoInfo};
 use crate::OPTIONS;
 use crate::api::{ChannelFeed, ChannelTab};
 use crate::channel::Video;
+use crate::stream_formats::Formats;
 use anyhow::Result;
 use async_trait::async_trait;
 use rand::prelude::*;
@@ -288,5 +289,14 @@ impl Api for Instance {
             captions,
             chapters,
         ))
+    }
+
+    async fn get_caption_paths(&self, formats: &Formats) -> Vec<String> {
+        formats
+            .captions
+            .get_selected_items()
+            .iter()
+            .map(|caption| format!("{}{}", self.domain, caption.get_url()))
+            .collect()
     }
 }

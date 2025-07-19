@@ -10,6 +10,7 @@ mod help;
 mod import;
 mod input;
 mod message;
+mod player;
 mod ro_cell;
 mod search;
 mod stream_formats;
@@ -21,7 +22,6 @@ use crate::config::keys::KeyBindings;
 use crate::config::options::Options;
 use crate::config::theme::Theme;
 use anyhow::Result;
-use api::Api;
 use api::ApiBackend;
 use app::App;
 use channel::RefreshState;
@@ -40,13 +40,14 @@ use input::InputMode;
 use ratatui::DefaultTerminal;
 use ratatui::Terminal;
 use ratatui::backend::CrosstermBackend;
-use tokio::sync::mpsc;
 use std::io;
 use std::panic;
 use std::path::PathBuf;
 use std::sync::LazyLock;
 use std::time::Duration;
 use std::time::Instant;
+use stream_formats::Formats;
+use tokio::sync::mpsc;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio_util::sync::CancellationToken;
 use ui::draw;
@@ -170,8 +171,7 @@ async fn run_tui(
     let (req_tx, mut req_rx) = mpsc::unbounded_channel();
     TX.init(req_tx);
 
-    let mut client = client::Client::new(rx);
-
+    let mut client = client::Client::new(rx).await?;
     tokio::spawn(async move { client.run().await });
 
     render(&mut app, terminal)?;
@@ -186,7 +186,7 @@ async fn run_tui(
             }
             Some(Ok(term_event)) = term_events.next() => {
                 if let Event::Key(key) = term_event
-                    && input::handle_event(key, &mut app).await
+                    && input::handle_event(key, &mut app)
                 {
                     break;
                 }
@@ -229,18 +229,26 @@ fn handle_event(event: ClientRequest, app: &mut App) {
             }
         }
         ClientRequest::AddChannel(feed) => app.add_channel(feed),
-        ClientRequest::UpdateChannel(feed) => app.add_videos(feed),
+        ClientRequest::CheckChannel(id, tx) => {
+            tx.send(app.channels.get_mut_by_id(&id).is_some()).unwrap();
+        }
         ClientRequest::FinalizeImport(imported_all) => {
             if imported_all {
                 app.input_mode = InputMode::Normal;
             } else {
-                if let ApiBackend::Invidious = app.selected_api {
-                    app.set_instance();
-                }
-
                 for channel in &mut app.import_state.items {
                     channel.sub_state = RefreshState::Completed;
                 }
+            }
+        }
+        ClientRequest::UpdateChannel(feed) => app.add_videos(feed),
+        ClientRequest::EnterFormatSelection(formats) => {
+            app.input_mode = InputMode::FormatSelection;
+            app.stream_formats = *formats;
+        }
+        ClientRequest::MarkAsWatched(video_id) => {
+            if let Some(video) = app.videos.get_mut_by_id(&video_id) {
+                video.watched = true;
             }
         }
         ClientRequest::SetMessage(msg, message_type, duration) => {
@@ -250,27 +258,17 @@ fn handle_event(event: ClientRequest, app: &mut App) {
                 app.clear_message_after_duration(duration);
             }
         }
-        ClientRequest::SetInstances(instances) => {
-            if let Ok(instances) = instances {
-                app.invidious_instances = Some(instances);
-                app.message.clear_message();
-                app.set_instance();
-            } else {
-                app.selected_api = ApiBackend::Local;
-                app.set_error_message("Failed to fetch instances. Falling back to Local API.");
-            }
-        }
-        ClientRequest::CheckChannel(id, tx) => {
-            tx.send(app.channels.get_mut_by_id(&id).is_some()).unwrap();
-        }
         ClientRequest::ClearMessage => app.message.clear_message(),
     }
 }
 
 pub enum IoEvent {
-    SubscribeToChannel(String, Box<dyn Api>),
-    ImportChannels(Vec<String>, Box<dyn Api>),
-    RefreshChannels(Vec<String>, Box<dyn Api>),
-    FetchInstances,
+    SubscribeToChannel(String),
+    ImportChannels(Vec<String>),
+    RefreshChannels(Vec<String>),
+    FetchFormats(String, String, bool),
+    PlayFromFormats(Box<Formats>),
+    OpenInBrowser(String, ApiBackend),
     ClearMessage(CancellationToken, u64),
+    SwitchApi,
 }
