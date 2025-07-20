@@ -2,7 +2,7 @@
 
 ytsub is a subscriptions only tui youtube client.
 
-![demo](https://user-images.githubusercontent.com/20581722/169398500-76b61e21-bff6-4286-aadb-8345eaab97a0.gif)
+![demo](https://github.com/user-attachments/assets/974c8488-7963-4ed1-b300-2d7da8d460cc)
 
 ## Dependencies
 
