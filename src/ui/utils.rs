@@ -145,7 +145,7 @@ pub fn filter_columns<'a>(
         .count() as i16;
 
     available_width -= (columns.len() as i16 - 1) * spacing;
-    let possible_spacing_save = fill_count * spacing;
+    let mut possible_spacing_save = fill_count * spacing;
 
     columns
         .iter()
@@ -174,8 +174,13 @@ pub fn filter_columns<'a>(
         .collect::<Vec<&(&'a str, Constraint, i16)>>()
         .into_iter()
         .filter(|(_, constraint, min_width)| match constraint {
-            Constraint::Fill(v) => (*min_width <= available_width)
-                .then(|| available_width -= available_width * *v as i16 / fill_count)
+            Constraint::Fill(v) => (*min_width
+                <= available_width + possible_spacing_save - spacing)
+                .then(|| {
+                    possible_spacing_save -= spacing;
+                    available_width -=
+                        (available_width as f32 * *v as f32 / fill_count as f32).ceil() as i16
+                })
                 .or_else(|| {
                     available_width += spacing;
                     None
@@ -237,6 +242,8 @@ mod tests {
 
     #[test]
     fn filter_columns_with_spacing() {
+        const SPACING: i16 = 2;
+
         let constraints = [
             ("a", Constraint::Length(45), 2),
             ("b", Constraint::Min(90), 0),
@@ -244,13 +251,27 @@ mod tests {
             ("d", Constraint::Fill(1), 11),
         ];
 
-        assert_eq!(
-            filter_columns(&constraints, 94, 2),
-            vec![("a", Constraint::Length(45)), ("b", Constraint::Min(90)),]
-        );
-        assert_eq!(
-            filter_columns(&constraints, 93, 2),
-            vec![("b", Constraint::Min(90))]
-        );
+        let four = vec![
+            ("a", Constraint::Length(45)),
+            ("b", Constraint::Min(90)),
+            ("c", Constraint::Fill(1)),
+            ("d", Constraint::Fill(1)),
+        ];
+        assert_eq!(filter_columns(&constraints, 163, SPACING), four);
+
+        let three = vec![
+            ("a", Constraint::Length(45)),
+            ("b", Constraint::Min(90)),
+            ("c", Constraint::Fill(1)),
+        ];
+        assert_eq!(filter_columns(&constraints, 162, SPACING), three);
+        assert_eq!(filter_columns(&constraints, 144, SPACING), three);
+
+        let two = vec![("a", Constraint::Length(45)), ("b", Constraint::Min(90))];
+        assert_eq!(filter_columns(&constraints, 143, SPACING), two);
+        assert_eq!(filter_columns(&constraints, 94, SPACING), two);
+
+        let one = vec![("b", Constraint::Min(90))];
+        assert_eq!(filter_columns(&constraints, 93, SPACING), one);
     }
 }

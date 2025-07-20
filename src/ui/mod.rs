@@ -112,8 +112,8 @@ fn draw_videos(f: &mut Frame, app: &mut App, area: Rect) {
     const COLUMNS: &[(&str, Constraint, i16); 4] = &[
         ("Channel", Constraint::Length(45), 1),
         ("Title", Constraint::Min(90), 0),
-        ("Length", Constraint::Fill(1), 5),
-        ("Date", Constraint::Fill(1), 11),
+        ("Length", Constraint::Fill(1), 4),
+        ("Date", Constraint::Fill(1), 10),
     ];
 
     let columns = match app.mode {
