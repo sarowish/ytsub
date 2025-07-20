@@ -77,8 +77,7 @@ fn draw_channels(f: &mut Frame, app: &mut App, area: Rect) {
         .channels
         .items
         .iter()
-        .map(|ch| ch.to_string())
-        .map(Span::raw)
+        .map(Line::from)
         .map(ListItem::new)
         .collect::<Vec<ListItem>>();
 
@@ -152,11 +151,13 @@ fn draw_videos(f: &mut Frame, app: &mut App, area: Rect) {
             }
 
             columns.extend([
-                Cell::from(Span::raw(format!(
-                    "{} {}",
-                    video.title,
-                    if video.new { "[N]" } else { "" }
-                ))),
+                Cell::from(Line::from(vec![
+                    Span::raw(video.title.clone()),
+                    Span::styled(
+                        if video.new { " [N]" } else { "" },
+                        THEME.new_video_indicator,
+                    ),
+                ])),
                 Cell::from(Span::raw(if let Some(length) = video.length {
                     crate::utils::length_as_hhmmss(length)
                 } else {

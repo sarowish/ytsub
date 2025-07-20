@@ -167,6 +167,10 @@ fg = "DarkGray"
 # Selected watched video in active block
 # Overrides the modifiers of [focused]. If fg and bg are set, they are patched to [focused]
 [focused_watched]
+# New video indicator
+[new_video_indicator]
+fg = "Red"
+modifiers = "italic"
 # Border of selected block
 [selected_block]
 fg = "Magenta"

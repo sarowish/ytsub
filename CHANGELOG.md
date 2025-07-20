@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 ### Added
 - Show status messages related the video playing process.
+- Highlight new video indicators.
 
 ### Changed
 - Reduce `tick_rate` default value to 10 milliseconds.
@@ -16,7 +17,7 @@ key binding with `play_from_formats` command.
 
 ### Fixed
 - Don't block when resolving channel ids.
-- Make buildable on non unix systems
+- Make buildable on non unix systems.
 
 ## [0.6.0] - 2025-06-29
 ### Added

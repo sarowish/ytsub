@@ -1,4 +1,6 @@
+use crate::THEME;
 use chrono::DateTime;
+use ratatui::text::{Line, Span};
 use serde::{Deserialize, de};
 use serde_json::Value;
 use std::fmt::Display;
@@ -47,18 +49,26 @@ impl ListItem for Channel {
 
 impl Display for Channel {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let refresh_indicator = match self.refresh_state {
+        write!(f, "{}", self.channel_name)
+    }
+}
+
+impl From<&Channel> for Line<'_> {
+    fn from(value: &Channel) -> Self {
+        let refresh_indicator = match value.refresh_state {
             RefreshState::ToBeRefreshed => "□ ",
             RefreshState::Refreshing => "■ ",
             RefreshState::Completed => "",
             RefreshState::Failed => "✗ ",
         };
-        let new_video_indicator = if self.new_video { " [N]" } else { "" };
-        write!(
-            f,
-            "{}{}{}",
-            refresh_indicator, self.channel_name, new_video_indicator
-        )
+
+        Line::from(vec![
+            Span::raw(format!("{}{}", refresh_indicator, value.channel_name)),
+            Span::styled(
+                if value.new_video { " [N]" } else { "" },
+                THEME.new_video_indicator,
+            ),
+        ])
     }
 }
 
