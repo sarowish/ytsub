@@ -338,7 +338,6 @@ async fn fetch_formats(
 ) -> Result<()> {
     emit_msg!(perm, "Fetching formats");
     let video_info = instance.get_video_formats(&video_id).await;
-    emit_msg!();
 
     let formats = match video_info {
         Ok(video_info) => Formats::new(title, video_id, video_info),
@@ -351,6 +350,7 @@ async fn fetch_formats(
     if play_selected {
         player::play_video(instance, formats).await?;
     } else {
+        emit_msg!();
         TX.send(ClientRequest::EnterFormatSelection(Box::new(formats)))?;
     }
 
