@@ -4,7 +4,7 @@ use crate::help::HelpWindowState;
 use crate::import::{self, ImportItem};
 use crate::input::InputMode;
 use crate::message::Message;
-use crate::player::run_detached;
+use crate::player::run_video_player;
 use crate::search::{Search, SearchDirection, SearchState};
 use crate::stream_formats::Formats;
 use crate::{CLAP_ARGS, IoEvent, OPTIONS, database, utils};
@@ -14,9 +14,9 @@ use rusqlite::Connection;
 use serde::Deserialize;
 use std::collections::HashSet;
 use std::fmt::Display;
-use std::mem;
 use std::ops::{Deref, DerefMut};
 use std::path::Path;
+use std::{mem, process};
 use tokio::sync::mpsc::UnboundedSender;
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
@@ -315,15 +315,10 @@ impl App {
                 "https://www.youtube.com", current_video.video_id
             );
 
-            let video_player_process = || {
-                std::process::Command::new(&OPTIONS.mpv_path)
-                    .arg(url)
-                    .spawn()
-                    .and_then(|mut child| child.wait())
-                    .map(|status| status.code().unwrap_or_default())
-            };
+            let mut player_command = process::Command::new(&OPTIONS.mpv_path);
+            player_command.arg(url);
 
-            if let Err(e) = run_detached(video_player_process) {
+            if let Err(e) = run_video_player(player_command) {
                 self.set_error_message(&e.to_string());
             } else {
                 self.mark_as_watched();

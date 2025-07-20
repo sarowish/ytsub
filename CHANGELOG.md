@@ -16,6 +16,7 @@ key binding with `play_from_formats` command.
 
 ### Fixed
 - Don't block when resolving channel ids.
+- Make buildable on non unix systems
 
 ## [0.6.0] - 2025-06-29
 ### Added

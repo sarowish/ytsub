@@ -3,6 +3,7 @@ use crate::TX;
 use crate::client::Client;
 use crate::{OPTIONS, api::Api, app::VideoPlayer, emit_msg, stream_formats::Formats};
 use anyhow::Result;
+use std::process::Stdio;
 use std::{path::Path, process::Command};
 
 #[cfg(unix)]
@@ -85,7 +86,7 @@ pub async fn play_video(instance: Box<dyn Api>, formats: Formats) -> Result<()> 
         .chapters
         .and_then(|chapters| chapters.write_to_file(&formats.id).ok());
 
-    let mut video_player_command = gen_video_player_command(
+    let player_command = gen_video_player_command(
         video_url,
         audio_url,
         &captions,
@@ -93,20 +94,33 @@ pub async fn play_video(instance: Box<dyn Api>, formats: Formats) -> Result<()> 
         &formats.title,
     );
 
-    let video_player_process = || {
-        video_player_command
-            .spawn()
-            .and_then(|mut child| child.wait())
-            .map(|status| status.code().unwrap_or_default())
-    };
-
-    if let Err(e) = run_detached(video_player_process) {
+    if let Err(e) = run_video_player(player_command) {
         emit_msg!(error, e.to_string());
     } else {
         TX.send(ClientRequest::MarkAsWatched(formats.id))?;
     }
 
     Ok(())
+}
+
+pub fn run_video_player(mut command: Command) -> Result<()> {
+    if cfg!(unix) {
+        let player_process = || {
+            command
+                .spawn()
+                .and_then(|mut child| child.wait())
+                .map(|status| status.code().unwrap_or_default())
+        };
+
+        run_detached(player_process)
+    } else {
+        Ok(command
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .map(|_| ())?)
+    }
 }
 
 fn gen_video_player_command(
