@@ -14,7 +14,7 @@ use ratatui::widgets::{
 };
 use std::fmt::Display;
 use unicode_width::UnicodeWidthStr;
-use utils::{TitleBuilder, filter_columns};
+use utils::{Column, TitleBuilder, filter_columns};
 
 mod utils;
 
@@ -108,26 +108,26 @@ fn draw_channels(f: &mut Frame, app: &mut App, area: Rect) {
 }
 
 fn draw_videos(f: &mut Frame, app: &mut App, area: Rect) {
-    const COLUMN_SPACING: i16 = 2;
-    const COLUMNS: &[(&str, Constraint, i16); 4] = &[
-        ("Channel", Constraint::Length(45), 1),
-        ("Title", Constraint::Min(90), 0),
-        ("Length", Constraint::Fill(1), 4),
-        ("Date", Constraint::Fill(1), 10),
+    const COLUMN_SPACING: u16 = 2;
+    let columns = [
+        Column::new("Channel", Constraint::Length(45), 1),
+        Column::new("Title", Constraint::Min(90), 0),
+        Column::new("Length", Constraint::Fill(1), 4),
+        Column::new("Date", Constraint::Fill(1), 10),
     ];
 
     let columns = match app.mode {
-        Mode::LatestVideos => &COLUMNS[0..],
-        Mode::Subscriptions => &COLUMNS[1..],
+        Mode::LatestVideos => &columns[0..],
+        Mode::Subscriptions => &columns[1..],
     };
     let shown_columns = filter_columns(
         columns,
-        (area.width - 2 - OPTIONS.highlight_symbol.width() as u16) as i16,
+        area.width - 2 - OPTIONS.highlight_symbol.width() as u16,
         COLUMN_SPACING,
     );
     let channel_header_present = shown_columns
         .first()
-        .is_some_and(|item| item.0 == "Channel");
+        .is_some_and(|item| item.header == "Channel");
 
     let (video_area, video_info_area) =
         if shown_columns.len() < columns.len() && app.get_current_video().is_some() {
@@ -189,40 +189,37 @@ fn draw_videos(f: &mut Frame, app: &mut App, area: Rect) {
         Vec::default()
     };
 
-    let videos = Table::new(
-        videos,
-        shown_columns.iter().map(|(_, constraint)| constraint),
-    )
-    .block(
-        Block::default()
-            .borders(Borders::ALL)
-            .title(title)
-            .border_style(match app.selected {
-                Selected::Channels => Style::default(),
-                Selected::Videos => THEME.selected_block,
-            }),
-    )
-    .header(Row::new(shown_columns.iter().map(|(header, _)| *header)).style(THEME.header))
-    .column_spacing(2)
-    .highlight_symbol(&*OPTIONS.highlight_symbol)
-    .row_highlight_style({
-        let mut style = match app.selected {
-            Selected::Channels => THEME.selected,
-            Selected::Videos => THEME.focused,
-        };
-        if let Some(video) = app.get_current_video()
-            && video.watched
-        {
-            let overriding_style = match app.selected {
-                Selected::Channels => THEME.selected_watched,
-                Selected::Videos => THEME.focused_watched,
+    let videos = Table::new(videos, shown_columns.iter().map(|c| c.constraint))
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title(title)
+                .border_style(match app.selected {
+                    Selected::Channels => Style::default(),
+                    Selected::Videos => THEME.selected_block,
+                }),
+        )
+        .header(Row::new(shown_columns.iter().map(|c| c.header)).style(THEME.header))
+        .column_spacing(2)
+        .highlight_symbol(&*OPTIONS.highlight_symbol)
+        .row_highlight_style({
+            let mut style = match app.selected {
+                Selected::Channels => THEME.selected,
+                Selected::Videos => THEME.focused,
             };
-            style = style.patch(overriding_style);
-            style.add_modifier = overriding_style.add_modifier;
-            style.sub_modifier = overriding_style.sub_modifier;
-        }
-        style
-    });
+            if let Some(video) = app.get_current_video()
+                && video.watched
+            {
+                let overriding_style = match app.selected {
+                    Selected::Channels => THEME.selected_watched,
+                    Selected::Videos => THEME.focused_watched,
+                };
+                style = style.patch(overriding_style);
+                style.add_modifier = overriding_style.add_modifier;
+                style.sub_modifier = overriding_style.sub_modifier;
+            }
+            style
+        });
 
     f.render_stateful_widget(videos, video_area, &mut app.videos.state);
 
