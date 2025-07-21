@@ -246,11 +246,7 @@ fn handle_event(event: ClientRequest, app: &mut App) {
             app.input_mode = InputMode::FormatSelection;
             app.stream_formats = *formats;
         }
-        ClientRequest::MarkAsWatched(video_id) => {
-            if let Some(video) = app.videos.get_mut_by_id(&video_id) {
-                video.watched = true;
-            }
-        }
+        ClientRequest::MarkAsWatched(video_id) => app.set_watched(&video_id, true),
         ClientRequest::SetMessage(msg, message_type, duration) => {
             app.message.set_message(&msg);
             app.message.message_type = message_type;

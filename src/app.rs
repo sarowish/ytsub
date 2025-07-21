@@ -266,39 +266,29 @@ impl App {
         self.videos.get_selected()
     }
 
-    fn get_mut_current_video(&mut self) -> Option<&mut Video> {
+    fn _get_mut_current_video(&mut self) -> Option<&mut Video> {
         self.videos.get_mut_selected()
     }
 
-    fn set_watched(&mut self, is_watched: bool) {
-        if let Some(current_video) = self.get_mut_current_video() {
-            current_video.watched = is_watched;
-            if let Err(e) = database::set_watched_field(
-                &self.conn,
-                &self.get_current_video().unwrap().video_id,
-                is_watched,
-            ) {
-                self.set_error_message(&e.to_string());
-            }
+    pub fn set_watched(&mut self, video_id: &str, is_watched: bool) {
+        if let Some(video) = self.videos.get_mut_by_id(video_id) {
+            video.watched = is_watched;
         }
-    }
 
-    pub fn mark_as_watched(&mut self) {
-        self.set_watched(true);
-    }
-
-    fn mark_as_unwatched(&mut self) {
-        self.set_watched(false);
+        if let Err(e) = database::set_watched_field(&self.conn, video_id, is_watched) {
+            self.set_error_message(&e.to_string());
+        }
     }
 
     pub fn toggle_watched(&mut self) {
-        if let Some(video) = self.get_current_video() {
-            if video.watched {
-                self.mark_as_unwatched();
-            } else {
-                self.mark_as_watched();
-            }
-        }
+        let Some((video_id, watched)) = self
+            .get_current_video()
+            .map(|video| (video.id().to_owned(), video.watched))
+        else {
+            return;
+        };
+
+        self.set_watched(&video_id, !watched);
     }
 
     pub fn toggle_hide(&mut self) {
@@ -321,7 +311,7 @@ impl App {
             if let Err(e) = run_video_player(player_command) {
                 self.set_error_message(&e.to_string());
             } else {
-                self.mark_as_watched();
+                self.set_watched(&current_video.video_id.clone(), true);
             }
         }
     }
