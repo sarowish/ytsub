@@ -2606,7 +2606,6 @@ dependencies = [
  "futures-util",
  "nix",
  "num_cpus",
- "parking_lot",
  "quick-xml",
  "rand",
  "ratatui",
