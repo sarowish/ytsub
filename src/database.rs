@@ -209,7 +209,7 @@ pub fn add_videos(conn: &Connection, channel_id: &str, videos: &[Video]) -> Resu
             video.title,
             video.published,
             video.length,
-            false,
+            video.watched,
         ];
         videos_values.extend_from_slice(values);
     }

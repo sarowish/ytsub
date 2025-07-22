@@ -12,7 +12,7 @@ use anyhow::{Context, Result};
 use ratatui::widgets::{ListState, TableState};
 use rusqlite::Connection;
 use serde::Deserialize;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fmt::Display;
 use std::ops::{Deref, DerefMut};
 use std::path::Path;
@@ -127,26 +127,40 @@ impl App {
             }
         };
 
-        let mut videos = Vec::new();
+        // Videos sharing the same published text has the same unix time. Because of this, to
+        // preserve a new video's order relative to the other videos sharing the same published
+        // text, they need to be replaced in the database.
+        let mut videos: HashMap<u64, Vec<Video>> = HashMap::new();
+        let mut to_be_added = HashSet::new();
         let mut added_new_video = false;
 
-        for video in channel_feed.videos.drain(..) {
+        for mut video in channel_feed.videos.drain(..) {
             if let Some(p_video) = present_videos
                 .iter()
                 .find(|p_video| p_video.video_id == video.video_id)
             {
+                video.watched = p_video.watched;
+
                 if p_video.length.is_none() && video.length.is_some()
                     || matches!(p_video.length, Some(length) if length == 0)
                         && matches!(video.length, Some(length) if length != 0)
                 {
-                    videos.push(video);
+                    to_be_added.insert(video.published);
                 }
             } else {
                 self.new_video_ids.insert(video.video_id.clone());
-                videos.push(video);
                 added_new_video = true;
+                to_be_added.insert(video.published);
             }
+
+            videos.entry(video.published).or_default().push(video);
         }
+
+        let videos = videos
+            .into_iter()
+            .filter(|(date, _)| to_be_added.contains(date))
+            .flat_map(|(_, video)| video)
+            .collect::<Vec<Video>>();
 
         if videos.is_empty() {
             return;
