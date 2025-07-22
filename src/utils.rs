@@ -150,7 +150,7 @@ pub fn published(published_text: &str) -> Result<u64> {
         match v[0].parse::<u64>() {
             Ok(num) => (num, v[1]),
             _ => (
-                v[0].trim_end_matches(char::is_alphabetic).parse().unwrap(),
+                v[0].trim_end_matches(char::is_alphabetic).parse()?,
                 v[0].trim_start_matches(char::is_numeric),
             ),
         }

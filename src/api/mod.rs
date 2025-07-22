@@ -32,6 +32,26 @@ pub struct ChannelFeed {
     pub videos: Vec<Video>,
 }
 
+impl ChannelFeed {
+    pub fn extend_videos(&mut self, videos: Vec<Video>) {
+        let Some(published_of_first) = videos.first().map(|video| video.published_text.clone())
+        else {
+            return;
+        };
+
+        self.videos.extend(videos);
+
+        self.videos
+            .iter_mut()
+            .filter(|video| video.published_text == published_of_first)
+            .for_each(|video| {
+                if let Ok(published) = utils::published(&video.published_text) {
+                    video.published = published;
+                }
+            });
+    }
+}
+
 pub struct VideoInfo {
     pub video_formats: Vec<Format>,
     pub audio_formats: Vec<Format>,

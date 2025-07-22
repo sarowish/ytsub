@@ -35,11 +35,16 @@ fn extract_videos_tab(value: &[Value]) -> Result<Vec<Video>> {
 
         let video_id = video["videoId"].as_str().unwrap().to_string();
 
-        let published = if let Some(t) = video.get("publishedTimeText") {
-            let published_text = t["simpleText"].as_str().unwrap().to_string();
-            utils::published(&published_text)?
+        let published_text = video
+            .get("publishedTimeText")
+            .and_then(|t| t.get("simpleText"))
+            .and_then(|t| t.as_str())
+            .map(ToOwned::to_owned);
+
+        let published = if let Some(t) = &published_text {
+            utils::published(t)?
         } else if let Some(time) = video["upcomingEventData"]["startTime"].as_str() {
-            time.parse::<u64>().unwrap()
+            time.parse::<u64>()?
         } else {
             utils::now()?
         };
@@ -55,7 +60,7 @@ fn extract_videos_tab(value: &[Value]) -> Result<Vec<Video>> {
             video_id,
             title,
             published,
-            published_text: String::new(),
+            published_text: published_text.unwrap_or_default(),
             length: Some(length),
             watched: false,
             new: true,
@@ -416,7 +421,7 @@ impl Api for Local {
 
         if OPTIONS.videos_tab && self.continuation.is_some() {
             let videos = self.get_continuation().await?;
-            channel_feed.videos.extend(videos);
+            channel_feed.extend_videos(videos);
         }
 
         Ok(channel_feed)

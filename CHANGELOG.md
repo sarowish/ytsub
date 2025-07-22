@@ -19,6 +19,7 @@ key binding with `play_from_formats` command.
 - Don't block when resolving channel ids.
 - Make buildable on non unix systems.
 - Add new videos in the correct order.
+- Preserve the order of videos videos when subscribing.
 
 ## [0.6.0] - 2025-06-29
 ### Added
