@@ -115,6 +115,11 @@ impl From<&Value> for Video {
     fn from(video_json: &Value) -> Self {
         let is_upcoming = video_json["isUpcoming"].as_bool().unwrap();
         let mut published = video_json["published"].as_u64().unwrap();
+        let published_text = video_json
+            .get("publishedText")
+            .and_then(Value::as_str)
+            .map(ToString::to_string)
+            .unwrap_or_default();
         let mut length = video_json["lengthSeconds"].as_u64().unwrap();
 
         if is_upcoming {
@@ -137,7 +142,7 @@ impl From<&Value> for Video {
             video_id: video_json["videoId"].as_str().unwrap().to_string(),
             title: video_json["title"].as_str().unwrap().to_string(),
             published,
-            published_text: String::default(),
+            published_text,
             length: Some(length as u32),
             watched: false,
             new: true,

@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Show status messages related the video playing process.
 - Highlight new video indicators.
+- Add a command to load more videos for channels.
 
 ### Changed
 - Reduce `tick_rate` default value to 10 milliseconds.

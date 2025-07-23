@@ -65,6 +65,7 @@ fn handle_key_normal_mode(key: KeyEvent, app: &mut App) -> bool {
             Command::RefreshChannel => app.refresh_channel(),
             Command::RefreshChannels => app.refresh_channels(),
             Command::RefreshFailedChannels => app.refresh_failed_channels(),
+            Command::LoadMoreVideos => app.get_more_videos(),
             Command::OpenInInvidious => app.open_in_browser(ApiBackend::Invidious),
             Command::OpenInYoutube => app.open_in_browser(ApiBackend::Local),
             Command::PlayFromFormats => app.play_from_formats(),

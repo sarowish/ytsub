@@ -10,7 +10,7 @@ use crate::{
 };
 use anyhow::Result;
 use futures_util::StreamExt;
-use std::time::Instant;
+use std::{collections::HashSet, time::Instant};
 use tokio::{
     sync::{
         mpsc::{UnboundedReceiver, UnboundedSender},
@@ -104,6 +104,12 @@ impl Client {
                 IoEvent::RefreshChannels(ids) => {
                     let instance = self.instance();
                     tokio::spawn(async move { refresh_channels(instance, ids).await });
+                }
+                IoEvent::LoadMoreVideos(id, present_videos) => {
+                    let instance = self.instance();
+                    tokio::spawn(
+                        async move { get_more_videos(instance, &id, present_videos).await },
+                    );
                 }
                 IoEvent::FetchFormats(title, video_id, play_selected) => {
                     let instance = self.instance();
@@ -326,6 +332,26 @@ async fn refresh_channels(instance: Box<dyn Api>, channel_ids: Vec<String>) -> R
             "Refreshed {count} out of {total} channels in {elapsed:.2}s"
         )),
     }
+
+    Ok(())
+}
+
+async fn get_more_videos(
+    mut instance: Box<dyn Api>,
+    id: &str,
+    present: HashSet<String>,
+) -> Result<()> {
+    match instance.get_more_videos(id, present).await {
+        Ok(feed) => {
+            if feed.videos.is_empty() {
+                emit_msg!(warning, "There are no videos to load");
+            } else {
+                emit_msg!();
+                TX.send(ClientRequest::UpdateChannel(feed))?;
+            }
+        }
+        Err(e) => emit_msg!(error, &e.to_string()),
+    };
 
     Ok(())
 }

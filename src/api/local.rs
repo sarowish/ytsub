@@ -7,6 +7,7 @@ use async_trait::async_trait;
 use futures_util::future::join_all;
 use reqwest::Client;
 use serde_json::Value;
+use std::collections::HashSet;
 use std::time::Duration;
 use std::{io::Write, path::PathBuf};
 
@@ -176,18 +177,11 @@ fn extract_streams_tab(value: &[Value]) -> Result<Vec<Video>> {
 }
 
 fn extract_continuation_token(value: &[Value]) -> Option<String> {
-    if let Some(video) = value.last()
-        && let Some(value) = video.get("continuationItemRenderer")
-    {
-        return Some(
-            value["continuationEndpoint"]["continuationCommand"]["token"]
-                .as_str()
-                .unwrap()
-                .to_string(),
-        );
-    }
-
-    None
+    value
+        .last()
+        .and_then(|video| video.get("continuationItemRenderer"))
+        .and_then(|value| value["continuationEndpoint"]["continuationCommand"]["token"].as_str())
+        .map(ToString::to_string)
 }
 
 fn get_tab_by_title<'a>(value: &'a Value, title: &str) -> Option<&'a Value> {
@@ -344,8 +338,12 @@ impl Local {
     }
 
     async fn get_continuation(&mut self) -> Result<Vec<Video>> {
+        let Some(continuation_token) = &self.continuation else {
+            return Err(anyhow::anyhow!("No continuation token"));
+        };
+
         let response = self
-            .post_browse(&[("continuation", self.continuation.as_ref().unwrap())])
+            .post_browse(&[("continuation", continuation_token)])
             .await?;
 
         let mut videos = response["onResponseReceivedActions"][0]["appendContinuationItemsAction"]
@@ -354,7 +352,9 @@ impl Local {
             .unwrap()
             .as_slice();
 
-        if extract_continuation_token(videos).is_some() {
+        self.continuation = extract_continuation_token(videos);
+
+        if self.continuation.is_some() {
             videos = videos.split_last().unwrap().1;
         }
 
@@ -460,6 +460,35 @@ impl Api for Local {
         channel_feed.channel_id = Some(channel_id.to_string());
 
         Ok(channel_feed)
+    }
+
+    async fn get_more_videos(
+        &mut self,
+        channel_id: &str,
+        present_videos: HashSet<String>,
+    ) -> Result<ChannelFeed> {
+        let mut feed = self.get_videos_of_channel(channel_id).await?;
+
+        let new_video_present = |videos: &[Video]| {
+            !videos
+                .iter()
+                .all(|video| present_videos.contains(&video.video_id))
+        };
+
+        if new_video_present(&feed.videos) {
+            return Ok(feed);
+        }
+
+        while let Ok(videos) = self.get_continuation().await {
+            let new = new_video_present(&videos);
+            feed.extend_videos(videos);
+
+            if new {
+                return Ok(feed);
+            }
+        }
+
+        Ok(ChannelFeed::default())
     }
 
     async fn get_video_formats(&self, video_id: &str) -> Result<VideoInfo> {

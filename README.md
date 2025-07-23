@@ -218,6 +218,7 @@ fg = "Green"
 "s" = "switch_api" # Switch between the available APIs
 "r" = "refresh_channel" # Refresh videos of the selected channel
 "R" = "refresh_channels" # Refresh videos of every channel
+"J" = "load_more_videos" # Load more videos for the selected channel
 "F" = "refresh_failed_channels" # Refresh videos of channels which their latest refresh was a failure
 "o" = "open_in_youtube" # Open channel or video Youtube page in browser
 "O" = "open_in_invidious" # Open channel or video Invidious page in browser

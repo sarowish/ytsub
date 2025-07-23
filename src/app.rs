@@ -183,6 +183,21 @@ impl App {
         }
     }
 
+    pub fn get_more_videos(&mut self) {
+        if OPTIONS.videos_tab
+            && let Some(current_channel) = self.channels.get_selected()
+        {
+            self.message.set_message("Fetching videos");
+            let channel_id = current_channel.channel_id.clone();
+            let present_videos = (self.videos.items)
+                .iter()
+                .map(|video| video.video_id.to_owned())
+                .collect();
+
+            self.dispatch(IoEvent::LoadMoreVideos(channel_id, present_videos));
+        }
+    }
+
     pub fn delete_selected_video(&mut self) {
         if let Some(idx) = self.videos.state.selected() {
             if let Err(e) = database::delete_video(&self.conn, &self.videos.items[idx].video_id) {

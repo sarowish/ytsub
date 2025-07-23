@@ -12,7 +12,7 @@ use dyn_clone::DynClone;
 use regex_lite::Regex;
 use serde::Deserialize;
 use serde_json::Value;
-use std::{fmt::Display, io::Write, path::PathBuf, sync::LazyLock};
+use std::{collections::HashSet, fmt::Display, io::Write, path::PathBuf, sync::LazyLock};
 
 #[derive(Deserialize, PartialEq)]
 #[serde(rename_all(deserialize = "lowercase"))]
@@ -22,7 +22,7 @@ pub enum ChannelTab {
     Streams,
 }
 
-#[derive(Deserialize)]
+#[derive(Default, Deserialize)]
 pub struct ChannelFeed {
     #[serde(rename = "title")]
     pub channel_title: Option<String>,
@@ -33,6 +33,13 @@ pub struct ChannelFeed {
 }
 
 impl ChannelFeed {
+    pub fn new(channel_id: &str) -> Self {
+        Self {
+            channel_id: Some(channel_id.to_owned()),
+            ..Self::default()
+        }
+    }
+
     pub fn extend_videos(&mut self, videos: Vec<Video>) {
         let Some(published_of_first) = videos.first().map(|video| video.published_text.clone())
         else {
@@ -401,6 +408,11 @@ pub trait Api: Sync + Send + DynClone {
     async fn get_videos_for_the_first_time(&mut self, channel_id: &str) -> Result<ChannelFeed>;
     async fn get_videos_of_channel(&mut self, channel_id: &str) -> Result<ChannelFeed>;
     async fn get_rss_feed_of_channel(&self, channel_id: &str) -> Result<ChannelFeed>;
+    async fn get_more_videos(
+        &mut self,
+        channel_id: &str,
+        present_videos: HashSet<String>,
+    ) -> Result<ChannelFeed>;
     async fn get_video_formats(&self, video_id: &str) -> Result<VideoInfo>;
     async fn get_caption_paths(&self, formats: &Formats) -> Vec<String>;
 }

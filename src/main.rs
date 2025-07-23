@@ -40,6 +40,7 @@ use input::InputMode;
 use ratatui::DefaultTerminal;
 use ratatui::Terminal;
 use ratatui::backend::CrosstermBackend;
+use std::collections::HashSet;
 use std::io;
 use std::panic;
 use std::path::PathBuf;
@@ -262,6 +263,7 @@ pub enum IoEvent {
     SubscribeToChannel(String),
     ImportChannels(Vec<String>),
     RefreshChannels(Vec<String>),
+    LoadMoreVideos(String, HashSet<String>),
     FetchFormats(String, String, bool),
     PlayFromFormats(Box<Formats>),
     OpenInBrowser(String, ApiBackend),
