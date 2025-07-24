@@ -126,8 +126,8 @@ impl Client {
                 }
                 IoEvent::OpenInBrowser(url_component, api) => match api {
                     ApiBackend::Local => open_in_youtube(&url_component),
-                    ApiBackend::Invidious => open_in_invidious(self, &url_component),
-                }?,
+                    ApiBackend::Invidious => open_in_invidious(self, &url_component).await?,
+                },
                 IoEvent::ClearMessage(token, duration) => {
                     tokio::spawn(async move { clear_message(token, duration).await });
                 }
@@ -153,24 +153,23 @@ impl Client {
 
         emit_msg!(format!("Selected API: {}", self.selected_api));
 
-        if self.invidious_instance.is_none() {
-            self.set_instance().await?;
+        if self.invidious_instance.is_none()
+            && let Err(e) = self.set_instance().await
+        {
+            self.selected_api = ApiBackend::Local;
+            emit_msg!(error, format!("{e} Falling back to the local API."));
         }
 
         Ok(())
     }
 
-    async fn set_instance(&mut self) -> Result<()> {
+    pub async fn set_instance(&mut self) -> Result<()> {
         if let Some(invidious_instances) = &self.invidious_instances {
             if invidious_instances.is_empty() {
-                self.selected_api = ApiBackend::Local;
-                emit_msg!(
-                    warning,
-                    "No Invidious instance available. Falling back to Local API."
-                );
-            } else {
-                self.invidious_instance = Some(Instance::new(invidious_instances));
+                return Err(anyhow::anyhow!("No Invidious instance available."));
             }
+
+            self.invidious_instance = Some(Instance::new(invidious_instances));
         } else {
             emit_msg!(perm, "Fetching instances");
 
@@ -178,13 +177,9 @@ impl Client {
                 emit_msg!();
                 self.invidious_instances = Some(instances);
                 Box::pin(self.set_instance()).await?;
-            } else {
-                emit_msg!(
-                    error,
-                    "Failed to fetch instances. Falling back to Local API."
-                );
-                self.selected_api = ApiBackend::Local;
             }
+
+            return Err(anyhow::anyhow!("Failed to fetch instances"));
         }
 
         Ok(())

@@ -132,22 +132,31 @@ fn gen_video_player_command(
     command
 }
 
-pub fn open_in_invidious(client: &mut Client, url_component: &str) -> Result<()> {
-    let Some(instance) = &client.invidious_instance else {
-        emit_msg!(error, "No Invidious instances available.");
+pub async fn open_in_invidious(client: &mut Client, url_component: &str) -> Result<()> {
+    if client.invidious_instance.is_none()
+        && let Err(e) = client.set_instance().await
+    {
+        emit_msg!(error, e.to_string());
         return Ok(());
-    };
+    }
+
+    let instance = client
+        .invidious_instance
+        .as_ref()
+        .expect("The function should return before if an instance couldn't be set");
 
     let url = format!("{}/{}", instance.domain, url_component);
 
-    open_in_browser(&url)
+    open_in_browser(&url);
+
+    Ok(())
 }
 
-pub fn open_in_youtube(url_component: &str) -> Result<()> {
-    open_in_browser(&format!("https://www.youtube.com/{url_component}"))
+pub fn open_in_youtube(url_component: &str) {
+    open_in_browser(&format!("https://www.youtube.com/{url_component}"));
 }
 
-pub fn open_in_browser(url: &str) -> Result<()> {
+pub fn open_in_browser(url: &str) {
     let commands = open::commands(url);
     let mut last_error = None;
 
@@ -164,6 +173,4 @@ pub fn open_in_browser(url: &str) -> Result<()> {
         emit_msg!(error, &last_error.unwrap().to_string());
         anyhow::Ok(())
     });
-
-    Ok(())
 }
