@@ -224,7 +224,7 @@ mod tests {
 
     #[test]
     fn valid_hexa() {
-        assert_eq!(str_to_color("#ffffff").unwrap(), Color::Rgb(255, 255, 255))
+        assert_eq!(str_to_color("#ffffff").unwrap(), Color::Rgb(255, 255, 255));
     }
 
     #[test]
@@ -238,7 +238,7 @@ mod tests {
         assert_eq!(
             str_to_color("255,255, 255").unwrap(),
             Color::Rgb(255, 255, 255)
-        )
+        );
     }
 
     #[test]

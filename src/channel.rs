@@ -101,7 +101,7 @@ pub struct Video {
 }
 
 impl Video {
-    pub fn vec_from_json(videos_json: Value) -> Vec<Video> {
+    pub fn vec_from_json(videos_json: &Value) -> Vec<Video> {
         videos_json
             .as_array()
             .unwrap()

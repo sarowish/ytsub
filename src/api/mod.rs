@@ -222,15 +222,15 @@ impl Format {
     }
 
     pub fn get_codec(&self) -> VideoFormat {
+        static RE: LazyLock<Regex> =
+            LazyLock::new(|| Regex::new(r"(video|audio)\/(?<codec>webm|mp4);").unwrap());
+
         let (Format::Video { r#type, .. }
         | Format::Audio { r#type, .. }
         | Format::Stream { r#type, .. }) = self
         else {
             unreachable!()
         };
-
-        static RE: LazyLock<Regex> =
-            LazyLock::new(|| Regex::new(r"(video|audio)\/(?<codec>webm|mp4);").unwrap());
 
         let Some(captures) = RE.captures(r#type) else {
             return VideoFormat::Mp4;
@@ -368,7 +368,7 @@ impl TryFrom<&str> for Chapter {
     }
 }
 
-#[derive(Deserialize, Clone)]
+#[derive(Deserialize, Copy, Clone)]
 #[serde(rename_all(deserialize = "lowercase"))]
 pub enum ApiBackend {
     Local,

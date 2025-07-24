@@ -106,7 +106,7 @@ impl App {
         if let Err(e) = database::create_channel(&self.conn, &channel) {
             self.set_error_message(&e.to_string());
             return;
-        };
+        }
         self.channels.items.push(channel);
         self.add_videos(channel_feed);
     }
@@ -190,7 +190,7 @@ impl App {
             let channel_id = current_channel.channel_id.clone();
             let present_videos = (self.videos.items)
                 .iter()
-                .map(|video| video.video_id.to_owned())
+                .map(|video| video.video_id.clone())
                 .collect();
 
             self.dispatch(IoEvent::LoadMoreVideos(channel_id, present_videos));
@@ -255,7 +255,7 @@ impl App {
                 self.channels.select_with_index(index);
             } else {
                 self.channels.check_bounds();
-            };
+            }
         }
 
         self.on_change_channel();

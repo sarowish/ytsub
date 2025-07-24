@@ -430,7 +430,7 @@ fn draw_list_with_help_tabs<T: Display>(
     let item_texts: Vec<Span> = list
         .items
         .iter()
-        .map(|entry| entry.to_string())
+        .map(ToString::to_string)
         .map(Span::raw)
         .collect();
 
@@ -448,14 +448,14 @@ fn draw_list_with_help_tabs<T: Display>(
 
     let max_width = item_texts
         .iter()
-        .map(|text| text.width())
+        .map(Span::width)
         .max()
         .unwrap_or(0)
         .max(help_text_width) as u16
         + RIGHT_PADDING;
 
     let frame_height = f.area().height;
-    let tabs_height = tabs.is_some() as u16;
+    let tabs_height = u16::from(tabs.is_some());
 
     let mut max_height = item_texts.len() as u16 + help_text_height + tabs_height + 2;
     max_height = if frame_height <= max_height + VER_MARGIN {

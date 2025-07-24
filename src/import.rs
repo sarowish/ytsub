@@ -3,6 +3,7 @@ use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::{fmt::Display, fs::File, io::BufReader, path::Path};
 
+#[derive(Clone, Copy)]
 pub enum Format {
     YoutubeCsv,
     NewPipe,

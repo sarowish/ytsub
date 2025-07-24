@@ -252,10 +252,7 @@ impl Local {
         let map = data.as_object_mut().unwrap();
 
         for (key, value) in items {
-            map.insert(
-                key.to_string(),
-                serde_json::Value::String(value.to_string()),
-            );
+            map.insert((*key).to_string(), Value::String((*value).to_string()));
         }
 
         let response = self.client.post(url).json(&data).send().await?;
@@ -277,7 +274,7 @@ impl Local {
 
         *channel_title = response["metadata"]["channelMetadataRenderer"]["title"]
             .as_str()
-            .map(|title| title.to_string());
+            .map(std::string::ToString::to_string);
 
         if get_tab_by_title(&response, "Shorts").is_some() {
             self.shorts_available = true;

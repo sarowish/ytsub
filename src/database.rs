@@ -133,6 +133,7 @@ pub fn set_last_refreshed_field(
     Ok(())
 }
 
+#[derive(Copy, Clone)]
 enum StatementType {
     AddVideo,
     AddToTag,

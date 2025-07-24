@@ -80,7 +80,7 @@ impl Client {
             invidious_instances: utils::read_instances().ok(),
             invidious_instance: None,
             local_api: Local::new(),
-            selected_api: OPTIONS.api.clone(),
+            selected_api: OPTIONS.api,
         };
 
         if let ApiBackend::Invidious = client.selected_api {
@@ -349,7 +349,7 @@ async fn get_more_videos(
             }
         }
         Err(e) => emit_msg!(error, &e.to_string()),
-    };
+    }
 
     Ok(())
 }

@@ -270,7 +270,7 @@ mod tests {
         assert_eq!(
             parse_binding("shift-alt-left").unwrap(),
             KeyEvent::new(KeyCode::Left, KeyModifiers::SHIFT | KeyModifiers::ALT)
-        )
+        );
     }
 
     #[test]
@@ -351,7 +351,7 @@ mod tests {
             .general
             .as_mut()
             .unwrap()
-            .insert("q".to_string(), "".to_string());
+            .insert("q".to_string(), String::new());
 
         let key_bindings = KeyBindings::try_from(user_key_bindings).unwrap();
 

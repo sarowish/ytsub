@@ -27,7 +27,7 @@ impl From<Value> for ChannelFeed {
 
         if let Some(video) = videos.get(0) {
             channel_feed.channel_title = Some(video["author"].as_str().unwrap().to_string());
-            channel_feed.videos = Video::vec_from_json(videos);
+            channel_feed.videos = Video::vec_from_json(&videos);
         }
 
         channel_feed
@@ -102,7 +102,7 @@ impl Instance {
             return Ok(Vec::new());
         }
 
-        Ok(Video::vec_from_json(videos_array))
+        Ok(Video::vec_from_json(&videos_array))
     }
 
     async fn get_more_videos_helper(&mut self, channel_id: &str) -> Result<Vec<Video>> {
@@ -120,14 +120,14 @@ impl Instance {
         }
 
         let response = self.client.get(&url).query(&query).send().await?;
-        let mut value = response.error_for_status()?.json::<Value>().await?;
+        let value = response.error_for_status()?.json::<Value>().await?;
 
         self.continuation = value
             .get("continuation")
             .and_then(Value::as_str)
             .map(ToString::to_string);
 
-        Ok(Video::vec_from_json(value["videos"].take()))
+        Ok(Video::vec_from_json(&value["videos"]))
     }
 }
 
