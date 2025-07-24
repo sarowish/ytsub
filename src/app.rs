@@ -4,7 +4,6 @@ use crate::help::HelpWindowState;
 use crate::import::{self, ImportItem};
 use crate::input::InputMode;
 use crate::message::Message;
-use crate::player::run_video_player;
 use crate::search::{Search, SearchDirection, SearchState};
 use crate::stream_formats::Formats;
 use crate::{CLAP_ARGS, IoEvent, OPTIONS, database, utils};
@@ -14,9 +13,9 @@ use rusqlite::Connection;
 use serde::Deserialize;
 use std::collections::{HashMap, HashSet};
 use std::fmt::Display;
+use std::mem;
 use std::ops::{Deref, DerefMut};
 use std::path::Path;
-use std::{mem, process};
 use tokio::sync::mpsc::UnboundedSender;
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
@@ -326,22 +325,8 @@ impl App {
     }
 
     pub fn play_video(&mut self) {
-        self.set_message_with_default_duration("Launching video player");
-
         if let Some(current_video) = self.get_current_video() {
-            let url = format!(
-                "{}/watch?v={}",
-                "https://www.youtube.com", current_video.video_id
-            );
-
-            let mut player_command = process::Command::new(&OPTIONS.mpv_path);
-            player_command.arg(url);
-
-            if let Err(e) = run_video_player(player_command) {
-                self.set_error_message(&e.to_string());
-            } else {
-                self.set_watched(&current_video.video_id.clone(), true);
-            }
+            self.dispatch(IoEvent::PlayUsingYtdlp(current_video.video_id.clone()));
         }
     }
 
@@ -991,7 +976,7 @@ impl App {
         self.message.set_message(message);
     }
 
-    pub fn set_message_with_default_duration(&mut self, message: &str) {
+    pub fn _set_message_with_default_duration(&mut self, message: &str) {
         const DEFAULT_DURATION: u64 = 5;
         self.set_message(message);
         self.clear_message_after_duration(DEFAULT_DURATION);

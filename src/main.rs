@@ -247,7 +247,7 @@ fn handle_event(event: ClientRequest, app: &mut App) {
             app.input_mode = InputMode::FormatSelection;
             app.stream_formats = *formats;
         }
-        ClientRequest::MarkAsWatched(video_id) => app.set_watched(&video_id, true),
+        ClientRequest::SetWatched(video_id, is_watched) => app.set_watched(&video_id, is_watched),
         ClientRequest::SetMessage(msg, message_type, duration) => {
             app.message.set_message(&msg);
             app.message.message_type = message_type;
@@ -266,6 +266,7 @@ pub enum IoEvent {
     LoadMoreVideos(String, HashSet<String>),
     FetchFormats(String, String, bool),
     PlayFromFormats(Box<Formats>),
+    PlayUsingYtdlp(String),
     OpenInBrowser(String, ApiBackend),
     ClearMessage(CancellationToken, u64),
     SwitchApi,

@@ -1,76 +1,41 @@
-use crate::ClientRequest;
 use crate::TX;
-use crate::client::Client;
+use crate::client::{Client, ClientRequest};
 use crate::{OPTIONS, api::Api, app::VideoPlayer, emit_msg, stream_formats::Formats};
 use anyhow::Result;
+use std::path::Path;
 use std::process::Stdio;
-use std::{path::Path, process::Command};
+use tokio::process::Command;
 
-#[cfg(unix)]
-pub fn run_detached<F: FnOnce() -> Result<i32, std::io::Error>>(func: F) -> Result<()> {
-    use nix::sys::wait::{WaitStatus, wait};
-    use nix::unistd::ForkResult::{Child, Parent};
-    use nix::unistd::{close, dup2_stderr, dup2_stdin, dup2_stdout, fork, pipe, setsid};
-    use std::fs::File;
-    use std::io::prelude::*;
-    use std::os::fd::AsFd;
-    use std::os::unix::io::{FromRawFd, IntoRawFd};
-
-    let (pipe_r, pipe_w) = pipe()?;
-    let pid = unsafe { fork()? };
-    match pid {
-        Parent { .. } => {
-            tokio::spawn(async move {
-                if let Ok(WaitStatus::Exited(_, exit_code)) = wait() {
-                    if exit_code == 101 {
-                        close(pipe_w.into_raw_fd())?;
-                        let mut file = unsafe { File::from_raw_fd(pipe_r.into_raw_fd()) };
-                        let mut error_message = String::new();
-                        file.read_to_string(&mut error_message)?;
-                        emit_msg!(error, error_message);
-                    } else if exit_code != 0 {
-                        emit_msg!(
-                            error,
-                            format!("Process exited with status code {exit_code}")
-                        );
-                    }
-                }
-
-                anyhow::Ok(())
-            });
+pub async fn run_detached(mut command: Command) -> Result<()> {
+    #[cfg(unix)]
+    unsafe {
+        command.pre_exec(|| {
+            if libc::setsid() < 0 {
+                return Err(std::io::Error::last_os_error());
+            }
 
             Ok(())
-        }
-        Child => {
-            setsid()?;
-            let dev_null = std::fs::OpenOptions::new()
-                .write(true)
-                .read(true)
-                .open("/dev/null")?;
-            let null_fd = dev_null.as_fd();
+        })
+    };
 
-            dup2_stdin(null_fd)?;
-            dup2_stdout(null_fd)?;
-            dup2_stderr(null_fd)?;
+    let mut child = command
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()?;
 
-            match func() {
-                Ok(exit_status) => {
-                    std::process::exit(exit_status);
-                }
-                Err(e) => {
-                    close(pipe_r.into_raw_fd())?;
-                    dup2_stdout(pipe_w.as_fd())?;
-                    println!("{e}");
-                    std::process::exit(101);
-                }
-            }
-        }
+    let exit_status = child.wait().await?;
+
+    if let Some(code) = exit_status.code()
+        && code != 0
+    {
+        Err(anyhow::anyhow!("Process exited with status code {code}"))
+    } else {
+        Ok(())
     }
 }
 
-pub async fn play_video(instance: Box<dyn Api>, formats: Formats) -> Result<()> {
-    emit_msg!("Launching video player");
-
+pub async fn play_from_formats(instance: Box<dyn Api>, formats: Formats) -> Result<()> {
     let (video_url, audio_url) = if formats.use_adaptive_streams {
         (
             formats.video_formats.get_selected_item().get_url(),
@@ -94,33 +59,28 @@ pub async fn play_video(instance: Box<dyn Api>, formats: Formats) -> Result<()> 
         &formats.title,
     );
 
-    if let Err(e) = run_video_player(player_command) {
+    play_video(player_command, &formats.id).await
+}
+
+pub async fn play_using_ytdlp(video_id: &str) -> Result<()> {
+    let url = format!("{}/watch?v={}", "https://www.youtube.com", video_id);
+
+    let mut player_command = Command::new(&OPTIONS.mpv_path);
+    player_command.arg(url);
+
+    play_video(player_command, video_id).await
+}
+
+async fn play_video(player_command: Command, video_id: &str) -> Result<()> {
+    emit_msg!("Launching video player");
+    TX.send(ClientRequest::SetWatched(video_id.to_owned(), true))?;
+
+    if let Err(e) = run_detached(player_command).await {
         emit_msg!(error, e.to_string());
-    } else {
-        TX.send(ClientRequest::MarkAsWatched(formats.id))?;
+        TX.send(ClientRequest::SetWatched(video_id.to_owned(), false))?;
     }
 
     Ok(())
-}
-
-pub fn run_video_player(mut command: Command) -> Result<()> {
-    if cfg!(unix) {
-        let player_process = || {
-            command
-                .spawn()
-                .and_then(|mut child| child.wait())
-                .map(|status| status.code().unwrap_or_default())
-        };
-
-        run_detached(player_process)
-    } else {
-        Ok(command
-            .stdin(Stdio::null())
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .spawn()
-            .map(|_| ())?)
-    }
 }
 
 fn gen_video_player_command(
@@ -184,24 +144,26 @@ pub fn open_in_invidious(client: &mut Client, url_component: &str) -> Result<()>
 }
 
 pub fn open_in_youtube(url_component: &str) -> Result<()> {
-    const YOUTUBE_URL: &str = "https://www.youtube.com";
-
-    let url = format!("{YOUTUBE_URL}/{url_component}");
-
-    open_in_browser(&url)
+    open_in_browser(&format!("https://www.youtube.com/{url_component}"))
 }
 
 pub fn open_in_browser(url: &str) -> Result<()> {
-    let browser_process = || webbrowser::open(url).map(|()| 0);
+    let commands = open::commands(url);
+    let mut last_error = None;
 
-    #[cfg(unix)]
-    let res = run_detached(browser_process);
-    #[cfg(not(unix))]
-    let res = browser_process();
+    tokio::spawn(async move {
+        for cmd in commands {
+            let command = Command::from(cmd);
 
-    if let Err(e) = res {
-        emit_msg!(error, &e.to_string());
-    }
+            match run_detached(command).await {
+                Ok(()) => return Ok(()),
+                Err(err) => last_error = Some(err),
+            }
+        }
+
+        emit_msg!(error, &last_error.unwrap().to_string());
+        anyhow::Ok(())
+    });
 
     Ok(())
 }
