@@ -953,9 +953,9 @@ impl App {
 
         if ids.is_empty() {
             self.set_warning_message("All the channels have been recently refreshed");
+        } else {
+            self.dispatch(IoEvent::RefreshChannels(ids));
         }
-
-        self.dispatch(IoEvent::RefreshChannels(ids));
     }
 
     pub fn refresh_failed_channels(&mut self) {
