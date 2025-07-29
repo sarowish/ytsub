@@ -8,7 +8,7 @@ use crate::{
     },
     help::HelpWindowState,
 };
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 
 #[derive(Clone)]
 pub enum InputMode {
@@ -25,6 +25,10 @@ pub enum InputMode {
 }
 
 pub fn handle_event(key: KeyEvent, app: &mut App) -> bool {
+    if key.kind == KeyEventKind::Release {
+        return false;
+    }
+
     match app.input_mode {
         _ if app.help_window_state.show => {
             return handle_key_help_mode(key, &mut app.help_window_state);

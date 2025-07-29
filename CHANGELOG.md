@@ -22,6 +22,7 @@ key binding with `play_from_formats` command.
 - Make buildable on non unix systems.
 - Add new videos in the correct order.
 - Preserve the order of videos videos when subscribing.
+- Ignore key release events.
 
 ## [0.6.0] - 2025-06-29
 ### Added
