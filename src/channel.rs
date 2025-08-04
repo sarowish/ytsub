@@ -132,7 +132,6 @@ impl From<&Value> for Video {
             }
         }
 
-        // In some Invidious instances length of shorts is 0
         if length == 0 {
             length = 60;
         }

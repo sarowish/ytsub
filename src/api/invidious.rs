@@ -9,8 +9,6 @@ use rand::prelude::*;
 use reqwest::Client;
 use serde_json::Value;
 use std::collections::HashSet;
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 const API_BACKEND: ApiBackend = ApiBackend::Invidious;
@@ -39,7 +37,6 @@ pub struct Instance {
     pub domain: String,
     client: Client,
     continuation: Option<String>,
-    old_version: Arc<AtomicBool>,
 }
 
 impl Instance {
@@ -56,7 +53,6 @@ impl Instance {
             domain,
             client,
             continuation: None,
-            old_version: Arc::new(AtomicBool::new(false)),
         }
     }
 
@@ -158,30 +154,19 @@ impl Api for Instance {
             channel_feed.videos.extend(videos);
         }
 
-        let old_version = self.old_version.load(Ordering::SeqCst);
-
-        if OPTIONS.shorts_tab && !old_version {
+        if OPTIONS.shorts_tab {
             match self
                 .get_tab_of_channel(channel_id, ChannelTab::Shorts)
                 .await
             {
                 Ok(videos) => channel_feed.videos.extend(videos),
                 Err(e) => {
-                    // if the error code is 500 don't try to fetch shorts and streams tabs
-                    if let Some(reqwest::StatusCode::INTERNAL_SERVER_ERROR) =
-                        e.downcast_ref::<reqwest::Error>().and_then(|e| e.status())
-                    {
-                        self.old_version.store(true, Ordering::SeqCst);
-                        return Box::pin(self.get_videos_of_channel(channel_id)).await;
-                    }
-
                     return Err(anyhow::anyhow!(e));
                 }
             }
         }
 
         if OPTIONS.streams_tab
-            && !old_version
             && let Ok(videos) = self
                 .get_tab_of_channel(channel_id, ChannelTab::Streams)
                 .await
@@ -200,50 +185,38 @@ impl Api for Instance {
             .get(&url)
             .query(&[(
                 "fields",
-                if self.old_version.load(Ordering::SeqCst) {
-                    "author,title,videoId,published,lengthSeconds,isUpcoming,premiereTimestamp"
-                }
-                else {
-                    "videos(author,title,videoId,published,lengthSeconds,isUpcoming,premiereTimestamp)"
-                })],
-            )
-            .send().await?;
+                "videos(author,title,videoId,published,lengthSeconds,isUpcoming,premiereTimestamp)",
+            )])
+            .send()
+            .await?;
 
         match response.error_for_status() {
             Ok(response) => channel_feed = ChannelFeed::from(response.json::<Value>().await?),
             Err(e) => {
-                // if the error code is 400, retry with the old api
-                if let Some(reqwest::StatusCode::BAD_REQUEST) = e.status() {
-                    self.old_version.store(true, Ordering::SeqCst);
-                    return Box::pin(self.get_videos_for_the_first_time(channel_id)).await;
-                }
-
                 return Err(anyhow::anyhow!(e));
             }
         }
 
         channel_feed.channel_id = Some(channel_id.to_string());
 
-        if !self.old_version.load(Ordering::SeqCst) {
-            if !OPTIONS.videos_tab {
-                channel_feed.videos.drain(..);
-            }
+        if !OPTIONS.videos_tab {
+            channel_feed.videos.drain(..);
+        }
 
-            if OPTIONS.shorts_tab
-                && let Ok(videos) = self
-                    .get_tab_of_channel(channel_id, ChannelTab::Shorts)
-                    .await
-            {
-                channel_feed.videos.extend(videos);
-            }
+        if OPTIONS.shorts_tab
+            && let Ok(videos) = self
+                .get_tab_of_channel(channel_id, ChannelTab::Shorts)
+                .await
+        {
+            channel_feed.videos.extend(videos);
+        }
 
-            if OPTIONS.streams_tab
-                && let Ok(videos) = self
-                    .get_tab_of_channel(channel_id, ChannelTab::Streams)
-                    .await
-            {
-                channel_feed.videos.extend(videos);
-            }
+        if OPTIONS.streams_tab
+            && let Ok(videos) = self
+                .get_tab_of_channel(channel_id, ChannelTab::Streams)
+                .await
+        {
+            channel_feed.videos.extend(videos);
         }
 
         Ok(channel_feed)
