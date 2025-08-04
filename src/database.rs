@@ -1,6 +1,5 @@
 use crate::{
-    api::ChannelTab,
-    channel::{Channel, Video},
+    channel::{Channel, ChannelTab, Video},
     utils,
 };
 use anyhow::Result;

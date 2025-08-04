@@ -1,16 +1,28 @@
 use crate::{
     CLAP_ARGS,
-    api::{ApiBackend, ChannelTab, VideoFormat},
+    api::{ApiBackend, VideoFormat},
     app::VideoPlayer,
+    channel::ChannelTab,
 };
+use bitflags::bitflags;
 use serde::{Deserialize, de};
 use std::path::PathBuf;
+
+bitflags! {
+    pub struct EnabledTabs: u8 {
+        const VIDEOS  = 0b0001;
+        const SHORTS  = 0b0010;
+        const STREAMS = 0b0100;
+    }
+}
 
 #[derive(Deserialize)]
 pub struct UserOptions {
     database: Option<PathBuf>,
     instances: Option<PathBuf>,
-    tabs: Option<Vec<ChannelTab>>,
+    #[serde(default, deserialize_with = "deserialize_tabs")]
+    tabs: Option<EnabledTabs>,
+    hide_disabled_tabs: Option<bool>,
     api: Option<ApiBackend>,
     refresh_threshold: Option<u64>,
     rss_threshold: Option<usize>,
@@ -35,9 +47,8 @@ pub struct UserOptions {
 pub struct Options {
     pub database: PathBuf,
     pub instances: PathBuf,
-    pub videos_tab: bool,
-    pub shorts_tab: bool,
-    pub streams_tab: bool,
+    pub tabs: EnabledTabs,
+    pub hide_disabled_tabs: bool,
     pub api: ApiBackend,
     pub refresh_threshold: u64,
     pub rss_threshold: usize,
@@ -86,9 +97,8 @@ impl Default for Options {
         Options {
             database: PathBuf::default(),
             instances: PathBuf::default(),
-            videos_tab: true,
-            shorts_tab: false,
-            streams_tab: false,
+            tabs: EnabledTabs::VIDEOS,
+            hide_disabled_tabs: true,
             api: ApiBackend::Local,
             refresh_threshold: 600,
             rss_threshold: 9999,
@@ -125,14 +135,10 @@ impl From<UserOptions> for Options {
             };
         }
 
-        if let Some(tabs) = user_options.tabs {
-            options.videos_tab = tabs.contains(&ChannelTab::Videos);
-            options.shorts_tab = tabs.contains(&ChannelTab::Shorts);
-            options.streams_tab = tabs.contains(&ChannelTab::Streams);
-        }
-
         set_options_field!(database);
         set_options_field!(instances);
+        set_options_field!(tabs);
+        set_options_field!(hide_disabled_tabs);
         set_options_field!(api);
         set_options_field!(refresh_threshold);
         set_options_field!(rss_threshold);
@@ -153,6 +159,31 @@ impl From<UserOptions> for Options {
 
         options
     }
+}
+
+fn deserialize_tabs<'de, D>(deserializer: D) -> Result<Option<EnabledTabs>, D::Error>
+where
+    D: de::Deserializer<'de>,
+{
+    let Some(tabs): Option<Vec<ChannelTab>> = de::Deserialize::deserialize(deserializer)? else {
+        return Ok(None);
+    };
+
+    let mut enabled = EnabledTabs::empty();
+
+    if tabs.contains(&ChannelTab::Videos) {
+        enabled.insert(EnabledTabs::VIDEOS);
+    }
+
+    if tabs.contains(&ChannelTab::Shorts) {
+        enabled.insert(EnabledTabs::SHORTS);
+    }
+
+    if tabs.contains(&ChannelTab::Streams) {
+        enabled.insert(EnabledTabs::STREAMS);
+    }
+
+    Ok(Some(enabled))
 }
 
 fn deserialize_video_quality<'de, D>(deserializer: D) -> Result<Option<u16>, D::Error>

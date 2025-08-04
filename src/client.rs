@@ -1,7 +1,7 @@
 use crate::{
     IoEvent, OPTIONS,
-    api::{Api, ApiBackend, ChannelFeed, ChannelTab, invidious::Instance, local::Local},
-    channel::RefreshState,
+    api::{Api, ApiBackend, ChannelFeed, invidious::Instance, local::Local},
+    channel::{ChannelTab, RefreshState},
     message::MessageType,
     player::{self, open_in_invidious, open_in_youtube, play_from_formats, play_using_ytdlp},
     ro_cell::RoCell,

@@ -102,6 +102,7 @@ Path to the configuration file can be specified with the `-c` flag.
 database = "/home/username/.local/share/ytsub/videos.db" # Path to database file
 instances = "/home/username/.config/ytsub/instances" # Path to instances file
 tabs = ["videos"] # Tabs to fetch videos from [possible values: videos, shorts, streams]
+hide_disabled_tabs = true # Hide available tabs in the ui if they are not in the `tabs` option
 api = "local" # API to be used for fetching videos [possible values: invidious, local]
 refresh_threshold = 600 # Time in seconds that needs to pass before refreshing a channel using the refresh_channels command
 rss_threshold = 9999 # Use RSS if the number of channels being refreshed or being subscribed to exceeds the specified amount

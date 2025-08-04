@@ -1,6 +1,7 @@
 use crate::{
     THEME,
     app::{State, StatefulList, Tab},
+    channel::ChannelTab,
 };
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
@@ -80,8 +81,14 @@ impl<'a, T, S: State> TitleBuilder<'a, T, S> {
             sections.push(Span::raw(format!("{} ", border_symbols.bottom_right)));
 
             for tab in &tabs.items {
+                let tab_title = match tab.variant {
+                    ChannelTab::Videos => "Videos",
+                    ChannelTab::Shorts => "Shorts",
+                    ChannelTab::Streams => "Live",
+                };
+
                 sections.push(Span::styled(
-                    tab.variant.to_string(),
+                    tab_title,
                     if selected.is_some_and(|s| s == tab.variant) {
                         THEME.selected
                     } else {

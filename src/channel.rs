@@ -1,10 +1,52 @@
-use crate::THEME;
+use crate::{OPTIONS, THEME, config::options::EnabledTabs};
 use bitflags::bitflags;
 use chrono::DateTime;
 use ratatui::text::{Line, Span};
 use serde::{Deserialize, de};
 use serde_json::Value;
 use std::fmt::Display;
+
+#[derive(Deserialize, PartialEq, Debug, Clone, Copy)]
+#[serde(rename_all(deserialize = "lowercase"))]
+pub enum ChannelTab {
+    Videos,
+    Shorts,
+    Streams,
+}
+
+impl From<u8> for ChannelTab {
+    fn from(value: u8) -> Self {
+        match value {
+            0b001 => ChannelTab::Videos,
+            0b010 => ChannelTab::Shorts,
+            0b100 => ChannelTab::Streams,
+            _ => unreachable!("The function should only be used for `EnabledTabs` names."),
+        }
+    }
+}
+
+impl Display for ChannelTab {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                ChannelTab::Videos => "videos",
+                ChannelTab::Shorts => "shorts",
+                ChannelTab::Streams => "streams",
+            }
+        )
+    }
+}
+
+pub fn tabs_to_be_loaded() -> impl Iterator<Item = ChannelTab> {
+    if OPTIONS.hide_disabled_tabs {
+        OPTIONS.tabs.iter()
+    } else {
+        EnabledTabs::all().iter()
+    }
+    .map(|tab| tab.bits().into())
+}
 
 #[derive(Clone, Copy)]
 pub enum RefreshState {
@@ -111,15 +153,6 @@ pub struct Video {
 }
 
 impl Video {
-    pub fn vec_from_json(videos_json: &Value) -> Vec<Video> {
-        videos_json
-            .as_array()
-            .unwrap()
-            .iter()
-            .map(Video::from)
-            .collect()
-    }
-
     pub fn needs_update(&self, other: &Video) -> bool {
         self.title != other.title
             || self.length != other.length

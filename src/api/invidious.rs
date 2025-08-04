@@ -13,23 +13,10 @@ use std::time::Duration;
 
 const API_BACKEND: ApiBackend = ApiBackend::Invidious;
 
-impl From<Value> for ChannelFeed {
-    fn from(mut value: Value) -> Self {
-        let mut channel_feed = Self::default();
-
-        let videos = if value["videos"].is_null() {
-            value
-        } else {
-            value["videos"].take()
-        };
-
-        if let Some(video) = videos.get(0) {
-            channel_feed.channel_title = Some(video["author"].as_str().unwrap().to_string());
-            channel_feed.videos = Video::vec_from_json(&videos);
-        }
-
-        channel_feed
-    }
+fn extract_tab(videos_array: &Value) -> Option<Vec<Video>> {
+    videos_array
+        .as_array()
+        .map(|array| array.iter().map(Video::from).collect())
 }
 
 #[derive(Clone)]
@@ -56,32 +43,13 @@ impl Instance {
         }
     }
 
-    async fn get_tab_of_channel(&self, channel_id: &str, tab: ChannelTab) -> Result<Vec<Video>> {
-        let url = format!(
-            "{}/api/v1/channels/{}/{}",
-            self.domain,
-            channel_id,
-            match tab {
-                ChannelTab::Videos => "videos",
-                ChannelTab::Shorts => "shorts",
-                ChannelTab::Streams => "streams",
-            }
-        );
+    async fn get_tab_of_channel(&self, channel_id: &str, tab: ChannelTab) -> Result<Value> {
+        let url = format!("{}/api/v1/channels/{}/{}", self.domain, channel_id, tab);
 
         let response = self.client.get(&url).send().await?;
         let mut value = response.error_for_status()?.json::<Value>().await?;
 
-        let videos_array = value["videos"].take();
-
-        // if the key doesn't exist, assume that the tab is not available
-        if (videos_array.get(0))
-            .and_then(|video| video.get("videoId"))
-            .is_none()
-        {
-            return Ok(Vec::new());
-        }
-
-        Ok(Video::vec_from_json(&videos_array))
+        Ok(value["videos"].take())
     }
 
     async fn get_more_videos_helper(
@@ -89,16 +57,7 @@ impl Instance {
         channel_id: &str,
         tab: ChannelTab,
     ) -> Result<Vec<Video>> {
-        let url = format!(
-            "{}/api/v1/channels/{}/{}",
-            self.domain,
-            channel_id,
-            match tab {
-                ChannelTab::Videos => "videos",
-                ChannelTab::Shorts => "shorts",
-                ChannelTab::Streams => "streams",
-            }
-        );
+        let url = format!("{}/api/v1/channels/{}/{}", self.domain, channel_id, tab);
         let mut request = self.client.get(&url);
 
         if let Some(token) = &self.continuation {
@@ -113,7 +72,7 @@ impl Instance {
             .and_then(Value::as_str)
             .map(ToString::to_string);
 
-        Ok(Video::vec_from_json(&value["videos"]))
+        Ok(extract_tab(&value["videos"]).unwrap_or_default())
     }
 }
 
@@ -136,69 +95,32 @@ impl Api for Instance {
     async fn get_videos_of_channel(&mut self, channel_id: &str) -> Result<ChannelFeed> {
         let mut channel_feed = ChannelFeed::new(channel_id);
 
-        if OPTIONS.videos_tab
-            && let Ok(videos) = self
-                .get_tab_of_channel(channel_id, ChannelTab::Videos)
-                .await
-        {
-            channel_feed.videos = videos;
-        }
+        for tab in OPTIONS.tabs.iter().map(|tab| tab.bits().into()) {
+            let videos_array = self.get_tab_of_channel(channel_id, tab).await?;
 
-        if OPTIONS.shorts_tab {
-            match self
-                .get_tab_of_channel(channel_id, ChannelTab::Shorts)
-                .await
-            {
-                Ok(shorts) => channel_feed.shorts = shorts,
-                Err(e) => {
-                    return Err(anyhow::anyhow!(e));
-                }
+            if let Some(videos) = extract_tab(&videos_array) {
+                *channel_feed.get_mut_videos(tab) = videos;
             }
-        }
-
-        if OPTIONS.streams_tab
-            && let Ok(streams) = self
-                .get_tab_of_channel(channel_id, ChannelTab::Streams)
-                .await
-        {
-            channel_feed.live_streams = streams;
         }
 
         Ok(channel_feed)
     }
 
     async fn get_videos_for_the_first_time(&mut self, channel_id: &str) -> Result<ChannelFeed> {
-        let mut channel_feed;
-        let url = format!("{}/api/v1/channels/{}/videos", self.domain, channel_id,);
-        let response = self.client.get(&url).send().await?;
+        let mut channel_feed = ChannelFeed::new(channel_id);
 
-        match response.error_for_status() {
-            Ok(response) => channel_feed = ChannelFeed::from(response.json::<Value>().await?),
-            Err(e) => {
-                return Err(anyhow::anyhow!(e));
+        for tab in OPTIONS.tabs.iter().map(|tab| tab.bits().into()) {
+            let videos_array = self.get_tab_of_channel(channel_id, tab).await?;
+
+            if channel_feed.channel_title.is_none()
+                && let Some(video) = videos_array.get(0)
+            {
+                channel_feed.channel_title = video["author"].as_str().map(ToString::to_string);
             }
-        }
 
-        channel_feed.channel_id = Some(channel_id.to_string());
-
-        if !OPTIONS.videos_tab {
-            channel_feed.videos.drain(..);
-        }
-
-        if OPTIONS.shorts_tab
-            && let Ok(shorts) = self
-                .get_tab_of_channel(channel_id, ChannelTab::Shorts)
-                .await
-        {
-            channel_feed.shorts = shorts;
-        }
-
-        if OPTIONS.streams_tab
-            && let Ok(streams) = self
-                .get_tab_of_channel(channel_id, ChannelTab::Streams)
-                .await
-        {
-            channel_feed.live_streams = streams;
+            if let Some(videos) = extract_tab(&videos_array) {
+                *channel_feed.get_mut_videos(tab) = videos;
+            }
         }
 
         Ok(channel_feed)

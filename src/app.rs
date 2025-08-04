@@ -1,5 +1,7 @@
-use crate::api::{ApiBackend, ChannelFeed, ChannelTab};
-use crate::channel::{Channel, HideVideos, ListItem, RefreshState, Video};
+use crate::api::{ApiBackend, ChannelFeed};
+use crate::channel::{
+    Channel, ChannelTab, HideVideos, ListItem, RefreshState, Video, tabs_to_be_loaded,
+};
 use crate::help::HelpWindowState;
 use crate::import::{self, ImportItem};
 use crate::input::InputMode;
@@ -414,24 +416,10 @@ impl App {
         let mut tabs = Vec::with_capacity(3);
 
         if let Some(channel) = self.get_current_channel() {
-            if OPTIONS.videos_tab {
+            for tab in tabs_to_be_loaded() {
                 tabs.push((
-                    database::get_videos(&self.conn, &channel.channel_id, ChannelTab::Videos)?,
-                    ChannelTab::Videos,
-                ));
-            }
-
-            if OPTIONS.shorts_tab {
-                tabs.push((
-                    database::get_videos(&self.conn, &channel.channel_id, ChannelTab::Shorts)?,
-                    ChannelTab::Shorts,
-                ));
-            }
-
-            if OPTIONS.streams_tab {
-                tabs.push((
-                    database::get_videos(&self.conn, &channel.channel_id, ChannelTab::Streams)?,
-                    ChannelTab::Streams,
+                    database::get_videos(&self.conn, &channel.channel_id, tab)?,
+                    tab,
                 ));
             }
         }
@@ -449,24 +437,10 @@ impl App {
 
         let mut tabs = Vec::with_capacity(3);
 
-        if OPTIONS.videos_tab {
+        for tab in tabs_to_be_loaded() {
             tabs.push((
-                database::get_latest_videos(&self.conn, &selected_tags, ChannelTab::Videos)?,
-                ChannelTab::Videos,
-            ));
-        }
-
-        if OPTIONS.shorts_tab {
-            tabs.push((
-                database::get_latest_videos(&self.conn, &selected_tags, ChannelTab::Shorts)?,
-                ChannelTab::Shorts,
-            ));
-        }
-
-        if OPTIONS.streams_tab {
-            tabs.push((
-                database::get_latest_videos(&self.conn, &selected_tags, ChannelTab::Streams)?,
-                ChannelTab::Streams,
+                database::get_latest_videos(&self.conn, &selected_tags, tab)?,
+                tab,
             ));
         }
 

@@ -17,7 +17,7 @@ mod stream_formats;
 mod ui;
 mod utils;
 
-use crate::api::ChannelTab;
+use crate::channel::ChannelTab;
 use crate::config::Config;
 use crate::config::keys::KeyBindings;
 use crate::config::options::Options;

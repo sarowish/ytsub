@@ -2,7 +2,7 @@ pub mod invidious;
 pub mod local;
 
 use crate::{
-    channel::{ListItem, Video},
+    channel::{ChannelTab, ListItem, Video},
     stream_formats::Formats,
     utils,
 };
@@ -13,28 +13,6 @@ use regex_lite::Regex;
 use serde::Deserialize;
 use serde_json::Value;
 use std::{collections::HashSet, fmt::Display, io::Write, path::PathBuf, sync::LazyLock};
-
-#[derive(Deserialize, PartialEq, Debug, Clone, Copy)]
-#[serde(rename_all(deserialize = "lowercase"))]
-pub enum ChannelTab {
-    Videos,
-    Shorts,
-    Streams,
-}
-
-impl Display for ChannelTab {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}",
-            match self {
-                ChannelTab::Videos => "Videos",
-                ChannelTab::Shorts => "Shorts",
-                ChannelTab::Streams => "Live",
-            }
-        )
-    }
-}
 
 #[derive(Default, Deserialize)]
 pub struct ChannelFeed {
@@ -74,18 +52,21 @@ impl ChannelFeed {
         }
     }
 
+    pub fn get_mut_videos(&mut self, tab: ChannelTab) -> &mut Vec<Video> {
+        match tab {
+            ChannelTab::Videos => &mut self.videos,
+            ChannelTab::Shorts => &mut self.shorts,
+            ChannelTab::Streams => &mut self.live_streams,
+        }
+    }
+
     pub fn extend_videos(&mut self, videos: Vec<Video>, tab: ChannelTab) {
         let Some(published_of_first) = videos.first().map(|video| video.published_text.clone())
         else {
             return;
         };
 
-        let present_videos = match tab {
-            ChannelTab::Videos => &mut self.videos,
-            ChannelTab::Shorts => &mut self.shorts,
-            ChannelTab::Streams => &mut self.live_streams,
-        };
-
+        let present_videos = self.get_mut_videos(tab);
         present_videos.extend(videos);
 
         present_videos
