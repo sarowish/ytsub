@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Change the constraint type of the `Channel` column to `Length` from `Percentage`.
 - Rename `play_videos` command to `play_using_ytdlp` and swap its default
 key binding with `play_from_formats` command.
+- Change the default value of the `rss_threshold` option to 9999.
 
 ### Fixed
 - Don't block when resolving channel ids.

@@ -89,7 +89,7 @@ impl Default for Options {
             streams_tab: false,
             api: ApiBackend::Local,
             refresh_threshold: 600,
-            rss_threshold: 125,
+            rss_threshold: 9999,
             tick_rate: 10,
             request_timeout: 5,
             highlight_symbol: String::new(),
