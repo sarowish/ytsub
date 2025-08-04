@@ -1,4 +1,4 @@
-use crate::api::{ApiBackend, ChannelFeed};
+use crate::api::{ApiBackend, ChannelFeed, ChannelTab};
 use crate::channel::{Channel, HideVideos, ListItem, RefreshState, Video};
 use crate::help::HelpWindowState;
 use crate::import::{self, ImportItem};
@@ -28,7 +28,7 @@ impl ListItem for String {
 
 pub struct App {
     pub channels: StatefulList<Channel, ListState>,
-    pub videos: StatefulList<Video, TableState>,
+    pub tabs: Tabs,
     pub tags: SelectionList<String>,
     pub selected: Selected,
     pub mode: Mode,
@@ -61,7 +61,7 @@ impl App {
 
         let mut app = Self {
             channels: StatefulList::with_items(Vec::default()),
-            videos: StatefulList::with_items(Vec::default()),
+            tabs: Tabs::default(),
             tags: SelectionList::default(),
             selected: Selected::Channels,
             mode: Mode::Subscriptions,
@@ -115,17 +115,29 @@ impl App {
             return;
         }
         self.channels.items.push(channel);
-        self.add_videos(channel_feed);
+        self.add_tabs(channel_feed);
     }
 
-    pub fn add_videos(&mut self, mut channel_feed: ChannelFeed) {
-        if channel_feed.videos.is_empty() {
+    pub fn add_tabs(&mut self, mut channel_feed: ChannelFeed) {
+        self.add_videos(&mut channel_feed, ChannelTab::Videos);
+        self.add_videos(&mut channel_feed, ChannelTab::Shorts);
+        self.add_videos(&mut channel_feed, ChannelTab::Streams);
+    }
+
+    fn add_videos(&mut self, channel_feed: &mut ChannelFeed, tab: ChannelTab) {
+        let videos = match tab {
+            ChannelTab::Videos => &mut channel_feed.videos,
+            ChannelTab::Shorts => &mut channel_feed.shorts,
+            ChannelTab::Streams => &mut channel_feed.live_streams,
+        };
+
+        if videos.is_empty() {
             return;
         }
 
         let channel_id = channel_feed.channel_id.as_ref().unwrap();
 
-        let present_videos: Vec<Video> = match database::get_videos(&self.conn, channel_id) {
+        let present_videos: Vec<Video> = match database::get_videos(&self.conn, channel_id, tab) {
             Ok(videos) => videos,
             Err(e) => {
                 self.set_error_message(&e.to_string());
@@ -136,11 +148,11 @@ impl App {
         // Videos sharing the same published text has the same unix time. Because of this, to
         // preserve a new video's order relative to the other videos sharing the same published
         // text, they need to be replaced in the database.
-        let mut videos: HashMap<u64, Vec<Video>> = HashMap::new();
+        let mut timestamps: HashMap<u64, Vec<Video>> = HashMap::new();
         let mut to_be_added = HashSet::new();
         let mut added_new_video = false;
 
-        for video in channel_feed.videos.drain(..) {
+        for video in videos.drain(..) {
             if let Some(p_video) = present_videos
                 .iter()
                 .find(|p_video| p_video.video_id == video.video_id)
@@ -154,10 +166,10 @@ impl App {
                 to_be_added.insert(video.published);
             }
 
-            videos.entry(video.published).or_default().push(video);
+            timestamps.entry(video.published).or_default().push(video);
         }
 
-        let videos = videos
+        let videos = timestamps
             .into_iter()
             .filter(|(date, _)| to_be_added.contains(date))
             .flat_map(|(_, video)| video)
@@ -167,7 +179,7 @@ impl App {
             return;
         }
 
-        if let Err(e) = database::add_videos(&self.conn, channel_id, &videos) {
+        if let Err(e) = database::add_videos(&self.conn, channel_id, &videos, tab) {
             self.set_error_message(&e.to_string());
             return;
         }
@@ -187,10 +199,12 @@ impl App {
     pub fn get_more_videos(&mut self) {
         if OPTIONS.videos_tab
             && let Some(current_channel) = self.channels.get_selected()
+            && let Some(videos) = self.tabs.get_videos()
         {
             self.message.set_message("Fetching videos");
             let channel_id = current_channel.channel_id.clone();
-            let present_videos = (self.videos.items)
+            let present_videos = videos
+                .items
                 .iter()
                 .map(|video| video.video_id.clone())
                 .collect();
@@ -200,12 +214,15 @@ impl App {
     }
 
     pub fn delete_selected_video(&mut self) {
-        if let Some(idx) = self.videos.state.selected() {
-            if let Err(e) = database::delete_video(&self.conn, &self.videos.items[idx].video_id) {
+        if let Some(videos) = self.tabs.get_videos_mut()
+            && let Some(idx) = videos.state.selected()
+        {
+            if let Err(e) = database::delete_video(&self.conn, &videos.items[idx].video_id) {
                 self.set_error_message(&e.to_string());
+                return;
             }
-            self.videos.items.remove(idx);
-            self.videos.check_bounds();
+            videos.items.remove(idx);
+            videos.check_bounds();
         }
     }
 
@@ -293,15 +310,13 @@ impl App {
     }
 
     pub fn get_current_video(&self) -> Option<&Video> {
-        self.videos.get_selected()
-    }
-
-    fn _get_mut_current_video(&mut self) -> Option<&mut Video> {
-        self.videos.get_mut_selected()
+        self.tabs.get_selected_video()
     }
 
     pub fn set_watched(&mut self, video_id: &str, is_watched: bool) {
-        if let Some(video) = self.videos.get_mut_by_id(video_id) {
+        if let Some(videos) = self.tabs.get_videos_mut()
+            && let Some(video) = videos.get_mut_by_id(video_id)
+        {
             video.watched = is_watched;
         }
 
@@ -381,15 +396,36 @@ impl App {
         self.dispatch(IoEvent::OpenInBrowser(url_component, api));
     }
 
-    fn get_videos_of_current_channel(&self) -> Result<Vec<Video>> {
+    fn get_videos_of_current_channel(&self) -> Result<Tabs> {
+        let mut tabs = Tabs::default();
+
         if let Some(channel) = self.get_current_channel() {
-            database::get_videos(&self.conn, &channel.channel_id)
-        } else {
-            Ok(Vec::new())
+            if OPTIONS.videos_tab {
+                tabs.add_tab(
+                    database::get_videos(&self.conn, &channel.channel_id, ChannelTab::Videos)?,
+                    ChannelTab::Videos,
+                );
+            }
+
+            if OPTIONS.shorts_tab {
+                tabs.add_tab(
+                    database::get_videos(&self.conn, &channel.channel_id, ChannelTab::Shorts)?,
+                    ChannelTab::Shorts,
+                );
+            }
+
+            if OPTIONS.streams_tab {
+                tabs.add_tab(
+                    database::get_videos(&self.conn, &channel.channel_id, ChannelTab::Streams)?,
+                    ChannelTab::Streams,
+                );
+            }
         }
+
+        Ok(tabs)
     }
 
-    fn get_latest_videos(&self) -> Result<Vec<Video>> {
+    fn get_latest_videos(&self) -> Result<Tabs> {
         let selected_tags: Vec<&str> = self
             .tags
             .get_selected_items()
@@ -397,62 +433,95 @@ impl App {
             .map(|tag| tag.as_str())
             .collect();
 
-        database::get_latest_videos(&self.conn, &selected_tags)
+        let mut tabs = Tabs::default();
+
+        if OPTIONS.videos_tab {
+            tabs.add_tab(
+                database::get_latest_videos(&self.conn, &selected_tags, ChannelTab::Videos)?,
+                ChannelTab::Videos,
+            );
+        }
+
+        if OPTIONS.shorts_tab {
+            tabs.add_tab(
+                database::get_latest_videos(&self.conn, &selected_tags, ChannelTab::Shorts)?,
+                ChannelTab::Shorts,
+            );
+        }
+
+        if OPTIONS.streams_tab {
+            tabs.add_tab(
+                database::get_latest_videos(&self.conn, &selected_tags, ChannelTab::Streams)?,
+                ChannelTab::Streams,
+            );
+        }
+
+        Ok(tabs)
     }
 
     pub fn load_videos(&mut self) {
-        let videos = match self.mode {
+        let tabs = match self.mode {
             Mode::Subscriptions => self.get_videos_of_current_channel(),
             Mode::LatestVideos => self.get_latest_videos(),
         };
-        match videos {
-            Ok(videos) => {
-                self.videos.items = if self.hide_videos.is_empty() {
-                    videos
-                } else {
-                    let f = if self
-                        .hide_videos
-                        .contains(HideVideos::WATCHED | HideVideos::MEMBERS_ONLY)
-                    {
-                        |video: &Video| !(video.watched || video.members_only)
-                    } else if self.hide_videos.contains(HideVideos::WATCHED) {
-                        |video: &Video| !video.watched
-                    } else if self.hide_videos.contains(HideVideos::MEMBERS_ONLY) {
-                        |video: &Video| !video.members_only
-                    } else {
-                        unreachable!()
-                    };
 
-                    videos.into_iter().filter(f).collect()
-                };
+        match tabs {
+            Ok(mut tabs) => {
+                for tab in &mut tabs.items {
+                    if !self.hide_videos.is_empty() {
+                        let f = if self
+                            .hide_videos
+                            .contains(HideVideos::WATCHED | HideVideos::MEMBERS_ONLY)
+                        {
+                            |video: &Video| !(video.watched || video.members_only)
+                        } else if self.hide_videos.contains(HideVideos::WATCHED) {
+                            |video: &Video| !video.watched
+                        } else if self.hide_videos.contains(HideVideos::MEMBERS_ONLY) {
+                            |video: &Video| !video.members_only
+                        } else {
+                            unreachable!()
+                        };
 
-                let mut count = 0;
-                for video in &mut self.videos.items {
-                    if self.new_video_ids.contains(&video.video_id) {
-                        video.new = true;
-                        count += 1;
+                        tab.videos.items = tab.videos.items.drain(..).filter(f).collect();
                     }
-                    if count == self.new_video_ids.len() {
-                        break;
+
+                    let mut count = 0;
+                    for video in &mut tab.videos.items {
+                        if self.new_video_ids.contains(&video.video_id) {
+                            video.new = true;
+                            tab.has_new_video = true;
+                            count += 1;
+                        }
+                        if count == self.new_video_ids.len() {
+                            break;
+                        }
                     }
                 }
+
+                self.tabs = tabs;
+                self.tabs.select_first();
             }
             Err(e) => {
-                self.videos.items.clear();
+                self.tabs.items.clear();
                 self.set_error_message(&e.to_string());
             }
         }
     }
 
     pub fn reload_videos(&mut self) {
+        let Some(tab) = self.tabs.get_selected() else {
+            return;
+        };
+
         let current_video = self.get_current_video();
+        let current_tab = tab.variant;
 
         let id_of_current_video = match current_video {
             Some(current_video)
                 if self.hide_videos.contains(HideVideos::WATCHED) && current_video.watched =>
             {
                 // if the currently selected video is watched, jump to the first unwatched video above
-                let mut index = self.videos.state.selected().unwrap();
+                let mut index = tab.videos.state.selected().unwrap();
                 loop {
                     if let Some(i) = index.checked_sub(1) {
                         index = i;
@@ -460,7 +529,7 @@ impl App {
                         break None;
                     }
 
-                    let video = &self.videos.items[index];
+                    let video = &tab.videos.items[index];
                     if !video.watched {
                         break Some(video.video_id.clone());
                     }
@@ -471,19 +540,26 @@ impl App {
         };
 
         self.load_videos();
+        self.tabs.select_tab(current_tab);
+
+        let Some(tab) = self.tabs.get_mut_selected() else {
+            return;
+        };
 
         match id_of_current_video {
             Some(id) => {
-                let index = self.videos.find_by_id(&id).unwrap();
-                self.videos.select_with_index(index);
+                tab.videos.state.select(tab.videos.find_by_id(&id));
             }
-            None => self.videos.reset_state(),
+            None => tab.videos.reset_state(),
         }
     }
 
     pub fn on_change_channel(&mut self) {
         self.load_videos();
-        self.videos.reset_state();
+
+        if let Some(videos) = self.tabs.get_videos_mut() {
+            videos.reset_state();
+        }
     }
 
     pub fn set_channel_refresh_state(&mut self, channel_id: &str, refresh_state: RefreshState) {
@@ -512,7 +588,11 @@ impl App {
                 self.channels.next();
                 self.on_change_channel();
             }
-            Selected::Videos => self.videos.next(),
+            Selected::Videos => {
+                if let Some(videos) = self.tabs.get_videos_mut() {
+                    videos.next();
+                }
+            }
         }
     }
 
@@ -522,7 +602,11 @@ impl App {
                 self.channels.previous();
                 self.on_change_channel();
             }
-            Selected::Videos => self.videos.previous(),
+            Selected::Videos => {
+                if let Some(videos) = self.tabs.get_videos_mut() {
+                    videos.previous();
+                }
+            }
         }
     }
 
@@ -548,7 +632,9 @@ impl App {
                 self.on_change_channel();
             }
             Selected::Videos => {
-                self.videos.select_first();
+                if let Some(videos) = self.tabs.get_videos_mut() {
+                    videos.select_first();
+                }
             }
         }
     }
@@ -564,7 +650,9 @@ impl App {
                 self.on_change_channel();
             }
             Selected::Videos => {
-                self.videos.select_last();
+                if let Some(videos) = self.tabs.get_videos_mut() {
+                    videos.select_last();
+                }
             }
         }
     }
@@ -656,7 +744,11 @@ impl App {
                     self.search.search(&mut self.channels, &self.input);
                     self.on_change_channel();
                 }
-                Selected::Videos => self.search.search(&mut self.videos, &self.input),
+                Selected::Videos => {
+                    if let Some(videos) = self.tabs.get_videos_mut() {
+                        self.search.search(videos, &self.input)
+                    }
+                }
             },
             InputMode::Import => self.search.search(&mut self.import_state, &self.input),
             InputMode::Tag => self.search.search(&mut self.tags, &self.input),
@@ -677,7 +769,11 @@ impl App {
                     self.search.repeat_last(&mut self.channels, opposite);
                     self.on_change_channel();
                 }
-                Selected::Videos => self.search.repeat_last(&mut self.videos, opposite),
+                Selected::Videos => {
+                    if let Some(videos) = self.tabs.get_videos_mut() {
+                        self.search.repeat_last(videos, opposite)
+                    }
+                }
             },
             InputMode::Import => self.search.repeat_last(&mut self.import_state, opposite),
             InputMode::Tag => self.search.repeat_last(&mut self.tags, opposite),
@@ -842,7 +938,11 @@ impl App {
                         self.search.recover_item(&mut self.channels);
                         self.on_change_channel();
                     }
-                    Selected::Videos => self.search.recover_item(&mut self.videos),
+                    Selected::Videos => {
+                        if let Some(videos) = self.tabs.get_videos_mut() {
+                            self.search.recover_item(videos)
+                        }
+                    }
                 },
                 InputMode::Import => self.search.recover_item(&mut self.import_state),
                 InputMode::Tag => self.search.recover_item(&mut self.tags),
@@ -1158,6 +1258,15 @@ pub struct StatefulList<T, S: State> {
     pub items: Vec<T>,
 }
 
+impl<T, S: State + Default> Default for StatefulList<T, S> {
+    fn default() -> Self {
+        Self {
+            state: Default::default(),
+            items: Vec::default(),
+        }
+    }
+}
+
 impl<T, S: State + Default> StatefulList<T, S> {
     pub fn with_items(items: Vec<T>) -> StatefulList<T, S> {
         let mut stateful_list = StatefulList {
@@ -1169,7 +1278,9 @@ impl<T, S: State + Default> StatefulList<T, S> {
 
         stateful_list
     }
+}
 
+impl<T, S: State> StatefulList<T, S> {
     fn select_with_index(&mut self, index: usize) {
         self.state.select(if self.items.is_empty() {
             None
@@ -1220,17 +1331,13 @@ impl<T, S: State + Default> StatefulList<T, S> {
     }
 
     pub fn get_selected(&self) -> Option<&T> {
-        match self.state.selected() {
-            Some(i) => Some(&self.items[i]),
-            None => None,
-        }
+        self.state.selected().and_then(|idx| self.items.get(idx))
     }
 
     pub fn get_mut_selected(&mut self) -> Option<&mut T> {
-        match self.state.selected() {
-            Some(i) => Some(&mut self.items[i]),
-            None => None,
-        }
+        self.state
+            .selected()
+            .and_then(|idx| self.items.get_mut(idx))
     }
 
     fn check_bounds(&mut self) {
@@ -1245,7 +1352,7 @@ impl<T, S: State + Default> StatefulList<T, S> {
 }
 
 impl<T: ListItem, S: State> StatefulList<T, S> {
-    pub fn find_by_id(&mut self, id: &str) -> Option<usize> {
+    pub fn find_by_id(&self, id: &str) -> Option<usize> {
         self.items.iter().position(|item| item.id() == id)
     }
 
@@ -1276,6 +1383,68 @@ pub enum Mode {
 pub enum VideoPlayer {
     Mpv,
     Vlc,
+}
+
+pub struct Tab {
+    pub variant: ChannelTab,
+    pub videos: StatefulList<Video, TableState>,
+    pub has_new_video: bool,
+}
+
+impl Tab {
+    pub fn new(variant: ChannelTab, videos: Vec<Video>) -> Self {
+        Self {
+            variant,
+            videos: StatefulList::with_items(videos),
+            has_new_video: false,
+        }
+    }
+}
+
+#[derive(Default)]
+pub struct Tabs(StatefulList<Tab, ListState>);
+
+impl Tabs {
+    pub fn add_tab(&mut self, videos: Vec<Video>, tab: ChannelTab) {
+        if !videos.is_empty() {
+            self.items.push(Tab::new(tab, videos));
+        }
+    }
+
+    fn select_tab(&mut self, tab: ChannelTab) {
+        let idx = self.items.iter().position(|item| item.variant == tab);
+
+        if idx.is_some() {
+            self.state.select(idx);
+        }
+    }
+
+    fn get_videos(&self) -> Option<&StatefulList<Video, TableState>> {
+        self.get_selected().map(|tab| &tab.videos)
+    }
+
+    fn get_videos_mut(&mut self) -> Option<&mut StatefulList<Video, TableState>> {
+        self.get_mut_selected().map(|tab| &mut tab.videos)
+    }
+
+    pub fn get_selected_video(&self) -> Option<&Video> {
+        self.get_selected()
+            .and_then(|tab| tab.videos.get_selected())
+    }
+}
+
+impl Deref for Tabs {
+    type Target = StatefulList<Tab, ListState>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for Tabs {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
 }
 
 pub struct SelectionItem<T> {

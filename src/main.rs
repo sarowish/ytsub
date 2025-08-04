@@ -242,7 +242,7 @@ fn handle_event(event: ClientRequest, app: &mut App) {
                 }
             }
         }
-        ClientRequest::UpdateChannel(feed) => app.add_videos(feed),
+        ClientRequest::UpdateChannel(feed) => app.add_tabs(feed),
         ClientRequest::EnterFormatSelection(formats) => {
             app.input_mode = InputMode::FormatSelection;
             app.stream_formats = *formats;

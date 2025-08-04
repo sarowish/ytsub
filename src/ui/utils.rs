@@ -1,11 +1,12 @@
 use crate::{
     THEME,
-    app::{State, StatefulList},
+    app::{State, StatefulList, Tab},
 };
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
+    style::Color,
     text::Span,
-    widgets::BorderType,
+    widgets::{BorderType, ListState},
 };
 use unicode_width::UnicodeWidthStr;
 
@@ -13,6 +14,7 @@ pub struct TitleBuilder<'a, T, S: State> {
     title: String,
     hide_flag: bool,
     list: Option<&'a StatefulList<T, S>>,
+    tabs: Option<&'a StatefulList<Tab, ListState>>,
     tags: Option<Vec<&'a String>>,
     available_width: usize,
 }
@@ -23,6 +25,7 @@ impl<'a, T, S: State> TitleBuilder<'a, T, S> {
             title: String::new(),
             hide_flag: false,
             list: None,
+            tabs: None,
             tags: None,
             available_width: available_width.saturating_sub(2),
         }
@@ -43,6 +46,11 @@ impl<'a, T, S: State> TitleBuilder<'a, T, S> {
         self
     }
 
+    pub fn tabs(mut self, tabs: &'a StatefulList<Tab, ListState>) -> Self {
+        self.tabs = Some(tabs);
+        self
+    }
+
     pub fn tags(mut self, tags: Vec<&'a String>) -> Self {
         if !tags.is_empty() {
             self.tags = Some(tags);
@@ -54,14 +62,49 @@ impl<'a, T, S: State> TitleBuilder<'a, T, S> {
     pub fn build_title<'b>(mut self) -> Vec<Span<'b>> {
         const MIN_GAP: usize = 2;
 
-        let mut title_sections = Vec::with_capacity(7);
-        let border_symbol = BorderType::border_symbols(BorderType::Plain).horizontal_top;
+        let mut title_sections = Vec::with_capacity(18);
+        let border_symbols = BorderType::border_symbols(BorderType::Plain);
+        let border_symbol_top = border_symbols.horizontal_top;
 
         if !self.title.is_empty() {
             let title = Span::styled(self.title, THEME.title);
             self.available_width = self.available_width.saturating_sub(title.width());
 
             title_sections.push(title);
+        }
+
+        if let Some(tabs) = self.tabs {
+            let selected = tabs.get_selected().map(|tab| tab.variant);
+            let mut sections = Vec::with_capacity(11);
+            sections.push(Span::raw(border_symbol_top.repeat(2)));
+            sections.push(Span::raw(format!("{} ", border_symbols.bottom_right)));
+
+            for tab in &tabs.items {
+                sections.push(Span::styled(
+                    tab.variant.to_string(),
+                    if selected.is_some_and(|s| s == tab.variant) {
+                        THEME.selected
+                    } else {
+                        Color::Reset.into()
+                    },
+                ));
+
+                sections.push(Span::styled(
+                    if tab.has_new_video { " [N] " } else { " " },
+                    THEME.new_video_indicator,
+                ));
+
+                sections.push(Span::raw(" "));
+            }
+
+            if let Some(last) = sections.last_mut() {
+                *last = Span::raw(border_symbols.bottom_left);
+            }
+
+            let tabs_width = sections.iter().map(|s| s.width()).sum();
+            self.available_width = self.available_width.saturating_sub(tabs_width);
+
+            title_sections.extend(sections);
         }
 
         if self.hide_flag {
@@ -115,12 +158,12 @@ impl<'a, T, S: State> TitleBuilder<'a, T, S> {
             let tag_text = format!("[{}]", shown_tags.join(", "));
             self.available_width = self.available_width.saturating_sub(tag_text.width() + 1);
 
-            title_sections.push(Span::raw(border_symbol));
+            title_sections.push(Span::raw(border_symbol_top));
             title_sections.push(Span::styled(tag_text, THEME.title));
         }
 
         if self.hide_flag {
-            title_sections.push(Span::raw(border_symbol));
+            title_sections.push(Span::raw(border_symbol_top));
             title_sections.push(Span::styled("[H]", THEME.title));
         }
 
@@ -128,7 +171,7 @@ impl<'a, T, S: State> TitleBuilder<'a, T, S> {
             .available_width
             .checked_sub(required_width_for_position)
         {
-            let fill = Span::raw(border_symbol.repeat(p_gap_width + MIN_GAP));
+            let fill = Span::raw(border_symbol_top.repeat(p_gap_width + MIN_GAP));
             title_sections.push(fill);
             title_sections.push(position);
         }

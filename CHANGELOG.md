@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Automatically set Invidious instance when trying to open Invidous page in browser.
 - Update video title when refreshing if there is a change.
 - Show an indicator next to members only videos.
+- Separate videos, streams and shorts tabs.
 
 ### Changed
 - Reduce `tick_rate` default value to 10 milliseconds.

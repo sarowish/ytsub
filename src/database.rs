@@ -1,9 +1,11 @@
 use crate::{
+    api::ChannelTab,
     channel::{Channel, Video},
     utils,
 };
 use anyhow::Result;
 use rusqlite::{Connection, params};
+use std::ops::RangeInclusive;
 
 const LATEST_USER_VERSION: u8 = 3;
 
@@ -96,8 +98,11 @@ fn apply_migration(conn: &mut Connection, current_user_version: u8) -> Result<()
                 )?;
 
                 if !watched_videos.is_empty() {
-                    let query =
-                        build_bulk_stmt(StatementType::AddWatched, &["video_id"], &watched_videos);
+                    let query = build_bulk_stmt(
+                        StatementType::AddWatched,
+                        &["video_id"],
+                        1..=watched_videos.len(),
+                    );
                     tx.execute(&query, rusqlite::params_from_iter(watched_videos.iter()))?;
                 }
 
@@ -175,9 +180,13 @@ enum StatementType {
     AddWatched,
 }
 
-fn build_bulk_stmt<T>(query_type: StatementType, columns: &[&str], values: &[T]) -> String {
+fn build_bulk_stmt(
+    query_type: StatementType,
+    columns: &[&str],
+    indices: RangeInclusive<usize>,
+) -> String {
     let columns_str = columns.join(", ");
-    let idxs = (1..=values.len()).collect::<Vec<_>>();
+    let idxs = indices.collect::<Vec<_>>();
     let values_string = idxs
         .chunks(columns.len())
         .map(|chunk| {
@@ -214,10 +223,10 @@ fn build_bulk_stmt<T>(query_type: StatementType, columns: &[&str], values: &[T])
             "
         ),
         StatementType::GetLatestVideos => format!(
-            "SELECT DISTINCT video_id, title, published, length, channel_name,
+            "SELECT DISTINCT video_id, title, published, length, members_only, channel_name,
             EXISTS (SELECT * FROM watched WHERE watched.video_id=videos.video_id)
             FROM videos, channels, tag_relations
-            WHERE videos.channel_id = channels.channel_id AND tag_relations.tag_name IN ({values_string})
+            WHERE videos.channel_id = channels.channel_id AND tag_relations.tag_name IN ({values_string}) AND tab=?1
             AND tag_relations.channel_id=channels.channel_id
             ORDER BY published DESC
             LIMIT 100
@@ -231,7 +240,12 @@ fn build_bulk_stmt<T>(query_type: StatementType, columns: &[&str], values: &[T])
     }
 }
 
-pub fn add_videos(conn: &Connection, channel_id: &str, videos: &[Video]) -> Result<()> {
+pub fn add_videos(
+    conn: &Connection,
+    channel_id: &str,
+    videos: &[Video],
+    tab: ChannelTab,
+) -> Result<()> {
     let columns = [
         "video_id",
         "channel_id",
@@ -239,9 +253,12 @@ pub fn add_videos(conn: &Connection, channel_id: &str, videos: &[Video]) -> Resu
         "published",
         "length",
         "members_only",
+        "tab",
     ];
 
     let mut videos_values = Vec::with_capacity(videos.len() * columns.len());
+    let tab = tab as u8;
+
     for video in videos {
         let values = params![
             video.video_id,
@@ -250,11 +267,12 @@ pub fn add_videos(conn: &Connection, channel_id: &str, videos: &[Video]) -> Resu
             video.published,
             video.length,
             video.members_only,
+            tab
         ];
         videos_values.extend_from_slice(values);
     }
 
-    let query = build_bulk_stmt(StatementType::AddVideo, &columns, &videos_values);
+    let query = build_bulk_stmt(StatementType::AddVideo, &columns, 1..=videos_values.len());
 
     conn.execute(&query, videos_values.as_slice())?;
 
@@ -285,7 +303,7 @@ pub fn get_channels(conn: &Connection, tags: &[&str]) -> Result<Vec<Channel>> {
         stmt = conn.prepare(&build_bulk_stmt(
             StatementType::GetChannels,
             &["tag_name"],
-            tags,
+            1..=tags.len(),
         ))?;
     }
 
@@ -302,17 +320,17 @@ pub fn get_channels(conn: &Connection, tags: &[&str]) -> Result<Vec<Channel>> {
     Ok(channels)
 }
 
-pub fn get_videos(conn: &Connection, channel_id: &str) -> Result<Vec<Video>> {
+pub fn get_videos(conn: &Connection, channel_id: &str, tab: ChannelTab) -> Result<Vec<Video>> {
     let mut stmt = conn.prepare(
         "SELECT videos.video_id, title, published, length, members_only,
         EXISTS (SELECT * FROM watched WHERE watched.video_id=videos.video_id)
         FROM videos
-        WHERE channel_id=?1
+        WHERE channel_id=?1 AND tab=?2
         ORDER BY published DESC
         ",
     )?;
     let mut videos = Vec::new();
-    for video in stmt.query_map(params![channel_id], |row| {
+    for video in stmt.query_map(params![channel_id, tab as u8], |row| {
         Ok(Video {
             channel_name: None,
             video_id: row.get(0)?,
@@ -331,34 +349,37 @@ pub fn get_videos(conn: &Connection, channel_id: &str) -> Result<Vec<Video>> {
     Ok(videos)
 }
 
-pub fn get_latest_videos(conn: &Connection, tags: &[&str]) -> Result<Vec<Video>> {
+pub fn get_latest_videos(conn: &Connection, tags: &[&str], tab: ChannelTab) -> Result<Vec<Video>> {
     let mut stmt;
-    let values;
+    let mut values = Vec::with_capacity(tags.len() + 1);
+    let tab = params![tab as u8];
+    values.extend_from_slice(tab);
 
     if tags.is_empty() {
-        values = rusqlite::params_from_iter([].iter());
-
         stmt = conn.prepare(
             "SELECT video_id, title, published, length, members_only, channel_name,
             EXISTS (SELECT * FROM watched WHERE watched.video_id=videos.video_id)
             FROM videos, channels
-            WHERE videos.channel_id = channels.channel_id
+            WHERE videos.channel_id = channels.channel_id AND tab=?1
             ORDER BY published DESC
             LIMIT 100
             ",
         )?;
     } else {
-        values = rusqlite::params_from_iter(tags.iter());
+        for tag in tags {
+            let tag = params![*tag];
+            values.extend_from_slice(tag);
+        }
 
         stmt = conn.prepare(&build_bulk_stmt(
             StatementType::GetLatestVideos,
             &["tag_name"],
-            tags,
+            2..=values.len(),
         ))?;
     }
     let mut videos = Vec::new();
 
-    for video in stmt.query_map(values, |row| {
+    for video in stmt.query_map(values.as_slice(), |row| {
         Ok(Video {
             channel_name: Some(row.get(5)?),
             video_id: row.get(0)?,
@@ -449,7 +470,7 @@ pub fn update_channels_of_tag(
     }
 
     if !values.is_empty() {
-        let query = build_bulk_stmt(StatementType::AddToTag, &columns, &values);
+        let query = build_bulk_stmt(StatementType::AddToTag, &columns, 1..=values.len());
         conn.execute(&query, values.as_slice())?;
     }
 
@@ -469,7 +490,7 @@ pub fn update_channels_of_tag(
         values.extend_from_slice(v);
     }
 
-    let query = build_bulk_stmt(StatementType::RemoveFromTag, &columns, &values);
+    let query = build_bulk_stmt(StatementType::RemoveFromTag, &columns, 1..=values.len());
     conn.execute(&query, values.as_slice())?;
 
     Ok(())

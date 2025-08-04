@@ -234,11 +234,8 @@ impl Api for Instance {
         channel_id: &str,
         present_videos: HashSet<String>,
     ) -> Result<ChannelFeed> {
-        let mut feed = ChannelFeed {
-            channel_title: None,
-            channel_id: Some(channel_id.to_owned()),
-            videos: self.get_more_videos_helper(channel_id).await?,
-        };
+        let mut feed =
+            ChannelFeed::new(channel_id).videos(self.get_more_videos_helper(channel_id).await?);
 
         let new_video_present = |videos: &[Video]| {
             !videos

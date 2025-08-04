@@ -421,21 +421,19 @@ impl Api for Local {
             videos.drain(..);
         }
 
+        let mut feed = ChannelFeed::new(channel_id)
+            .channel_title(channel_title)
+            .videos(videos);
+
         if OPTIONS.shorts_tab && self.shorts_available {
-            let shorts = self.get_shorts_tab(channel_id).await?;
-            videos.extend(shorts);
+            feed.shorts = self.get_shorts_tab(channel_id).await?;
         }
 
         if OPTIONS.streams_tab && self.streams_available {
-            let streams = self.get_streams_tab(channel_id).await?;
-            videos.extend(streams);
+            feed.live_streams = self.get_streams_tab(channel_id).await?;
         }
 
-        Ok(ChannelFeed {
-            channel_title,
-            channel_id: Some(channel_id.to_string()),
-            videos,
-        })
+        Ok(feed)
     }
 
     async fn get_rss_feed_of_channel(&self, channel_id: &str) -> Result<ChannelFeed> {

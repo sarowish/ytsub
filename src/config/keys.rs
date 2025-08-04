@@ -98,6 +98,8 @@ impl Default for KeyBindings {
         insert_binding!(general, "right", Command::OnRight);
         insert_binding!(general, "g", Command::SelectFirst);
         insert_binding!(general, "G", Command::SelectLast);
+        insert_binding!(general, "L", Command::NextTab);
+        insert_binding!(general, "H", Command::PreviousTab);
         insert_binding!(general, "c", Command::JumpToChannel);
         insert_binding!(general, "t", Command::ToggleHide);
         insert_binding!(general, "i", Command::Subscribe);

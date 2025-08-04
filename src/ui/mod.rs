@@ -140,7 +140,36 @@ fn draw_videos(f: &mut Frame, app: &mut App, area: Rect) {
             (area, None)
         };
 
-    let videos = app
+    let mut block = Block::default()
+        .borders(Borders::ALL)
+        .border_style(match app.selected {
+            Selected::Channels => Style::default(),
+            Selected::Videos => THEME.selected_block,
+        });
+
+    let mut title = TitleBuilder::new(video_area.width.into())
+        .hide_flag(app.hide_videos.contains(HideVideos::WATCHED));
+
+    if let Mode::LatestVideos = app.mode {
+        let selected_tags = app.tags.get_selected_items();
+        title = title.title("Latest Videos".into()).tags(selected_tags);
+    } else if let Some(channel) = app.get_current_channel() {
+        title = title.title(channel.channel_name.clone());
+    }
+
+    if let Some(tab) = app.tabs.get_selected() {
+        let title = title.list(&tab.videos).tabs(&app.tabs).build_title();
+        block = block.title(title);
+    } else {
+        f.render_widget(block.title(title.build_title()), video_area);
+        return;
+    };
+
+    let Some(tab) = app.tabs.get_mut_selected() else {
+        return;
+    };
+
+    let videos = tab
         .videos
         .items
         .iter()
@@ -179,32 +208,8 @@ fn draw_videos(f: &mut Frame, app: &mut App, area: Rect) {
         })
         .collect::<Vec<Row>>();
 
-    let title = TitleBuilder::new(video_area.width.into())
-        .hide_flag(app.hide_videos.contains(HideVideos::WATCHED))
-        .list(&app.videos);
-
-    let title = if let Mode::LatestVideos = app.mode {
-        let selected_tags = app.tags.get_selected_items();
-        title
-            .title("Latest Videos".into())
-            .tags(selected_tags)
-            .build_title()
-    } else if let Some(channel) = app.get_current_channel() {
-        title.title(channel.channel_name.clone()).build_title()
-    } else {
-        Vec::default()
-    };
-
     let videos = Table::new(videos, shown_columns.iter().map(|c| c.constraint))
-        .block(
-            Block::default()
-                .borders(Borders::ALL)
-                .title(title)
-                .border_style(match app.selected {
-                    Selected::Channels => Style::default(),
-                    Selected::Videos => THEME.selected_block,
-                }),
-        )
+        .block(block)
         .header(Row::new(shown_columns.iter().map(|c| c.header)).style(THEME.header))
         .column_spacing(2)
         .highlight_symbol(&*OPTIONS.highlight_symbol)
@@ -213,7 +218,7 @@ fn draw_videos(f: &mut Frame, app: &mut App, area: Rect) {
                 Selected::Channels => THEME.selected,
                 Selected::Videos => THEME.focused,
             };
-            if let Some(video) = app.get_current_video()
+            if let Some(video) = tab.videos.get_selected()
                 && video.watched
             {
                 let overriding_style = match app.selected {
@@ -227,7 +232,7 @@ fn draw_videos(f: &mut Frame, app: &mut App, area: Rect) {
             style
         });
 
-    f.render_stateful_widget(videos, video_area, &mut app.videos.state);
+    f.render_stateful_widget(videos, video_area, &mut tab.videos.state);
 
     if let Some(area) = video_info_area {
         draw_video_info(f, app, area);

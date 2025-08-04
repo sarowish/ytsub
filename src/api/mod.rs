@@ -14,12 +14,26 @@ use serde::Deserialize;
 use serde_json::Value;
 use std::{collections::HashSet, fmt::Display, io::Write, path::PathBuf, sync::LazyLock};
 
-#[derive(Deserialize, PartialEq)]
+#[derive(Deserialize, PartialEq, Debug, Clone, Copy)]
 #[serde(rename_all(deserialize = "lowercase"))]
 pub enum ChannelTab {
     Videos,
     Shorts,
     Streams,
+}
+
+impl Display for ChannelTab {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                ChannelTab::Videos => "Videos",
+                ChannelTab::Shorts => "Shorts",
+                ChannelTab::Streams => "Live",
+            }
+        )
+    }
 }
 
 #[derive(Default, Deserialize)]
@@ -30,6 +44,8 @@ pub struct ChannelFeed {
     pub channel_id: Option<String>,
     #[serde(rename = "entry")]
     pub videos: Vec<Video>,
+    pub live_streams: Vec<Video>,
+    pub shorts: Vec<Video>,
 }
 
 impl ChannelFeed {
@@ -38,6 +54,16 @@ impl ChannelFeed {
             channel_id: Some(channel_id.to_owned()),
             ..Self::default()
         }
+    }
+
+    pub fn channel_title(mut self, channel_title: Option<String>) -> Self {
+        self.channel_title = channel_title;
+        self
+    }
+
+    pub fn videos(mut self, videos: Vec<Video>) -> Self {
+        self.videos = videos;
+        self
     }
 
     pub fn extend_videos(&mut self, videos: Vec<Video>) {
