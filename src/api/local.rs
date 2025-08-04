@@ -75,48 +75,24 @@ fn extract_shorts_tab(value: &[Value]) -> Result<Vec<Video>> {
     let mut videos: Vec<Video> = Vec::new();
 
     for video in value {
-        let video = &video["richItemRenderer"]["content"]["reelItemRenderer"];
+        let video = &video["richItemRenderer"]["content"]["shortsLockupViewModel"];
 
-        let title = video["headline"]["simpleText"]
+        let title = video["overlayMetadata"]["primaryText"]["content"]
             .as_str()
             .unwrap()
             .to_string();
-        let video_id = video["videoId"].as_str().unwrap().to_string();
-
-        let published_text = &video["navigationEndpoint"]["reelWatchEndpoint"]["overlay"]["reelPlayerOverlayRenderer"]
-            ["reelPlayerHeaderSupportedRenderers"]["reelPlayerHeaderRenderer"]["timestampText"]["simpleText"];
-
-        if published_text.is_null() {
-            return Ok(Vec::new());
-        }
-        let published = utils::published(published_text.as_str().unwrap())?;
-
-        let accessibility = video["accessibility"]["accessibilityData"]["label"]
+        let video_id = video["onTap"]["innertubeCommand"]["reelWatchEndpoint"]["videoId"]
             .as_str()
             .unwrap()
             .to_string();
-        let accessibility = accessibility.split(" - ").collect::<Vec<&str>>();
-
-        let length_text = accessibility[accessibility.len() - 2];
-        let mut length = 0;
-
-        for t in length_text.split(", ") {
-            let (num, time_frame) = t.split_once(' ').unwrap();
-
-            if time_frame == "minute" {
-                length = 60;
-            } else {
-                length += num.parse::<u32>().unwrap();
-            }
-        }
 
         videos.push(Video {
             channel_name: None,
             video_id,
             title,
-            published,
+            published: utils::now()?,
             published_text: String::new(),
-            length: Some(length),
+            length: None,
             watched: false,
             new: true,
         });
