@@ -5,9 +5,9 @@ use crate::{
 use anyhow::Result;
 use rusqlite::{Connection, params};
 
-const LATEST_USER_VERSION: u8 = 2;
+const LATEST_USER_VERSION: u8 = 3;
 
-pub fn initialize_db(conn: &Connection) -> Result<()> {
+pub fn initialize_db(conn: &mut Connection) -> Result<()> {
     conn.pragma_update(None, "foreign_keys", "on")?;
 
     let current_user_version =
@@ -20,7 +20,7 @@ pub fn initialize_db(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
-fn apply_migration(conn: &Connection, current_user_version: u8) -> Result<()> {
+fn apply_migration(conn: &mut Connection, current_user_version: u8) -> Result<()> {
     match current_user_version {
         0 => {
             conn.execute(
@@ -76,7 +76,39 @@ fn apply_migration(conn: &Connection, current_user_version: u8) -> Result<()> {
             conn.execute("ALTER TABLE channels ADD COLUMN last_refreshed INTEGER", [])?;
             conn.pragma_update(None, "user_version", 2)?;
         }
-        _ => panic!(),
+        2 => {
+            let tx = conn.transaction()?;
+
+            tx.execute("ALTER TABLE videos ADD COLUMN tab INTEGER DEFAULT 0", [])?;
+            tx.execute("ALTER TABLE videos ADD COLUMN members_only BOOL", [])?;
+
+            {
+                let mut stmt = tx.prepare("SELECT video_id FROM videos WHERE watched=true")?;
+
+                let watched_videos = stmt
+                    .query_map([], |row| row.get::<usize, String>(0))?
+                    .filter_map(Result::ok)
+                    .collect::<Vec<_>>();
+
+                tx.execute(
+                    "CREATE TABLE IF NOT EXISTS watched (video_id TEXT PRIMARY KEY)",
+                    [],
+                )?;
+
+                if !watched_videos.is_empty() {
+                    let query =
+                        build_bulk_stmt(StatementType::AddWatched, &["video_id"], &watched_videos);
+                    tx.execute(&query, rusqlite::params_from_iter(watched_videos.iter()))?;
+                }
+
+                tx.execute("ALTER TABLE videos DROP COLUMN watched", [])?;
+            }
+
+            tx.pragma_update(None, "user_version", 3)?;
+
+            tx.commit()?;
+        }
+        _ => unreachable!(),
     }
 
     Ok(())
@@ -140,6 +172,7 @@ enum StatementType {
     RemoveFromTag,
     GetChannels,
     GetLatestVideos,
+    AddWatched,
 }
 
 fn build_bulk_stmt<T>(query_type: StatementType, columns: &[&str], values: &[T]) -> String {
@@ -181,7 +214,8 @@ fn build_bulk_stmt<T>(query_type: StatementType, columns: &[&str], values: &[T])
             "
         ),
         StatementType::GetLatestVideos => format!(
-            "SELECT DISTINCT video_id, title, published, length, watched, channel_name
+            "SELECT DISTINCT video_id, title, published, length, channel_name,
+            EXISTS (SELECT * FROM watched WHERE watched.video_id=videos.video_id)
             FROM videos, channels, tag_relations
             WHERE videos.channel_id = channels.channel_id AND tag_relations.tag_name IN ({values_string})
             AND tag_relations.channel_id=channels.channel_id
@@ -189,18 +223,16 @@ fn build_bulk_stmt<T>(query_type: StatementType, columns: &[&str], values: &[T])
             LIMIT 100
             "
         ),
+        StatementType::AddWatched => format!(
+            "INSERT INTO watched ({columns_str})
+            VALUES {values_string}
+            "
+        )
     }
 }
 
 pub fn add_videos(conn: &Connection, channel_id: &str, videos: &[Video]) -> Result<()> {
-    let columns = [
-        "video_id",
-        "channel_id",
-        "title",
-        "published",
-        "length",
-        "watched",
-    ];
+    let columns = ["video_id", "channel_id", "title", "published", "length"];
 
     let mut videos_values = Vec::with_capacity(videos.len() * columns.len());
     for video in videos {
@@ -210,7 +242,6 @@ pub fn add_videos(conn: &Connection, channel_id: &str, videos: &[Video]) -> Resu
             video.title,
             video.published,
             video.length,
-            video.watched,
         ];
         videos_values.extend_from_slice(values);
     }
@@ -265,7 +296,7 @@ pub fn get_channels(conn: &Connection, tags: &[&str]) -> Result<Vec<Channel>> {
 
 pub fn get_videos(conn: &Connection, channel_id: &str) -> Result<Vec<Video>> {
     let mut stmt = conn.prepare(
-        "SELECT video_id, title, published, length, watched
+        "SELECT videos.video_id, title, published, length, EXISTS (SELECT * FROM watched WHERE watched.video_id=videos.video_id)
         FROM videos
         WHERE channel_id=?1
         ORDER BY published DESC
@@ -298,7 +329,7 @@ pub fn get_latest_videos(conn: &Connection, tags: &[&str]) -> Result<Vec<Video>>
         values = rusqlite::params_from_iter([].iter());
 
         stmt = conn.prepare(
-            "SELECT video_id, title, published, length, watched, channel_name
+            "SELECT video_id, title, published, length, channel_name, EXISTS (SELECT * FROM watched WHERE watched.video_id=videos.video_id)
             FROM videos, channels
             WHERE videos.channel_id = channels.channel_id
             ORDER BY published DESC
@@ -318,13 +349,13 @@ pub fn get_latest_videos(conn: &Connection, tags: &[&str]) -> Result<Vec<Video>>
 
     for video in stmt.query_map(values, |row| {
         Ok(Video {
-            channel_name: Some(row.get(5)?),
+            channel_name: Some(row.get(4)?),
             video_id: row.get(0)?,
             title: row.get(1)?,
             published: row.get(2)?,
             published_text: utils::published_text(row.get(2)?).unwrap_or_default(),
             length: row.get(3)?,
-            watched: row.get(4)?,
+            watched: row.get(5)?,
             new: false,
         })
     })? {
@@ -335,8 +366,13 @@ pub fn get_latest_videos(conn: &Connection, tags: &[&str]) -> Result<Vec<Video>>
 }
 
 pub fn set_watched_field(conn: &Connection, video_id: &str, watched: bool) -> Result<()> {
-    let mut stmt = conn.prepare("UPDATE videos SET watched=?1 WHERE video_id=?2")?;
-    stmt.execute(params![watched, video_id])?;
+    let mut stmt = if watched {
+        conn.prepare("INSERT INTO watched (video_id) VALUES (?1)")?
+    } else {
+        conn.prepare("DELETE FROM watched WHERE video_id=?1")?
+    };
+
+    stmt.execute(params![video_id])?;
     Ok(())
 }
 

@@ -86,7 +86,7 @@ impl App {
             );
         }
 
-        database::initialize_db(&app.conn)?;
+        database::initialize_db(&mut app.conn)?;
         app.set_mode_subs();
         app.load_channels();
         app.on_change_channel();
@@ -133,13 +133,11 @@ impl App {
         let mut to_be_added = HashSet::new();
         let mut added_new_video = false;
 
-        for mut video in channel_feed.videos.drain(..) {
+        for video in channel_feed.videos.drain(..) {
             if let Some(p_video) = present_videos
                 .iter()
                 .find(|p_video| p_video.video_id == video.video_id)
             {
-                video.watched = p_video.watched;
-
                 if p_video.needs_update(&video) {
                     to_be_added.insert(video.published);
                 }
