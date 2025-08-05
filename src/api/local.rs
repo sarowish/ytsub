@@ -56,6 +56,16 @@ fn extract_videos_tab(value: &[Value]) -> Result<Vec<Video>> {
             .to_string();
         let length = utils::length_as_seconds(&length);
 
+        let badges = video["badges"].as_array();
+
+        let members_only = badges.is_some_and(|badges| {
+            badges.iter().any(|badge| {
+                badge["metadataBadgeRenderer"]["style"]
+                    .as_str()
+                    .is_some_and(|s| s == "BADGE_STYLE_TYPE_MEMBERS_ONLY")
+            })
+        });
+
         videos.push(Video {
             channel_name: None,
             video_id,
@@ -64,6 +74,7 @@ fn extract_videos_tab(value: &[Value]) -> Result<Vec<Video>> {
             published_text: published_text.unwrap_or_default(),
             length: Some(length),
             watched: false,
+            members_only,
             new: true,
         });
     }
@@ -94,6 +105,7 @@ fn extract_shorts_tab(value: &[Value]) -> Result<Vec<Video>> {
             published_text: String::new(),
             length: None,
             watched: false,
+            members_only: false,
             new: true,
         });
     }
@@ -145,6 +157,7 @@ fn extract_streams_tab(value: &[Value]) -> Result<Vec<Video>> {
             published_text: String::new(),
             length: Some(length),
             watched: false,
+            members_only: false,
             new: true,
         });
     }

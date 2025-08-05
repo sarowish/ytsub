@@ -2413,6 +2413,7 @@ version = "0.6.0"
 dependencies = [
  "anyhow",
  "async-trait",
+ "bitflags",
  "chrono",
  "clap",
  "crossterm 0.29.0",

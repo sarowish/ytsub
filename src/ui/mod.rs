@@ -1,4 +1,5 @@
 use crate::app::{App, Mode, Selected, StatefulList};
+use crate::channel::HideVideos;
 use crate::help::HelpWindowState;
 use crate::input::InputMode;
 use crate::message::MessageType;
@@ -157,6 +158,10 @@ fn draw_videos(f: &mut Frame, app: &mut App, area: Rect) {
                         if video.new { " [N]" } else { "" },
                         THEME.new_video_indicator,
                     ),
+                    Span::styled(
+                        if video.members_only { " [M]" } else { "" },
+                        THEME.members_only_indicator,
+                    ),
                 ])),
                 Cell::from(Span::raw(if let Some(length) = video.length {
                     crate::utils::length_as_hhmmss(length)
@@ -175,7 +180,7 @@ fn draw_videos(f: &mut Frame, app: &mut App, area: Rect) {
         .collect::<Vec<Row>>();
 
     let title = TitleBuilder::new(video_area.width.into())
-        .hide_flag(app.hide_watched)
+        .hide_flag(app.hide_videos.contains(HideVideos::WATCHED))
         .list(&app.videos);
 
     let title = if let Mode::LatestVideos = app.mode {

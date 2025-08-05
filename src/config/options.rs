@@ -22,6 +22,7 @@ pub struct UserOptions {
     mpv_path: Option<PathBuf>,
     vlc_path: Option<PathBuf>,
     hide_watched: Option<bool>,
+    hide_members_only: Option<bool>,
     subtitle_languages: Option<Vec<String>>,
     prefer_dash_formats: Option<bool>,
     #[serde(deserialize_with = "deserialize_video_quality")]
@@ -47,6 +48,7 @@ pub struct Options {
     pub mpv_path: PathBuf,
     pub vlc_path: PathBuf,
     pub hide_watched: bool,
+    pub hide_members_only: bool,
     pub subtitle_languages: Vec<String>,
     pub prefer_dash_formats: bool,
     pub video_quality: u16,
@@ -97,6 +99,7 @@ impl Default for Options {
             mpv_path: PathBuf::from("mpv"),
             vlc_path: PathBuf::from("vlc"),
             hide_watched: false,
+            hide_members_only: false,
             subtitle_languages: Vec::new(),
             prefer_dash_formats: true,
             video_quality: u16::MAX,
@@ -137,6 +140,7 @@ impl From<UserOptions> for Options {
         set_options_field!(request_timeout);
         set_options_field!(highlight_symbol);
         set_options_field!(hide_watched);
+        set_options_field!(hide_members_only);
         set_options_field!(video_player_for_stream_formats);
         set_options_field!(mpv_path);
         set_options_field!(vlc_path);

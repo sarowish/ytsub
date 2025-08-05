@@ -1,5 +1,5 @@
 use crate::api::{ApiBackend, ChannelFeed};
-use crate::channel::{Channel, ListItem, RefreshState, Video};
+use crate::channel::{Channel, HideVideos, ListItem, RefreshState, Video};
 use crate::help::HelpWindowState;
 use crate::import::{self, ImportItem};
 use crate::input::InputMode;
@@ -44,7 +44,7 @@ pub struct App {
     new_video_ids: HashSet<String>,
     channels_with_new_videos: HashSet<String>,
     search: Search,
-    pub hide_watched: bool,
+    pub hide_videos: HideVideos,
     io_tx: UnboundedSender<IoEvent>,
     pub channel_selection: SelectionList<Channel>,
     pub stream_formats: Formats,
@@ -52,6 +52,13 @@ pub struct App {
 
 impl App {
     pub fn new(io_tx: UnboundedSender<IoEvent>) -> Result<Self> {
+        let hide_videos = match (OPTIONS.hide_watched, OPTIONS.hide_members_only) {
+            (true, true) => HideVideos::all(),
+            (true, false) => HideVideos::WATCHED,
+            (false, true) => HideVideos::MEMBERS_ONLY,
+            (false, false) => HideVideos::empty(),
+        };
+
         let mut app = Self {
             channels: StatefulList::with_items(Vec::default()),
             videos: StatefulList::with_items(Vec::default()),
@@ -68,7 +75,7 @@ impl App {
             search: Search::default(),
             new_video_ids: HashSet::default(),
             channels_with_new_videos: HashSet::default(),
-            hide_watched: OPTIONS.hide_watched,
+            hide_videos,
             io_tx,
             help_window_state: HelpWindowState::new(),
             import_state: SelectionList::default(),
@@ -315,7 +322,7 @@ impl App {
     }
 
     pub fn toggle_hide(&mut self) {
-        self.hide_watched = !self.hide_watched;
+        self.hide_videos.toggle(HideVideos::WATCHED);
         self.reload_videos();
     }
 
@@ -400,10 +407,23 @@ impl App {
         };
         match videos {
             Ok(videos) => {
-                self.videos.items = if self.hide_watched {
-                    videos.into_iter().filter(|video| !video.watched).collect()
-                } else {
+                self.videos.items = if self.hide_videos.is_empty() {
                     videos
+                } else {
+                    let f = if self
+                        .hide_videos
+                        .contains(HideVideos::WATCHED | HideVideos::MEMBERS_ONLY)
+                    {
+                        |video: &Video| !(video.watched || video.members_only)
+                    } else if self.hide_videos.contains(HideVideos::WATCHED) {
+                        |video: &Video| !video.watched
+                    } else if self.hide_videos.contains(HideVideos::MEMBERS_ONLY) {
+                        |video: &Video| !video.members_only
+                    } else {
+                        unreachable!()
+                    };
+
+                    videos.into_iter().filter(f).collect()
                 };
 
                 let mut count = 0;
@@ -428,7 +448,9 @@ impl App {
         let current_video = self.get_current_video();
 
         let id_of_current_video = match current_video {
-            Some(current_video) if self.hide_watched && current_video.watched => {
+            Some(current_video)
+                if self.hide_videos.contains(HideVideos::WATCHED) && current_video.watched =>
+            {
                 // if the currently selected video is watched, jump to the first unwatched video above
                 let mut index = self.videos.state.selected().unwrap();
                 loop {

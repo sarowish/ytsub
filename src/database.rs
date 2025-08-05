@@ -232,7 +232,14 @@ fn build_bulk_stmt<T>(query_type: StatementType, columns: &[&str], values: &[T])
 }
 
 pub fn add_videos(conn: &Connection, channel_id: &str, videos: &[Video]) -> Result<()> {
-    let columns = ["video_id", "channel_id", "title", "published", "length"];
+    let columns = [
+        "video_id",
+        "channel_id",
+        "title",
+        "published",
+        "length",
+        "members_only",
+    ];
 
     let mut videos_values = Vec::with_capacity(videos.len() * columns.len());
     for video in videos {
@@ -242,6 +249,7 @@ pub fn add_videos(conn: &Connection, channel_id: &str, videos: &[Video]) -> Resu
             video.title,
             video.published,
             video.length,
+            video.members_only,
         ];
         videos_values.extend_from_slice(values);
     }
@@ -296,7 +304,8 @@ pub fn get_channels(conn: &Connection, tags: &[&str]) -> Result<Vec<Channel>> {
 
 pub fn get_videos(conn: &Connection, channel_id: &str) -> Result<Vec<Video>> {
     let mut stmt = conn.prepare(
-        "SELECT videos.video_id, title, published, length, EXISTS (SELECT * FROM watched WHERE watched.video_id=videos.video_id)
+        "SELECT videos.video_id, title, published, length, members_only,
+        EXISTS (SELECT * FROM watched WHERE watched.video_id=videos.video_id)
         FROM videos
         WHERE channel_id=?1
         ORDER BY published DESC
@@ -311,7 +320,8 @@ pub fn get_videos(conn: &Connection, channel_id: &str) -> Result<Vec<Video>> {
             published: row.get(2)?,
             published_text: utils::published_text(row.get(2)?).unwrap_or_default(),
             length: row.get(3)?,
-            watched: row.get(4)?,
+            watched: row.get(5)?,
+            members_only: row.get(4).unwrap_or_default(),
             new: false,
         })
     })? {
@@ -329,7 +339,8 @@ pub fn get_latest_videos(conn: &Connection, tags: &[&str]) -> Result<Vec<Video>>
         values = rusqlite::params_from_iter([].iter());
 
         stmt = conn.prepare(
-            "SELECT video_id, title, published, length, channel_name, EXISTS (SELECT * FROM watched WHERE watched.video_id=videos.video_id)
+            "SELECT video_id, title, published, length, members_only, channel_name,
+            EXISTS (SELECT * FROM watched WHERE watched.video_id=videos.video_id)
             FROM videos, channels
             WHERE videos.channel_id = channels.channel_id
             ORDER BY published DESC
@@ -349,13 +360,14 @@ pub fn get_latest_videos(conn: &Connection, tags: &[&str]) -> Result<Vec<Video>>
 
     for video in stmt.query_map(values, |row| {
         Ok(Video {
-            channel_name: Some(row.get(4)?),
+            channel_name: Some(row.get(5)?),
             video_id: row.get(0)?,
             title: row.get(1)?,
             published: row.get(2)?,
             published_text: utils::published_text(row.get(2)?).unwrap_or_default(),
             length: row.get(3)?,
-            watched: row.get(5)?,
+            watched: row.get(6)?,
+            members_only: row.get(4).unwrap_or_default(),
             new: false,
         })
     })? {

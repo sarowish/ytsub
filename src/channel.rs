@@ -1,4 +1,5 @@
 use crate::THEME;
+use bitflags::bitflags;
 use chrono::DateTime;
 use ratatui::text::{Line, Span};
 use serde::{Deserialize, de};
@@ -82,6 +83,13 @@ where
     Ok(date.timestamp() as u64)
 }
 
+bitflags! {
+    pub struct HideVideos: u8 {
+        const WATCHED      = 0b0001;
+        const MEMBERS_ONLY = 0b0010;
+    }
+}
+
 #[derive(Deserialize)]
 pub struct Video {
     #[serde(skip_deserializing)]
@@ -97,6 +105,8 @@ pub struct Video {
     #[serde(skip_deserializing)]
     pub watched: bool,
     #[serde(skip_deserializing)]
+    pub members_only: bool,
+    #[serde(skip_deserializing)]
     pub new: bool,
 }
 
@@ -111,7 +121,9 @@ impl Video {
     }
 
     pub fn needs_update(&self, other: &Video) -> bool {
-        self.title != other.title || self.length != other.length
+        self.title != other.title
+            || self.length != other.length
+            || self.members_only != other.members_only
     }
 }
 
@@ -148,6 +160,7 @@ impl From<&Value> for Video {
             published_text,
             length: Some(length as u32),
             watched: false,
+            members_only: false,
             new: true,
         }
     }

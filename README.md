@@ -109,6 +109,7 @@ tick_rate = 10 # Tick rate in milliseconds
 request_timeout = 5 # Request timeout in seconds
 highlight_symbol = "" # Symbol to highlight selected items
 hide_watched = false # Hide watched videos by default
+hide_members_only = false # Hide members only videos
 video_player_for_stream_formats = "mpv" # Video player to use to play streams [possible values: mpv, vlc]
 mpv_path = "mpv" # Path to mpv
 vlc_path = "vlc" # Path to vlc
@@ -170,6 +171,10 @@ fg = "DarkGray"
 # New video indicator
 [new_video_indicator]
 fg = "Red"
+modifiers = "italic"
+# Members only video indicator
+[members_only_indicator]
+fg = "Green"
 modifiers = "italic"
 # Border of selected block
 [selected_block]
