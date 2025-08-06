@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Highlight new video indicators.
 - Add a command to load more videos for channels.
 - Automatically set Invidious instance when trying to open Invidous page in browser.
+- Update video title when refreshing if there is a change.
 
 ### Changed
 - Reduce `tick_rate` default value to 10 milliseconds.

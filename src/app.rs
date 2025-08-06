@@ -140,10 +140,7 @@ impl App {
             {
                 video.watched = p_video.watched;
 
-                if p_video.length.is_none() && video.length.is_some()
-                    || matches!(p_video.length, Some(length) if length == 0)
-                        && matches!(video.length, Some(length) if length != 0)
-                {
+                if p_video.needs_update(&video) {
                     to_be_added.insert(video.published);
                 }
             } else {
