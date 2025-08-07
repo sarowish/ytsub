@@ -111,10 +111,7 @@ impl Video {
     }
 
     pub fn needs_update(&self, other: &Video) -> bool {
-        self.title != other.title
-            || self.length.is_none() && other.length.is_some()
-            || matches!(self.length, Some(length) if length == 0)
-                && matches!(other.length, Some(length) if length != 0)
+        self.title != other.title || self.length != other.length
     }
 }
 
