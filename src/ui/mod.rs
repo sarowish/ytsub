@@ -1,5 +1,5 @@
 use crate::app::{App, Mode, Selected, StatefulList};
-use crate::channel::HideVideos;
+use crate::channel::{HideVideos, tabs_to_be_loaded};
 use crate::help::HelpWindowState;
 use crate::input::InputMode;
 use crate::message::MessageType;
@@ -158,12 +158,17 @@ fn draw_videos(f: &mut Frame, app: &mut App, area: Rect) {
     }
 
     if let Some(tab) = app.tabs.get_selected() {
-        let title = title.list(&tab.videos).tabs(&app.tabs).build_title();
-        block = block.title(title);
+        title = title.list(&tab.videos);
+
+        if tabs_to_be_loaded().count() > 1 {
+            title = title.tabs(&app.tabs);
+        }
+
+        block = block.title(title.build_title());
     } else {
         f.render_widget(block.title(title.build_title()), video_area);
         return;
-    };
+    }
 
     let Some(tab) = app.tabs.get_mut_selected() else {
         return;
