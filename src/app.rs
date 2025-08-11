@@ -197,19 +197,23 @@ impl App {
     }
 
     pub fn get_more_videos(&mut self) {
-        if OPTIONS.videos_tab
-            && let Some(current_channel) = self.channels.get_selected()
-            && let Some(videos) = self.tabs.get_videos()
+        if let Some(current_channel) = self.channels.get_selected()
+            && let Some(tab) = self.tabs.get_selected()
         {
             self.message.set_message("Fetching videos");
             let channel_id = current_channel.channel_id.clone();
-            let present_videos = videos
+            let present_videos = tab
+                .videos
                 .items
                 .iter()
                 .map(|video| video.video_id.clone())
                 .collect();
 
-            self.dispatch(IoEvent::LoadMoreVideos(channel_id, present_videos));
+            self.dispatch(IoEvent::LoadMoreVideos(
+                channel_id,
+                tab.variant,
+                present_videos,
+            ));
         }
     }
 
@@ -1446,10 +1450,6 @@ impl Tabs {
         if idx.is_some() {
             self.state.select(idx);
         }
-    }
-
-    fn get_videos(&self) -> Option<&StatefulList<Video, TableState>> {
-        self.get_selected().map(|tab| &tab.videos)
     }
 
     fn get_videos_mut(&mut self) -> Option<&mut StatefulList<Video, TableState>> {

@@ -84,8 +84,21 @@ impl Instance {
         Ok(Video::vec_from_json(&videos_array))
     }
 
-    async fn get_more_videos_helper(&mut self, channel_id: &str) -> Result<Vec<Video>> {
-        let url = format!("{}/api/v1/channels/{}/videos", self.domain, channel_id,);
+    async fn get_more_videos_helper(
+        &mut self,
+        channel_id: &str,
+        tab: ChannelTab,
+    ) -> Result<Vec<Video>> {
+        let url = format!(
+            "{}/api/v1/channels/{}/{}",
+            self.domain,
+            channel_id,
+            match tab {
+                ChannelTab::Videos => "videos",
+                ChannelTab::Shorts => "shorts",
+                ChannelTab::Streams => "streams",
+            }
+        );
         let mut request = self.client.get(&url);
 
         if let Some(token) = &self.continuation {
@@ -201,10 +214,17 @@ impl Api for Instance {
     async fn get_more_videos(
         &mut self,
         channel_id: &str,
+        tab: ChannelTab,
         present_videos: HashSet<String>,
     ) -> Result<ChannelFeed> {
-        let mut feed =
-            ChannelFeed::new(channel_id).videos(self.get_more_videos_helper(channel_id).await?);
+        let mut feed = ChannelFeed::new(channel_id);
+        let videos = self.get_more_videos_helper(channel_id, tab).await?;
+
+        match tab {
+            ChannelTab::Videos => feed.videos = videos,
+            ChannelTab::Shorts => feed.shorts = videos,
+            ChannelTab::Streams => feed.live_streams = videos,
+        }
 
         let new_video_present = |videos: &[Video]| {
             !videos
@@ -217,10 +237,10 @@ impl Api for Instance {
         }
 
         while self.continuation.is_some()
-            && let Ok(videos) = self.get_more_videos_helper(channel_id).await
+            && let Ok(videos) = self.get_more_videos_helper(channel_id, tab).await
         {
             let new = new_video_present(&videos);
-            feed.extend_videos(videos);
+            feed.extend_videos(videos, tab);
 
             if new {
                 return Ok(feed);

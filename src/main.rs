@@ -17,6 +17,7 @@ mod stream_formats;
 mod ui;
 mod utils;
 
+use crate::api::ChannelTab;
 use crate::config::Config;
 use crate::config::keys::KeyBindings;
 use crate::config::options::Options;
@@ -263,7 +264,7 @@ pub enum IoEvent {
     SubscribeToChannel(String),
     ImportChannels(Vec<String>),
     RefreshChannels(Vec<String>),
-    LoadMoreVideos(String, HashSet<String>),
+    LoadMoreVideos(String, ChannelTab, HashSet<String>),
     FetchFormats(String, String, bool),
     PlayFromFormats(Box<Formats>),
     PlayUsingYtdlp(String),

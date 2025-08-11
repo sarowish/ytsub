@@ -66,15 +66,29 @@ impl ChannelFeed {
         self
     }
 
-    pub fn extend_videos(&mut self, videos: Vec<Video>) {
+    pub fn get_videos(&self, tab: ChannelTab) -> &[Video] {
+        match tab {
+            ChannelTab::Videos => &self.videos,
+            ChannelTab::Shorts => &self.shorts,
+            ChannelTab::Streams => &self.live_streams,
+        }
+    }
+
+    pub fn extend_videos(&mut self, videos: Vec<Video>, tab: ChannelTab) {
         let Some(published_of_first) = videos.first().map(|video| video.published_text.clone())
         else {
             return;
         };
 
-        self.videos.extend(videos);
+        let present_videos = match tab {
+            ChannelTab::Videos => &mut self.videos,
+            ChannelTab::Shorts => &mut self.shorts,
+            ChannelTab::Streams => &mut self.live_streams,
+        };
 
-        self.videos
+        present_videos.extend(videos);
+
+        present_videos
             .iter_mut()
             .filter(|video| video.published_text == published_of_first)
             .for_each(|video| {
@@ -437,6 +451,7 @@ pub trait Api: Sync + Send + DynClone {
     async fn get_more_videos(
         &mut self,
         channel_id: &str,
+        tab: ChannelTab,
         present_videos: HashSet<String>,
     ) -> Result<ChannelFeed>;
     async fn get_video_formats(&self, video_id: &str) -> Result<VideoInfo>;

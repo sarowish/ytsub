@@ -1,6 +1,6 @@
 use crate::{
     IoEvent, OPTIONS,
-    api::{Api, ApiBackend, ChannelFeed, invidious::Instance, local::Local},
+    api::{Api, ApiBackend, ChannelFeed, ChannelTab, invidious::Instance, local::Local},
     channel::RefreshState,
     message::MessageType,
     player::{self, open_in_invidious, open_in_youtube, play_from_formats, play_using_ytdlp},
@@ -105,11 +105,11 @@ impl Client {
                     let instance = self.instance();
                     tokio::spawn(async move { refresh_channels(instance, ids).await });
                 }
-                IoEvent::LoadMoreVideos(id, present_videos) => {
+                IoEvent::LoadMoreVideos(id, tab, present_videos) => {
                     let instance = self.instance();
-                    tokio::spawn(
-                        async move { get_more_videos(instance, &id, present_videos).await },
-                    );
+                    tokio::spawn(async move {
+                        get_more_videos(instance, &id, tab, present_videos).await
+                    });
                 }
                 IoEvent::FetchFormats(title, video_id, play_selected) => {
                     let instance = self.instance();
@@ -337,11 +337,12 @@ async fn refresh_channels(instance: Box<dyn Api>, channel_ids: Vec<String>) -> R
 async fn get_more_videos(
     mut instance: Box<dyn Api>,
     id: &str,
+    tab: ChannelTab,
     present: HashSet<String>,
 ) -> Result<()> {
-    match instance.get_more_videos(id, present).await {
+    match instance.get_more_videos(id, tab, present).await {
         Ok(feed) => {
-            if feed.videos.is_empty() {
+            if feed.get_videos(tab).is_empty() {
                 emit_msg!(warning, "There are no videos to load");
             } else {
                 emit_msg!();

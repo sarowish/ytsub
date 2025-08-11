@@ -1,4 +1,4 @@
-use super::{Api, ApiBackend, ChannelFeed, Chapters, Format, VideoInfo};
+use super::{Api, ApiBackend, ChannelFeed, ChannelTab, Chapters, Format, VideoInfo};
 use crate::channel::ListItem;
 use crate::stream_formats::Formats;
 use crate::{OPTIONS, channel::Video, utils};
@@ -295,7 +295,8 @@ impl Local {
             return Ok(Vec::new());
         };
 
-        if extract_continuation_token(shorts).is_some() {
+        if let Some(token) = extract_continuation_token(shorts) {
+            self.continuation = Some(token);
             shorts = shorts.split_last().unwrap().1;
         }
 
@@ -316,14 +317,15 @@ impl Local {
             return Ok(Vec::new());
         };
 
-        if extract_continuation_token(streams).is_some() {
+        if let Some(token) = extract_continuation_token(streams) {
+            self.continuation = Some(token);
             streams = streams.split_last().unwrap().1;
         }
 
         extract_streams_tab(streams)
     }
 
-    async fn get_continuation(&mut self) -> Result<Vec<Video>> {
+    async fn get_continuation(&mut self, tab: ChannelTab) -> Result<Vec<Video>> {
         let Some(continuation_token) = &self.continuation else {
             return Err(anyhow::anyhow!("No continuation token"));
         };
@@ -344,7 +346,11 @@ impl Local {
             videos = videos.split_last().unwrap().1;
         }
 
-        extract_videos_tab(videos)
+        match tab {
+            ChannelTab::Videos => extract_videos_tab(videos),
+            ChannelTab::Shorts => extract_shorts_tab(videos),
+            ChannelTab::Streams => extract_streams_tab(videos),
+        }
     }
 
     pub async fn get_caption(
@@ -406,8 +412,8 @@ impl Api for Local {
         let mut channel_feed = self.get_videos_of_channel(channel_id).await?;
 
         if OPTIONS.videos_tab && self.continuation.is_some() {
-            let videos = self.get_continuation().await?;
-            channel_feed.extend_videos(videos);
+            let videos = self.get_continuation(ChannelTab::Videos).await?;
+            channel_feed.extend_videos(videos, ChannelTab::Videos);
         }
 
         Ok(channel_feed)
@@ -416,6 +422,7 @@ impl Api for Local {
     async fn get_videos_of_channel(&mut self, channel_id: &str) -> Result<ChannelFeed> {
         let mut channel_title = None;
         let mut videos = self.get_videos_tab(channel_id, &mut channel_title).await?;
+        let continuation = self.continuation.take();
 
         if !OPTIONS.videos_tab {
             videos.drain(..);
@@ -433,6 +440,8 @@ impl Api for Local {
             feed.live_streams = self.get_streams_tab(channel_id).await?;
         }
 
+        self.continuation = continuation;
+
         Ok(feed)
     }
 
@@ -449,9 +458,16 @@ impl Api for Local {
     async fn get_more_videos(
         &mut self,
         channel_id: &str,
+        tab: ChannelTab,
         present_videos: HashSet<String>,
     ) -> Result<ChannelFeed> {
-        let mut feed = self.get_videos_of_channel(channel_id).await?;
+        let mut feed = ChannelFeed::new(channel_id);
+
+        match tab {
+            ChannelTab::Videos => feed.videos = self.get_videos_tab(channel_id, &mut None).await?,
+            ChannelTab::Shorts => feed.shorts = self.get_shorts_tab(channel_id).await?,
+            ChannelTab::Streams => feed.live_streams = self.get_streams_tab(channel_id).await?,
+        }
 
         let new_video_present = |videos: &[Video]| {
             !videos
@@ -463,9 +479,9 @@ impl Api for Local {
             return Ok(feed);
         }
 
-        while let Ok(videos) = self.get_continuation().await {
+        while let Ok(videos) = self.get_continuation(tab).await {
             let new = new_video_present(&videos);
-            feed.extend_videos(videos);
+            feed.extend_videos(videos, tab);
 
             if new {
                 return Ok(feed);
