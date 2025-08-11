@@ -510,13 +510,12 @@ impl App {
 
     pub fn reload_videos(&mut self) {
         let Some(tab) = self.tabs.get_selected() else {
+            self.load_videos();
             return;
         };
-
-        let current_video = self.get_current_video();
         let current_tab = tab.variant;
 
-        let id_of_current_video = match current_video {
+        let id_of_current_video = match tab.videos.get_selected() {
             Some(current_video)
                 if self.hide_videos.contains(HideVideos::WATCHED) && current_video.watched =>
             {
