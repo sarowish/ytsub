@@ -398,9 +398,9 @@ pub fn get_latest_videos(conn: &Connection, tags: &[&str], tab: ChannelTab) -> R
     Ok(videos)
 }
 
-pub fn set_watched_field(conn: &Connection, video_id: &str, watched: bool) -> Result<()> {
+pub fn add_watched(conn: &Connection, video_id: &str, watched: bool) -> Result<()> {
     let mut stmt = if watched {
-        conn.prepare("INSERT INTO watched (video_id) VALUES (?1)")?
+        conn.prepare("INSERT OR IGNORE INTO watched (video_id) VALUES (?1)")?
     } else {
         conn.prepare("DELETE FROM watched WHERE video_id=?1")?
     };

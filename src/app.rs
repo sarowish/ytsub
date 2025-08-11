@@ -320,7 +320,7 @@ impl App {
             video.watched = is_watched;
         }
 
-        if let Err(e) = database::set_watched_field(&self.conn, video_id, is_watched) {
+        if let Err(e) = database::add_watched(&self.conn, video_id, is_watched) {
             self.set_error_message(&e.to_string());
         }
     }
