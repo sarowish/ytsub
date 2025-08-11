@@ -201,13 +201,23 @@ impl App {
             && let Some(tab) = self.tabs.get_selected()
         {
             self.message.set_message("Fetching videos");
+
             let channel_id = current_channel.channel_id.clone();
-            let present_videos = tab
-                .videos
-                .items
-                .iter()
-                .map(|video| video.video_id.clone())
-                .collect();
+            let present_videos = if self.hide_videos.is_empty() {
+                tab.videos
+                    .items
+                    .iter()
+                    .map(|video| video.video_id.clone())
+                    .collect()
+            } else {
+                match database::get_videos(&self.conn, &current_channel.channel_id, tab.variant) {
+                    Ok(videos) => videos.into_iter().map(|video| video.video_id).collect(),
+                    Err(e) => {
+                        self.set_error_message(&e.to_string());
+                        return;
+                    }
+                }
+            };
 
             self.dispatch(IoEvent::LoadMoreVideos(
                 channel_id,
