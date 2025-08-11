@@ -192,7 +192,7 @@ impl App {
                 self.channels_with_new_videos.insert(channel_id.to_string());
             }
         } else if !videos.is_empty() {
-            self.load_videos();
+            self.load_videos(true);
         }
     }
 
@@ -293,7 +293,7 @@ impl App {
         if !matches!(self.mode, Mode::LatestVideos) {
             self.mode = Mode::LatestVideos;
             self.selected = Selected::Videos;
-            self.load_videos();
+            self.load_videos(false);
             self.select_first();
         }
     }
@@ -396,36 +396,36 @@ impl App {
         self.dispatch(IoEvent::OpenInBrowser(url_component, api));
     }
 
-    fn get_videos_of_current_channel(&self) -> Result<Tabs> {
-        let mut tabs = Tabs::default();
+    fn get_videos_of_current_channel(&self) -> Result<TabList> {
+        let mut tabs = Vec::with_capacity(3);
 
         if let Some(channel) = self.get_current_channel() {
             if OPTIONS.videos_tab {
-                tabs.add_tab(
+                tabs.push((
                     database::get_videos(&self.conn, &channel.channel_id, ChannelTab::Videos)?,
                     ChannelTab::Videos,
-                );
+                ));
             }
 
             if OPTIONS.shorts_tab {
-                tabs.add_tab(
+                tabs.push((
                     database::get_videos(&self.conn, &channel.channel_id, ChannelTab::Shorts)?,
                     ChannelTab::Shorts,
-                );
+                ));
             }
 
             if OPTIONS.streams_tab {
-                tabs.add_tab(
+                tabs.push((
                     database::get_videos(&self.conn, &channel.channel_id, ChannelTab::Streams)?,
                     ChannelTab::Streams,
-                );
+                ));
             }
         }
 
         Ok(tabs)
     }
 
-    fn get_latest_videos(&self) -> Result<Tabs> {
+    fn get_latest_videos(&self) -> Result<Vec<(Vec<Video>, ChannelTab)>> {
         let selected_tags: Vec<&str> = self
             .tags
             .get_selected_items()
@@ -433,41 +433,47 @@ impl App {
             .map(|tag| tag.as_str())
             .collect();
 
-        let mut tabs = Tabs::default();
+        let mut tabs = Vec::with_capacity(3);
 
         if OPTIONS.videos_tab {
-            tabs.add_tab(
+            tabs.push((
                 database::get_latest_videos(&self.conn, &selected_tags, ChannelTab::Videos)?,
                 ChannelTab::Videos,
-            );
+            ));
         }
 
         if OPTIONS.shorts_tab {
-            tabs.add_tab(
+            tabs.push((
                 database::get_latest_videos(&self.conn, &selected_tags, ChannelTab::Shorts)?,
                 ChannelTab::Shorts,
-            );
+            ));
         }
 
         if OPTIONS.streams_tab {
-            tabs.add_tab(
+            tabs.push((
                 database::get_latest_videos(&self.conn, &selected_tags, ChannelTab::Streams)?,
                 ChannelTab::Streams,
-            );
+            ));
         }
 
         Ok(tabs)
     }
 
-    pub fn load_videos(&mut self) {
+    pub fn load_videos(&mut self, preserve_tabs_state: bool) {
         let tabs = match self.mode {
             Mode::Subscriptions => self.get_videos_of_current_channel(),
             Mode::LatestVideos => self.get_latest_videos(),
         };
 
         match tabs {
-            Ok(mut tabs) => {
-                for tab in &mut tabs.items {
+            Ok(tabs) => {
+                if preserve_tabs_state {
+                    self.tabs.update_videos(tabs);
+                } else {
+                    self.tabs = Tabs::new(tabs);
+                }
+
+                for tab in &mut self.tabs.items {
                     if !self.hide_videos.is_empty() {
                         let f = if self
                             .hide_videos
@@ -497,9 +503,6 @@ impl App {
                         }
                     }
                 }
-
-                self.tabs = tabs;
-                self.tabs.select_first();
             }
             Err(e) => {
                 self.tabs.items.clear();
@@ -510,7 +513,7 @@ impl App {
 
     pub fn reload_videos(&mut self) {
         let Some(tab) = self.tabs.get_selected() else {
-            self.load_videos();
+            self.load_videos(false);
             return;
         };
         let current_tab = tab.variant;
@@ -538,7 +541,7 @@ impl App {
             None => None,
         };
 
-        self.load_videos();
+        self.load_videos(false);
         self.tabs.select_tab(current_tab);
 
         let Some(tab) = self.tabs.get_mut_selected() else {
@@ -554,11 +557,7 @@ impl App {
     }
 
     pub fn on_change_channel(&mut self) {
-        self.load_videos();
-
-        if let Some(videos) = self.tabs.get_videos_mut() {
-            videos.reset_state();
-        }
+        self.load_videos(false);
     }
 
     pub fn set_channel_refresh_state(&mut self, channel_id: &str, refresh_state: RefreshState) {
@@ -1384,6 +1383,8 @@ pub enum VideoPlayer {
     Vlc,
 }
 
+type TabList = Vec<(Vec<Video>, ChannelTab)>;
+
 pub struct Tab {
     pub variant: ChannelTab,
     pub videos: StatefulList<Video, TableState>,
@@ -1404,9 +1405,38 @@ impl Tab {
 pub struct Tabs(StatefulList<Tab, ListState>);
 
 impl Tabs {
-    pub fn add_tab(&mut self, videos: Vec<Video>, tab: ChannelTab) {
-        if !videos.is_empty() {
-            self.items.push(Tab::new(tab, videos));
+    pub fn new(tabs: TabList) -> Self {
+        Self(StatefulList::with_items(
+            tabs.into_iter()
+                .filter(|(videos, _)| !videos.is_empty())
+                .map(|(videos, variant)| Tab::new(variant, videos))
+                .collect(),
+        ))
+    }
+
+    pub fn update_videos(&mut self, tabs: TabList) {
+        for (mut idx, (videos, variant)) in
+            tabs.into_iter().filter(|(v, _)| !v.is_empty()).enumerate()
+        {
+            if let Some(tab) = self.items.get_mut(idx)
+                && tab.variant == variant
+            {
+                tab.videos.items = videos;
+            } else {
+                while self
+                    .items
+                    .get(idx)
+                    .is_some_and(|tab| (tab.variant as u8) < variant as u8)
+                {
+                    idx += 1;
+                }
+
+                self.items.insert(idx, Tab::new(variant, videos));
+            }
+        }
+
+        if self.state.selected().is_none() {
+            self.select_first();
         }
     }
 
