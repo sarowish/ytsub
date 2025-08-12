@@ -151,7 +151,7 @@ impl Api for Instance {
                 .get_tab_of_channel(channel_id, ChannelTab::Videos)
                 .await
         {
-            channel_feed.videos.extend(videos);
+            channel_feed.videos = videos;
         }
 
         if OPTIONS.shorts_tab {
@@ -159,7 +159,7 @@ impl Api for Instance {
                 .get_tab_of_channel(channel_id, ChannelTab::Shorts)
                 .await
             {
-                Ok(videos) => channel_feed.videos.extend(videos),
+                Ok(shorts) => channel_feed.shorts = shorts,
                 Err(e) => {
                     return Err(anyhow::anyhow!(e));
                 }
@@ -167,11 +167,11 @@ impl Api for Instance {
         }
 
         if OPTIONS.streams_tab
-            && let Ok(videos) = self
+            && let Ok(streams) = self
                 .get_tab_of_channel(channel_id, ChannelTab::Streams)
                 .await
         {
-            channel_feed.videos.extend(videos);
+            channel_feed.live_streams = streams;
         }
 
         Ok(channel_feed)
@@ -204,19 +204,19 @@ impl Api for Instance {
         }
 
         if OPTIONS.shorts_tab
-            && let Ok(videos) = self
+            && let Ok(shorts) = self
                 .get_tab_of_channel(channel_id, ChannelTab::Shorts)
                 .await
         {
-            channel_feed.videos.extend(videos);
+            channel_feed.shorts = shorts;
         }
 
         if OPTIONS.streams_tab
-            && let Ok(videos) = self
+            && let Ok(streams) = self
                 .get_tab_of_channel(channel_id, ChannelTab::Streams)
                 .await
         {
-            channel_feed.videos.extend(videos);
+            channel_feed.live_streams = streams;
         }
 
         Ok(channel_feed)
