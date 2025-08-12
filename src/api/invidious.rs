@@ -68,21 +68,7 @@ impl Instance {
             }
         );
 
-        let response = self
-            .client
-            .get(&url)
-            .query(&[(
-                "fields",
-                &format!(
-                    "{}(title,videoId,published,lengthSeconds,isUpcoming,premiereTimestamp)",
-                    match tab {
-                        ChannelTab::Videos => "latestVideos",
-                        _ => "videos",
-                    },
-                ),
-            )])
-            .send()
-            .await?;
+        let response = self.client.get(&url).send().await?;
         let mut value = response.error_for_status()?.json::<Value>().await?;
 
         let videos_array = match tab {
@@ -103,19 +89,13 @@ impl Instance {
 
     async fn get_more_videos_helper(&mut self, channel_id: &str) -> Result<Vec<Video>> {
         let url = format!("{}/api/v1/channels/{}/videos", self.domain, channel_id,);
-        let mut query = vec![(
-            "fields",
-            "videos(title,videoId,published,publishedText,lengthSeconds,isUpcoming,premiereTimestamp)",
-        )];
-
-        let continuation_token;
+        let mut request = self.client.get(&url);
 
         if let Some(token) = &self.continuation {
-            continuation_token = token.to_owned();
-            query.push(("continuation", &continuation_token));
+            request = request.query(&[("continuation", token)]);
         }
 
-        let response = self.client.get(&url).query(&query).send().await?;
+        let response = request.send().await?;
         let value = response.error_for_status()?.json::<Value>().await?;
 
         self.continuation = value
@@ -180,15 +160,7 @@ impl Api for Instance {
     async fn get_videos_for_the_first_time(&mut self, channel_id: &str) -> Result<ChannelFeed> {
         let mut channel_feed;
         let url = format!("{}/api/v1/channels/{}/videos", self.domain, channel_id,);
-        let response = self
-            .client
-            .get(&url)
-            .query(&[(
-                "fields",
-                "videos(author,title,videoId,published,lengthSeconds,isUpcoming,premiereTimestamp)",
-            )])
-            .send()
-            .await?;
+        let response = self.client.get(&url).send().await?;
 
         match response.error_for_status() {
             Ok(response) => channel_feed = ChannelFeed::from(response.json::<Value>().await?),
