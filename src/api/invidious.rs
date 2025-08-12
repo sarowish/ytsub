@@ -62,7 +62,7 @@ impl Instance {
             self.domain,
             channel_id,
             match tab {
-                ChannelTab::Videos => "",
+                ChannelTab::Videos => "videos",
                 ChannelTab::Shorts => "shorts",
                 ChannelTab::Streams => "streams",
             }
@@ -71,10 +71,7 @@ impl Instance {
         let response = self.client.get(&url).send().await?;
         let mut value = response.error_for_status()?.json::<Value>().await?;
 
-        let videos_array = match tab {
-            ChannelTab::Videos => value["latestVideos"].take(),
-            _ => value["videos"].take(),
-        };
+        let videos_array = value["videos"].take();
 
         // if the key doesn't exist, assume that the tab is not available
         if (videos_array.get(0))

@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Rename `play_videos` command to `play_using_ytdlp` and swap its default
 key binding with `play_from_formats` command.
 - Change the default value of the `rss_threshold` option to 9999.
+- Use videos endpoint in the Invidious API to get the videos tab
 
 ### Fixed
 - Don't block when resolving channel ids.
