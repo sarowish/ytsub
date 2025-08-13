@@ -25,7 +25,7 @@ pub struct UserOptions {
     hide_members_only: Option<bool>,
     subtitle_languages: Option<Vec<String>>,
     prefer_dash_formats: Option<bool>,
-    #[serde(deserialize_with = "deserialize_video_quality")]
+    #[serde(default, deserialize_with = "deserialize_video_quality")]
     video_quality: Option<u16>,
     preferred_video_codec: Option<VideoFormat>,
     preferred_audio_codec: Option<VideoFormat>,

@@ -28,6 +28,7 @@ key binding with `play_from_formats` command.
 - Add new videos in the correct order.
 - Preserve the order of videos videos when subscribing.
 - Ignore key release events.
+- Make the `video_quality` option in the config file optional.
 
 ## [0.6.0] - 2025-06-29
 ### Added
