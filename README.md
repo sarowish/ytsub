@@ -118,6 +118,7 @@ vlc_path = "vlc" # Path to vlc
 # the options below apply only while playing stream formats
 subtitle_languages = [] # Subtitle languages to add
 prefer_dash_formats = true # Use adaptive formats
+prefer_original_audio = true # Use original audio tracks
 video_quality = "best" # Preferred video quality
 # the commented out options below are `None` by default
 # preferred_video_codec = "webm" # [possible values: webm, mp4]

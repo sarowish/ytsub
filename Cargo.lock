@@ -2432,6 +2432,7 @@ version = "0.6.0"
 dependencies = [
  "anyhow",
  "async-trait",
+ "base64",
  "bitflags",
  "chrono",
  "clap",
@@ -2440,6 +2441,7 @@ dependencies = [
  "dirs",
  "dyn-clone",
  "futures-util",
+ "itertools",
  "libc",
  "num_cpus",
  "open",

@@ -37,6 +37,7 @@ pub struct UserOptions {
     hide_members_only: Option<bool>,
     subtitle_languages: Option<Vec<String>>,
     prefer_dash_formats: Option<bool>,
+    prefer_original_audio: Option<bool>,
     #[serde(default, deserialize_with = "deserialize_video_quality")]
     video_quality: Option<u16>,
     preferred_video_codec: Option<VideoFormat>,
@@ -62,6 +63,7 @@ pub struct Options {
     pub hide_members_only: bool,
     pub subtitle_languages: Vec<String>,
     pub prefer_dash_formats: bool,
+    pub prefer_original_audio: bool,
     pub video_quality: u16,
     pub preferred_video_codec: Option<VideoFormat>,
     pub preferred_audio_codec: Option<VideoFormat>,
@@ -112,6 +114,7 @@ impl Default for Options {
             hide_members_only: false,
             subtitle_languages: Vec::new(),
             prefer_dash_formats: true,
+            prefer_original_audio: true,
             video_quality: u16::MAX,
             preferred_video_codec: None,
             preferred_audio_codec: None,
@@ -152,6 +155,7 @@ impl From<UserOptions> for Options {
         set_options_field!(vlc_path);
         set_options_field!(subtitle_languages);
         set_options_field!(prefer_dash_formats);
+        set_options_field!(prefer_original_audio);
         set_options_field!(video_quality);
         set_options_field!(preferred_video_codec |);
         set_options_field!(preferred_audio_codec |);

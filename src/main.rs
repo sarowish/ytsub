@@ -11,6 +11,7 @@ mod import;
 mod input;
 mod message;
 mod player;
+mod protobuf;
 mod ro_cell;
 mod search;
 mod stream_formats;

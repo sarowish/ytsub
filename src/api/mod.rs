@@ -2,7 +2,9 @@ pub mod invidious;
 pub mod local;
 
 use crate::{
+    OPTIONS,
     channel::{ChannelTab, ListItem, Video},
+    protobuf::decode_protobuf,
     stream_formats::Formats,
     utils,
 };
@@ -108,6 +110,14 @@ impl VideoInfo {
     }
 }
 
+fn extract_track_type(format: &Value) -> Option<String> {
+    format
+        .get("xtags")
+        .and_then(Value::as_str)
+        .and_then(decode_protobuf)
+        .and_then(|v| v["1"][0]["2"].as_str().map(ToOwned::to_owned))
+}
+
 pub enum Format {
     Video {
         url: String,
@@ -168,7 +178,12 @@ impl Format {
         let language = format_json.get("audioTrack").map(|audio_track| {
             (
                 audio_track["displayName"].as_str().unwrap().to_string(),
-                audio_track["audioIsDefault"].as_bool().unwrap(),
+                OPTIONS
+                    .prefer_original_audio
+                    .then(|| extract_track_type(format_json).map(|s| s == "original"))
+                    .flatten()
+                    .or(audio_track["audioIsDefault"].as_bool())
+                    .unwrap_or_default(),
             )
         });
 
