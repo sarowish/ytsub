@@ -161,34 +161,54 @@ impl Format {
     }
 
     pub fn from_audio(format_json: &Value, api_backend: ApiBackend) -> Self {
+        let url = format_json["url"].as_str().unwrap().to_string();
         let mime_type;
         let bitrate;
+        let language;
 
         match api_backend {
             ApiBackend::Local => {
                 mime_type = &format_json["mimeType"];
                 bitrate = format_json["bitrate"].as_u64().unwrap().to_string();
+                language = format_json.get("audioTrack").map(|audio_track| {
+                    (
+                        audio_track["displayName"].as_str().unwrap().to_string(),
+                        OPTIONS
+                            .prefer_original_audio
+                            .then(|| extract_track_type(format_json).map(|s| s == "original"))
+                            .flatten()
+                            .or(audio_track["audioIsDefault"].as_bool())
+                            .unwrap_or_default(),
+                    )
+                });
             }
             ApiBackend::Invidious => {
                 mime_type = &format_json["type"];
                 bitrate = format_json["bitrate"].as_str().unwrap().to_string();
+                let mut default = None;
+                let mut lang = None;
+
+                if let Some(param) = utils::params_from_url(&url)
+                    .ok()
+                    .as_mut()
+                    .and_then(|params| params.remove("xtags"))
+                {
+                    param
+                        .split(':')
+                        .filter_map(|param| param.split_once('='))
+                        .for_each(|(key, value)| match key {
+                            "acont" => default = Some(value == "original"),
+                            "lang" => lang = Some(value.to_owned()),
+                            _ => {}
+                        });
+                };
+
+                language = lang.zip(default);
             }
         }
 
-        let language = format_json.get("audioTrack").map(|audio_track| {
-            (
-                audio_track["displayName"].as_str().unwrap().to_string(),
-                OPTIONS
-                    .prefer_original_audio
-                    .then(|| extract_track_type(format_json).map(|s| s == "original"))
-                    .flatten()
-                    .or(audio_track["audioIsDefault"].as_bool())
-                    .unwrap_or_default(),
-            )
-        });
-
         Format::Audio {
-            url: format_json["url"].as_str().unwrap().to_string(),
+            url,
             bitrate,
             r#type: mime_type.as_str().unwrap().to_string(),
             language,

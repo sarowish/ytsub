@@ -1,9 +1,11 @@
 use anyhow::{Result, bail};
 use serde_json::Value;
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Write};
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
+use url::Url;
 
 use crate::CONFIG;
 
@@ -125,6 +127,15 @@ pub fn length_as_seconds(length: &str) -> u32 {
     total
 }
 
+pub fn params_from_url(url: &str) -> Result<HashMap<String, String>> {
+    let parsed_url = Url::parse(url)?;
+
+    Ok(parsed_url
+        .query_pairs()
+        .map(|(k, v)| (k.to_string(), v.to_string()))
+        .collect())
+}
+
 pub fn length_as_hhmmss(length: u32) -> String {
     let seconds = length % 60;
     let minutes = (length / 60) % 60;
@@ -215,7 +226,27 @@ pub fn time_passed(time: u64) -> Result<u64> {
 
 #[cfg(test)]
 mod tests {
-    use super::{length_as_hhmmss, length_as_seconds, now, published, published_text};
+
+    use super::{
+        length_as_hhmmss, length_as_seconds, now, params_from_url, published, published_text,
+    };
+
+    #[test]
+    fn extract_params() {
+        let url = "https://example.com/products?page=2&sort=desc";
+        let params = params_from_url(url).ok();
+
+        assert_eq!(
+            params
+                .as_ref()
+                .and_then(|hm| hm.get("page").map(ToOwned::to_owned)),
+            Some(String::from("2"))
+        );
+        assert_eq!(
+            params.and_then(|hm| hm.get("sort").map(ToOwned::to_owned)),
+            Some(String::from("desc"))
+        );
+    }
 
     #[test]
     fn length_conversion() {
