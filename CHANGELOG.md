@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 key binding with `play_from_formats` command.
 - Change the default value of the `rss_threshold` option to 9999.
 - Use videos endpoint in the Invidious API to get the videos tab
+- Jump to the selected video when jumping with `jump_to_channel`.
 
 ### Fixed
 - Don't block when resolving channel ids.

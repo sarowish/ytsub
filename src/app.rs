@@ -645,15 +645,27 @@ impl App {
 
     pub fn jump_to_channel(&mut self) {
         if let Mode::LatestVideos = self.mode
-            && let Some(video) = self.get_current_video()
+            && let Some(tab) = self.tabs.get_selected()
+            && let Some(video) = tab.videos.get_selected()
             && let Some(channel_name) = &video.channel_name
         {
+            let tab = tab.variant;
+            let video_id = video.video_id.clone();
             let channel_name = channel_name.clone();
-            let index = self.find_channel_by_name(&channel_name).unwrap();
             self.mode = Mode::Subscriptions;
             self.selected = Selected::Videos;
-            self.channels.select_with_index(index);
-            self.on_change_channel();
+
+            if let Some(index) = self.find_channel_by_name(&channel_name) {
+                self.channels.select_with_index(index);
+                self.on_change_channel();
+                self.tabs.select_tab(tab);
+
+                if let Some(videos) = self.tabs.get_videos_mut()
+                    && let Some(index) = videos.find_by_id(&video_id)
+                {
+                    videos.select_with_index(index);
+                }
+            }
         }
     }
 
