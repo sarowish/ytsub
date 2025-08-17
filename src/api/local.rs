@@ -172,8 +172,9 @@ fn extract_shorts_tab(value: &[Value]) -> Result<Vec<Video>> {
 
     for video in value {
         let video = &video["richItemRenderer"]["content"]["shortsLockupViewModel"];
+        let overlay_metadata = &video["overlayMetadata"];
 
-        let title = video["overlayMetadata"]["primaryText"]["content"]
+        let title = overlay_metadata["primaryText"]["content"]
             .as_str()
             .unwrap()
             .to_string();
@@ -181,6 +182,10 @@ fn extract_shorts_tab(value: &[Value]) -> Result<Vec<Video>> {
             .as_str()
             .unwrap()
             .to_string();
+
+        let members_only = overlay_metadata["secondaryText"]["content"]
+            .as_str()
+            .is_some_and(|content| content.contains("Members only"));
 
         videos.push(Video {
             channel_name: None,
@@ -190,7 +195,7 @@ fn extract_shorts_tab(value: &[Value]) -> Result<Vec<Video>> {
             published_text: String::new(),
             length: None,
             watched: false,
-            members_only: false,
+            members_only,
             new: true,
         });
     }
@@ -228,6 +233,16 @@ fn extract_streams_tab(value: &[Value]) -> Result<Vec<Video>> {
             utils::length_as_seconds(&length_text)
         });
 
+        let badges = video["badges"].as_array();
+
+        let members_only = badges.is_some_and(|badges| {
+            badges.iter().any(|badge| {
+                badge["metadataBadgeRenderer"]["style"]
+                    .as_str()
+                    .is_some_and(|s| s == "BADGE_STYLE_TYPE_MEMBERS_ONLY")
+            })
+        });
+
         videos.push(Video {
             channel_name: None,
             video_id,
@@ -236,7 +251,7 @@ fn extract_streams_tab(value: &[Value]) -> Result<Vec<Video>> {
             published_text: String::new(),
             length: Some(length),
             watched: false,
-            members_only: false,
+            members_only,
             new: true,
         });
     }
