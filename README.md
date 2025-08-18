@@ -267,6 +267,7 @@ video_quality = "best" # Preferred video quality
 chapters = true # Get chapter information of videos
 
 # Theme
+[theme]
 
 # fg and bg fields can be set with rgb (ex: "255, 255, 255"),
 # hex (ex: "#ffffff") or named colors.
@@ -278,62 +279,44 @@ chapters = true # Get chapter information of videos
 # slow_blink, rapid_blink, reversed, hidden and crossed_out.
 
 # Example:
-# [title]
+# title = { fg = "#123456", bg = "10, 250, 99", modifiers = "bold reversed italic" }
+
+# Example with alternative syntax:
+# [theme.title]
 # fg = "#123456"
 # bg = "10, 250, 99"
 # modifiers = "bold reversed italic"
 
-# Example with alternative syntax:
-# title = { fg = "#123456", bg = "10, 250, 99", modifiers = "bold reversed italic" }
-
 # Block titles
-[title]
-fg = "Cyan"
-modifiers = "bold"
+title = { fg = "Cyan", modifiers = "bold" }
 # Channel, Title, Length and Date headers
-[header]
-fg = "Yellow"
-modifiers = "bold"
+header = { fg = "Yellow", modifiers = "bold" }
 # Selected item in inactive block
-[selected]
-fg = "Blue"
-modifiers = "bold"
+selected = { fg = "Blue", modifiers = "bold" }
 # Selected item in active block
-[focused]
-fg = "Magenta"
-modifiers = "bold"
+focused = { fg = "Magenta", modifiers = "bold" }
 # Watched videos
-[watched]
-fg = "DarkGray"
+watched = { fg = "DarkGray" }
 # Selected watched video in inactive block
 # Overrides the modifiers of [selected]. If fg and bg are set, they are patched to [selected]
-[selected_watched]
+selected_watched = {}
 # Selected watched video in active block
 # Overrides the modifiers of [focused]. If fg and bg are set, they are patched to [focused]
-[focused_watched]
+focused_watched = {}
 # New video indicator
-[new_video_indicator]
-fg = "Red"
-modifiers = "italic"
+new_video_indicator = { fg = "Red", modifiers = "italic" }
 # Members only video indicator
-[members_only_indicator]
-fg = "Green"
-modifiers = "italic"
+members_only_indicator = { fg = "Green", modifiers = "italic" }
 # Border of selected block
-[selected_block]
-fg = "Magenta"
+selected_block = { fg = "Magenta" }
 # Video info fields
-[video_info]
-fg = "Green"
+video_info = { fg = "Green" }
 # Error message
-[error]
-fg = "Red"
+error = { fg = "Red" }
 # Warning message
-[warning]
-fg = "Yellow"
+warning = { fg = "Yellow" }
 # Key bindings in the help window
-[help]
-fg = "Green"
+help = { fg = "Green" }
 
 # Key Bindings
 

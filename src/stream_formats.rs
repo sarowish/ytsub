@@ -1,4 +1,4 @@
-use crate::OPTIONS;
+use crate::CONFIG;
 use crate::api::Chapters;
 use crate::channel::ListItem;
 use crate::{
@@ -31,7 +31,7 @@ impl Formats {
             captions: SelectionList::new(video_info.captions),
             chapters: video_info.chapters,
             selected_tab: 0,
-            use_adaptive_streams: OPTIONS.prefer_dash_formats,
+            use_adaptive_streams: CONFIG.prefer_dash_formats,
         };
 
         formats.set_preferred();
@@ -43,8 +43,8 @@ impl Formats {
         let mut video_idx = None;
 
         for (idx, format) in self.video_formats.items.iter().enumerate() {
-            if let Some(preferred_codec) = &OPTIONS.preferred_video_codec {
-                if OPTIONS.video_quality == format.get_quality() {
+            if let Some(preferred_codec) = &CONFIG.preferred_video_codec {
+                if CONFIG.video_quality == format.get_quality() {
                     video_idx = Some(idx);
                 }
 
@@ -55,7 +55,7 @@ impl Formats {
                         _ => (),
                     }
                 }
-            } else if OPTIONS.video_quality == format.get_quality() {
+            } else if CONFIG.video_quality == format.get_quality() {
                 video_idx = Some(idx);
                 break;
             }
@@ -70,12 +70,12 @@ impl Formats {
             {
                 audio_idx = Some(idx);
 
-                if OPTIONS.preferred_audio_codec.is_none() {
+                if CONFIG.preferred_audio_codec.is_none() {
                     break;
                 }
             }
 
-            if OPTIONS
+            if CONFIG
                 .preferred_audio_codec
                 .as_ref()
                 .is_some_and(|preferred| *preferred == format.get_codec())
@@ -94,7 +94,7 @@ impl Formats {
             item.selected = true;
         }
 
-        for language in &OPTIONS.subtitle_languages {
+        for language in &CONFIG.subtitle_languages {
             if let Some(caption) = self
                 .captions
                 .items
@@ -106,7 +106,7 @@ impl Formats {
         }
 
         for caption in &mut self.captions.items {
-            if OPTIONS
+            if CONFIG
                 .subtitle_languages
                 .iter()
                 .any(|language| *language == caption.item.id() || matches!(caption.item.id().split_once('-'), Some((lang, _)) if lang == *language))

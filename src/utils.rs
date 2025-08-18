@@ -76,7 +76,7 @@ pub fn get_default_instances_file() -> Result<PathBuf> {
 
 pub async fn generate_instances_file() -> Result<()> {
     let instances = fetch_invidious_instances().await?;
-    let instances_file_path = &CONFIG.options.instances;
+    let instances_file_path = &CONFIG.instances;
     let instances_dir = instances_file_path.parent().unwrap();
 
     if !instances_dir.exists() {
@@ -104,7 +104,7 @@ pub async fn generate_instances_file() -> Result<()> {
 }
 
 pub fn read_instances() -> Result<Vec<String>> {
-    let file = File::open(&CONFIG.options.instances)?;
+    let file = File::open(&CONFIG.instances)?;
     let mut instances = Vec::new();
     for instance in BufReader::new(file).lines() {
         instances.push(instance?);

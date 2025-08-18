@@ -142,6 +142,9 @@ pub struct UserTheme {
     help: Option<UserStyle>,
 }
 
+#[derive(Deserialize)]
+#[serde(try_from = "UserTheme")]
+#[serde(default)]
 pub struct Theme {
     pub title: Style,
     pub header: Style,

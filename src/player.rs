@@ -2,7 +2,7 @@ use crate::TX;
 use crate::api::ApiBackend;
 use crate::client::{Client, ClientRequest};
 use crate::clipboard::{CopyStatus, copy_to_clipboard};
-use crate::{OPTIONS, api::Api, app::VideoPlayer, emit_msg, stream_formats::Formats};
+use crate::{CONFIG, api::Api, app::VideoPlayer, emit_msg, stream_formats::Formats};
 use anyhow::Result;
 use std::path::Path;
 use std::process::Stdio;
@@ -67,7 +67,7 @@ pub async fn play_from_formats(instance: Box<dyn Api>, formats: Formats) -> Resu
 pub async fn play_using_ytdlp(video_id: &str) -> Result<()> {
     let url = format!("{}/watch?v={}", "https://www.youtube.com", video_id);
 
-    let mut player_command = Command::new(&OPTIONS.mpv_path);
+    let mut player_command = Command::new(&CONFIG.mpv_path);
     player_command.arg(url);
 
     play_video(player_command, video_id).await
@@ -93,9 +93,9 @@ fn gen_video_player_command(
     title: &str,
 ) -> Command {
     let mut command;
-    match OPTIONS.video_player_for_stream_formats {
+    match CONFIG.video_player_for_stream_formats {
         VideoPlayer::Mpv => {
-            command = Command::new(&OPTIONS.mpv_path);
+            command = Command::new(&CONFIG.mpv_path);
             command
                 .arg(format!("--force-media-title={title}"))
                 .arg("--no-ytdl")
@@ -114,7 +114,7 @@ fn gen_video_player_command(
             }
         }
         VideoPlayer::Vlc => {
-            command = Command::new(&OPTIONS.vlc_path);
+            command = Command::new(&CONFIG.vlc_path);
             command
                 .arg("--no-video-title-show")
                 .arg(format!("--input-title-format={title}"))

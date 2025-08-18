@@ -1,5 +1,5 @@
 use crate::{
-    KEY_BINDINGS, OPTIONS,
+    CONFIG, KEY_BINDINGS,
     api::ApiBackend,
     app::{App, VideoPlayer},
     commands::{
@@ -239,7 +239,7 @@ fn handle_key_format_selection_mode(key: KeyEvent, app: &mut App) -> bool {
                 let formats = app.stream_formats.get_mut_selected_tab();
 
                 if tab_index == 2
-                    && matches!(OPTIONS.video_player_for_stream_formats, VideoPlayer::Mpv)
+                    && matches!(CONFIG.video_player_for_stream_formats, VideoPlayer::Mpv)
                 {
                     formats.toggle_selected();
                 } else {

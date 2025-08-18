@@ -1,5 +1,5 @@
 use super::{Api, ApiBackend, Chapters, Format, VideoInfo};
-use crate::OPTIONS;
+use crate::CONFIG;
 use crate::api::{ChannelFeed, ChannelTab};
 use crate::channel::Video;
 use crate::stream_formats::Formats;
@@ -32,7 +32,7 @@ impl Instance {
         let domain =
             invidious_instances[rng.random_range(0..invidious_instances.len())].to_string();
         let client = Client::builder()
-            .timeout(Duration::from_secs(OPTIONS.request_timeout))
+            .timeout(Duration::from_secs(CONFIG.request_timeout))
             .build()
             .unwrap();
 
@@ -95,7 +95,7 @@ impl Api for Instance {
     async fn get_videos_of_channel(&mut self, channel_id: &str) -> Result<ChannelFeed> {
         let mut channel_feed = ChannelFeed::new(channel_id);
 
-        for tab in OPTIONS.tabs.iter().map(|tab| tab.bits().into()) {
+        for tab in CONFIG.tabs.iter().map(|tab| tab.bits().into()) {
             let videos_array = self.get_tab_of_channel(channel_id, tab).await?;
 
             if let Some(videos) = extract_tab(&videos_array) {
@@ -109,7 +109,7 @@ impl Api for Instance {
     async fn get_videos_for_the_first_time(&mut self, channel_id: &str) -> Result<ChannelFeed> {
         let mut channel_feed = ChannelFeed::new(channel_id);
 
-        for tab in OPTIONS.tabs.iter().map(|tab| tab.bits().into()) {
+        for tab in CONFIG.tabs.iter().map(|tab| tab.bits().into()) {
             let videos_array = self.get_tab_of_channel(channel_id, tab).await?;
 
             if channel_feed.channel_title.is_none()
@@ -215,7 +215,7 @@ impl Api for Instance {
             .filter_map(|caption| Format::from_caption(caption, API_BACKEND))
             .collect();
 
-        let chapters = OPTIONS
+        let chapters = CONFIG
             .chapters
             .then(|| Chapters::try_from(value["description"].as_str()).ok())
             .flatten();

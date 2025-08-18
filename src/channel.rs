@@ -1,4 +1,4 @@
-use crate::{OPTIONS, THEME, config::options::EnabledTabs};
+use crate::{CONFIG, THEME, config::EnabledTabs};
 use bitflags::bitflags;
 use chrono::DateTime;
 use ratatui::text::{Line, Span};
@@ -40,8 +40,8 @@ impl Display for ChannelTab {
 }
 
 pub fn tabs_to_be_loaded() -> impl Iterator<Item = ChannelTab> {
-    if OPTIONS.hide_disabled_tabs {
-        OPTIONS.tabs.iter()
+    if CONFIG.hide_disabled_tabs {
+        CONFIG.tabs.iter()
     } else {
         EnabledTabs::all().iter()
     }

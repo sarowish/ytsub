@@ -24,7 +24,6 @@ mod utils;
 use crate::channel::ChannelTab;
 use crate::config::Config;
 use crate::config::keys::KeyBindings;
-use crate::config::options::Options;
 use crate::config::theme::Theme;
 use crate::emulator::Emulator;
 use crate::thumbnail::protocols::GraphicsProtocol;
@@ -68,7 +67,6 @@ static CONFIG: LazyLock<Config> = LazyLock::new(|| match Config::new() {
         std::process::exit(1);
     }
 });
-static OPTIONS: LazyLock<&Options> = LazyLock::new(|| &CONFIG.options);
 static KEY_BINDINGS: LazyLock<&KeyBindings> = LazyLock::new(|| &CONFIG.key_bindings);
 static THEME: LazyLock<&Theme> = LazyLock::new(|| &CONFIG.theme);
 static HELP: LazyLock<Help> = LazyLock::new(Help::new);
@@ -192,7 +190,7 @@ async fn run_tui(
     let mut client = client::Client::new(rx).await?;
     tokio::spawn(async move { client.run().await });
 
-    if OPTIONS.show_thumbnails {
+    if CONFIG.show_thumbnails {
         app.emulator = Emulator::new().await.ok();
         app.on_change_video();
     }
@@ -220,7 +218,7 @@ async fn run_tui(
             Some(event) = req_rx.recv() => {
                 handle_event(event, &mut app);
 
-                timeout = Duration::from_millis(OPTIONS.tick_rate).checked_sub(last_render.elapsed());
+                timeout = Duration::from_millis(CONFIG.tick_rate).checked_sub(last_render.elapsed());
 
                 if timeout.is_none() {
                     render(&mut app, terminal)?;

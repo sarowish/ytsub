@@ -1,5 +1,5 @@
 use crate::{
-    IoEvent, OPTIONS,
+    CONFIG, IoEvent,
     api::{Api, ApiBackend, ChannelFeed, invidious::Instance, local::Local},
     channel::{ChannelTab, RefreshState},
     message::MessageType,
@@ -91,7 +91,7 @@ impl Client {
             invidious_instances: utils::read_instances().ok(),
             invidious_instance: None,
             local_api: Local::new(),
-            selected_api: OPTIONS.api,
+            selected_api: CONFIG.api,
         };
 
         if let ApiBackend::Invidious = client.selected_api {
@@ -276,7 +276,7 @@ async fn import_channels(instance: Box<dyn Api>, channel_ids: Vec<String>) -> Re
         .unwrap();
 
         tokio::spawn(async move {
-            let feed = if total > OPTIONS.rss_threshold {
+            let feed = if total > CONFIG.rss_threshold {
                 instance.get_rss_feed_of_channel(&id)
             } else {
                 instance.get_videos_for_the_first_time(&id)
@@ -335,7 +335,7 @@ async fn refresh_channels(instance: Box<dyn Api>, channel_ids: Vec<String>) -> R
         .unwrap();
 
         tokio::spawn(async move {
-            let feed = if total > OPTIONS.rss_threshold {
+            let feed = if total > CONFIG.rss_threshold {
                 instance.get_rss_feed_of_channel(&id)
             } else {
                 instance.get_videos_of_channel(&id)

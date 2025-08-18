@@ -2,7 +2,7 @@ pub mod invidious;
 pub mod local;
 
 use crate::{
-    OPTIONS,
+    CONFIG,
     channel::{ChannelTab, ListItem, Video},
     protobuf::decode_protobuf,
     stream_formats::Formats,
@@ -173,7 +173,7 @@ impl Format {
                 language = format_json.get("audioTrack").map(|audio_track| {
                     (
                         audio_track["displayName"].as_str().unwrap().to_string(),
-                        OPTIONS
+                        CONFIG
                             .prefer_original_audio
                             .then(|| extract_track_type(format_json).map(|s| s == "original"))
                             .flatten()

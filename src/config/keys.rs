@@ -8,15 +8,16 @@ use serde::Deserialize;
 use std::collections::HashMap;
 use std::ops::{Deref, DerefMut};
 
-#[derive(Deserialize)]
+#[derive(Default, Deserialize)]
+#[serde(default)]
 pub struct UserKeyBindings {
     #[serde(flatten)]
-    general: Option<HashMap<String, String>>,
-    help: Option<HashMap<String, String>>,
-    import: Option<HashMap<String, String>>,
-    tag: Option<HashMap<String, String>>,
-    channel_selection: Option<HashMap<String, String>>,
-    format_selection: Option<HashMap<String, String>>,
+    general: HashMap<String, String>,
+    help: HashMap<String, String>,
+    import: HashMap<String, String>,
+    tag: HashMap<String, String>,
+    channel_selection: HashMap<String, String>,
+    format_selection: HashMap<String, String>,
 }
 
 fn parse_binding(binding: &str) -> Result<KeyEvent> {
@@ -61,7 +62,8 @@ fn parse_binding(binding: &str) -> Result<KeyEvent> {
     Ok(KeyEvent::new(code, modifiers))
 }
 
-#[derive(PartialEq, Eq, Debug)]
+#[derive(PartialEq, Eq, Debug, Deserialize)]
+#[serde(try_from = "UserKeyBindings")]
 pub struct KeyBindings {
     pub general: HashMap<KeyEvent, Command>,
     pub help: HashMap<KeyEvent, HelpCommand>,
@@ -209,29 +211,18 @@ impl TryFrom<UserKeyBindings> for KeyBindings {
     fn try_from(user_key_bindings: UserKeyBindings) -> Result<Self, Self::Error> {
         let mut key_bindings = KeyBindings::default();
 
-        if let Some(bindings) = user_key_bindings.general {
-            set_bindings(&mut key_bindings, &bindings)?;
-        }
-
-        if let Some(bindings) = user_key_bindings.help {
-            set_bindings(&mut key_bindings.help, &bindings)?;
-        }
-
-        if let Some(bindings) = user_key_bindings.import {
-            set_bindings(&mut key_bindings.import, &bindings)?;
-        }
-
-        if let Some(bindings) = user_key_bindings.tag {
-            set_bindings(&mut key_bindings.tag, &bindings)?;
-        }
-
-        if let Some(bindings) = user_key_bindings.channel_selection {
-            set_bindings(&mut key_bindings.channel_selection, &bindings)?;
-        }
-
-        if let Some(bindings) = user_key_bindings.format_selection {
-            set_bindings(&mut key_bindings.format_selection, &bindings)?;
-        }
+        set_bindings(&mut key_bindings, &user_key_bindings.general)?;
+        set_bindings(&mut key_bindings.help, &user_key_bindings.help)?;
+        set_bindings(&mut key_bindings.import, &user_key_bindings.import)?;
+        set_bindings(&mut key_bindings.tag, &user_key_bindings.tag)?;
+        set_bindings(
+            &mut key_bindings.channel_selection,
+            &user_key_bindings.channel_selection,
+        )?;
+        set_bindings(
+            &mut key_bindings.format_selection,
+            &user_key_bindings.format_selection,
+        )?;
 
         Ok(key_bindings)
     }
@@ -307,15 +298,11 @@ mod tests {
         use std::collections::HashMap;
 
         let mut user_key_bindings = UserKeyBindings {
-            general: Some(HashMap::new()),
-            help: None,
-            import: None,
-            tag: None,
-            channel_selection: None,
-            format_selection: None,
+            general: HashMap::new(),
+            ..Default::default()
         };
 
-        let general_bindings = user_key_bindings.general.as_mut().unwrap();
+        let general_bindings = &mut user_key_bindings.general;
 
         general_bindings.insert("l right".to_string(), "on_left".to_string());
 
@@ -351,18 +338,12 @@ mod tests {
         use std::collections::HashMap;
 
         let mut user_key_bindings = UserKeyBindings {
-            general: Some(HashMap::new()),
-            help: None,
-            import: None,
-            tag: None,
-            channel_selection: None,
-            format_selection: None,
+            general: HashMap::new(),
+            ..Default::default()
         };
 
         user_key_bindings
             .general
-            .as_mut()
-            .unwrap()
             .insert("q".to_string(), String::new());
 
         let key_bindings = KeyBindings::try_from(user_key_bindings).unwrap();

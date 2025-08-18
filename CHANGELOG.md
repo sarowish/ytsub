@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Don't render thumbnails on top of popup windows with kitty graphics protocol.
 - Correctly rerender images after they've been covered by popup windows.
 - Add missing help window key configuration.
+- **Breaking:** Exit if there are errors in the config file instead of silently falling back to the default config.
 
 ## [0.8.0] - 2026-03-16
 ### Added

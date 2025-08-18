@@ -1,8 +1,8 @@
 use super::{Api, ApiBackend, ChannelFeed, ChannelTab, Chapters, Format, VideoInfo};
 use crate::channel::ListItem;
-use crate::config::options::EnabledTabs;
+use crate::config::EnabledTabs;
 use crate::stream_formats::Formats;
-use crate::{OPTIONS, channel::Video, utils};
+use crate::{CONFIG, channel::Video, utils};
 use anyhow::{Result, bail};
 use async_trait::async_trait;
 use futures_util::future::join_all;
@@ -280,7 +280,7 @@ fn extract_videos_from_tab(tab: &Value) -> Option<&[Value]> {
 impl Local {
     pub fn new() -> Self {
         let client = Client::builder()
-            .timeout(Duration::from_secs(OPTIONS.request_timeout))
+            .timeout(Duration::from_secs(CONFIG.request_timeout))
             .build()
             .unwrap();
 
@@ -557,7 +557,7 @@ impl Api for Local {
     async fn get_videos_for_the_first_time(&mut self, channel_id: &str) -> Result<ChannelFeed> {
         let mut channel_feed = self.get_videos_of_channel(channel_id).await?;
 
-        if OPTIONS.tabs.contains(EnabledTabs::VIDEOS) && self.continuation.is_some() {
+        if CONFIG.tabs.contains(EnabledTabs::VIDEOS) && self.continuation.is_some() {
             let videos = self.get_continuation(ChannelTab::Videos).await?;
             channel_feed.extend_videos(videos, ChannelTab::Videos);
         }
@@ -570,7 +570,7 @@ impl Api for Local {
         let mut videos = self.get_videos_tab(channel_id, &mut channel_title).await?;
         let continuation = self.continuation.take();
 
-        if !OPTIONS.tabs.contains(EnabledTabs::VIDEOS) {
+        if !CONFIG.tabs.contains(EnabledTabs::VIDEOS) {
             videos.drain(..);
         }
 
@@ -578,11 +578,11 @@ impl Api for Local {
             .channel_title(channel_title)
             .videos(videos);
 
-        if OPTIONS.tabs.contains(EnabledTabs::SHORTS) && self.shorts_available {
+        if CONFIG.tabs.contains(EnabledTabs::SHORTS) && self.shorts_available {
             feed.shorts = self.get_shorts_tab(channel_id).await?;
         }
 
-        if OPTIONS.tabs.contains(EnabledTabs::STREAMS) && self.streams_available {
+        if CONFIG.tabs.contains(EnabledTabs::STREAMS) && self.streams_available {
             feed.live_streams = self.get_streams_tab(channel_id).await?;
         }
 
@@ -676,7 +676,7 @@ impl Api for Local {
             .filter_map(|caption| Format::from_caption(caption, API_BACKEND))
             .collect();
 
-        let chapters = OPTIONS
+        let chapters = CONFIG
             .chapters
             .then(|| Chapters::try_from(response["videoDetails"]["shortDescription"].as_str()).ok())
             .flatten();

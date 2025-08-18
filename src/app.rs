@@ -10,7 +10,7 @@ use crate::message::Message;
 use crate::search::{Search, SearchDirection, SearchState};
 use crate::stream_formats::Formats;
 use crate::thumbnail::Thumbnail;
-use crate::{CLAP_ARGS, IoEvent, OPTIONS, database, utils};
+use crate::{CLAP_ARGS, CONFIG, IoEvent, database, utils};
 use anyhow::{Context, Result};
 use ratatui::widgets::{ListState, TableState};
 use rusqlite::Connection;
@@ -58,7 +58,7 @@ pub struct App {
 
 impl App {
     pub fn new(io_tx: UnboundedSender<IoEvent>) -> Result<Self> {
-        let hide_videos = match (OPTIONS.hide_watched, OPTIONS.hide_members_only) {
+        let hide_videos = match (CONFIG.hide_watched, CONFIG.hide_members_only) {
             (true, true) => HideVideos::all(),
             (true, false) => HideVideos::WATCHED,
             (false, true) => HideVideos::MEMBERS_ONLY,
@@ -71,7 +71,7 @@ impl App {
             tags: SelectionList::default(),
             selected: Selected::default(),
             mode: Mode::default(),
-            conn: Connection::open(OPTIONS.database.clone())?,
+            conn: Connection::open(CONFIG.database.clone())?,
             thumbnail: None,
             message: Message::new(),
             input: String::default(),
@@ -104,7 +104,7 @@ impl App {
 
         app.load_channels();
 
-        match OPTIONS.mode {
+        match CONFIG.mode {
             Mode::Subscriptions => {
                 app.set_mode_subs();
                 app.on_change_channel()
@@ -115,7 +115,7 @@ impl App {
             }
         }
 
-        if OPTIONS.refresh_on_launch {
+        if CONFIG.refresh_on_launch {
             app.refresh_channels()
         }
 
@@ -182,7 +182,7 @@ impl App {
                     to_be_added.insert(video.published);
                 }
             } else {
-                if OPTIONS.prefer_original_titles {
+                if CONFIG.prefer_original_titles {
                     self.dispatch(IoEvent::GetVideoTitle(video.video_id.clone()));
                 }
 
@@ -1108,7 +1108,7 @@ impl App {
                     || !filter_failed
                         && !matches!(
                             channel.last_refreshed,
-                            Some(time) if utils::time_passed(time).is_ok_and(|t| t < OPTIONS.refresh_threshold)
+                            Some(time) if utils::time_passed(time).is_ok_and(|t| t < CONFIG.refresh_threshold)
                         )
             })
             .map(|channel| {

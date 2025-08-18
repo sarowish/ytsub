@@ -1,12 +1,12 @@
 use crate::app::{App, Mode, Selected, StatefulList};
 use crate::channel::{HideVideos, tabs_to_be_loaded};
-use crate::config::options::VideoInfoPosition;
+use crate::config::VideoInfoPosition;
 use crate::help::HelpWindowState;
 use crate::input::InputMode;
 use crate::message::MessageType;
 use crate::search::SearchDirection;
 use crate::stream_formats::Formats;
-use crate::{HELP, OPTIONS, THEME};
+use crate::{CONFIG, HELP, THEME};
 use ratatui::Frame;
 use ratatui::layout::{Alignment, Constraint, Direction, Layout, Rect};
 use ratatui::style::{Color, Style};
@@ -112,7 +112,7 @@ fn draw_channels(f: &mut Frame, app: &mut App, area: Rect) {
                     Selected::Videos => Style::default(),
                 }),
         )
-        .highlight_symbol(OPTIONS.highlight_symbol.as_str())
+        .highlight_symbol(CONFIG.highlight_symbol.as_str())
         .highlight_style(match app.selected {
             Selected::Channels => THEME.focused,
             Selected::Videos => THEME.selected,
@@ -135,15 +135,15 @@ fn draw_videos(f: &mut Frame, app: &mut App, area: Rect) {
     };
     let shown_columns = filter_columns(
         columns,
-        area.width - 2 - OPTIONS.highlight_symbol.width() as u16,
+        area.width - 2 - CONFIG.highlight_symbol.width() as u16,
         COLUMN_SPACING,
     );
     let channel_header_present = shown_columns
         .first()
         .is_some_and(|item| item.header == "Channel");
 
-    let (video_info_area, video_area) = if (OPTIONS.show_thumbnails
-        || OPTIONS.always_show_video_info
+    let (video_info_area, video_area) = if (CONFIG.show_thumbnails
+        || CONFIG.always_show_video_info
         || shown_columns.len() < columns.len())
         && app.get_current_video().is_some()
     {
@@ -155,7 +155,7 @@ fn draw_videos(f: &mut Frame, app: &mut App, area: Rect) {
             4
         };
 
-        match OPTIONS.video_info_position {
+        match CONFIG.video_info_position {
             VideoInfoPosition::Top => {
                 let chunks = Layout::default()
                     .constraints([Constraint::Length(height + 2), Constraint::Min(10)])
@@ -252,7 +252,7 @@ fn draw_videos(f: &mut Frame, app: &mut App, area: Rect) {
         .block(block)
         .header(Row::new(shown_columns.iter().map(|c| c.header)).style(THEME.header))
         .column_spacing(2)
-        .highlight_symbol(&*OPTIONS.highlight_symbol)
+        .highlight_symbol(&*CONFIG.highlight_symbol)
         .row_highlight_style({
             let mut style = match app.selected {
                 Selected::Channels => THEME.selected,
@@ -599,7 +599,7 @@ fn draw_list_with_help_tabs<T: Display>(
         .collect::<Vec<ListItem>>();
 
     let w = List::new(list_items)
-        .highlight_symbol(OPTIONS.highlight_symbol.as_str())
+        .highlight_symbol(CONFIG.highlight_symbol.as_str())
         .highlight_style(THEME.focused);
 
     f.render_stateful_widget(w, entry_area, &mut list.state);
