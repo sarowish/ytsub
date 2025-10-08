@@ -182,7 +182,7 @@ pub fn published(published_text: &str) -> Result<u64> {
     } else if time_frame.starts_with('y') {
         num * YEAR
     } else {
-        panic!()
+        return Err(anyhow::anyhow!("Not a valid published text"));
     };
 
     Ok(now()?.saturating_sub(from_now))

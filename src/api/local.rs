@@ -28,44 +28,93 @@ fn extract_videos_tab(value: &[Value]) -> Result<Vec<Video>> {
     let mut videos: Vec<Video> = Vec::new();
 
     for video in value {
-        let video = &video["richItemRenderer"]["content"]["videoRenderer"];
+        let title;
+        let video_id;
+        let length;
+        let mut published_text = None;
+        let mut published = utils::now()?;
+        let mut members_only = false;
 
-        let title = video["title"]["runs"][0]["text"]
-            .as_str()
-            .unwrap()
-            .to_string();
+        let mut video = &video["richItemRenderer"]["content"];
 
-        let video_id = video["videoId"].as_str().unwrap().to_string();
+        if let Some(video) = video.get("videoRenderer") {
+            title = video["title"]["runs"][0]["text"]
+                .as_str()
+                .unwrap()
+                .to_owned();
 
-        let published_text = video
-            .get("publishedTimeText")
-            .and_then(|t| t.get("simpleText"))
-            .and_then(|t| t.as_str())
-            .map(ToOwned::to_owned);
+            video_id = video["videoId"].as_str().unwrap().to_owned();
 
-        let published = if let Some(t) = &published_text {
-            utils::published(t)?
-        } else if let Some(time) = video["upcomingEventData"]["startTime"].as_str() {
-            time.parse::<u64>()?
+            let length_str = video["lengthText"]["simpleText"]
+                .as_str()
+                .unwrap()
+                .to_owned();
+            length = utils::length_as_seconds(&length_str);
+
+            published_text = video
+                .get("publishedTimeText")
+                .and_then(|t| t.get("simpleText"))
+                .and_then(|t| t.as_str())
+                .map(ToOwned::to_owned);
+
+            published = if let Some(t) = &published_text {
+                utils::published(t)?
+            } else if let Some(time) = video["upcomingEventData"]["startTime"].as_str() {
+                time.parse::<u64>()?
+            } else {
+                utils::now()?
+            };
+
+            let badges = video["badges"].as_array();
+
+            members_only = badges.is_some_and(|badges| {
+                badges.iter().any(|badge| {
+                    badge["metadataBadgeRenderer"]["style"]
+                        .as_str()
+                        .is_some_and(|s| s == "BADGE_STYLE_TYPE_MEMBERS_ONLY")
+                })
+            });
         } else {
-            utils::now()?
-        };
+            video = &video["lockupViewModel"];
 
-        let length = video["lengthText"]["simpleText"]
-            .as_str()
-            .unwrap()
-            .to_string();
-        let length = utils::length_as_seconds(&length);
+            title = video["metadata"]["lockupMetadataViewModel"]["title"]["content"]
+                .as_str()
+                .unwrap()
+                .to_owned();
 
-        let badges = video["badges"].as_array();
+            video_id = video["contentId"].as_str().unwrap().to_owned();
 
-        let members_only = badges.is_some_and(|badges| {
-            badges.iter().any(|badge| {
-                badge["metadataBadgeRenderer"]["style"]
-                    .as_str()
-                    .is_some_and(|s| s == "BADGE_STYLE_TYPE_MEMBERS_ONLY")
-            })
-        });
+            let length_str = video["contentImage"]["thumbnailViewModel"]["overlays"][0]
+                ["thumbnailBottomOverlayViewModel"]["badges"][0]["thumbnailBadgeViewModel"]["text"]
+                .as_str()
+                .unwrap()
+                .to_owned();
+            length = utils::length_as_seconds(&length_str);
+
+            let metadata_rows = &video["metadata"]["lockupMetadataViewModel"]["metadata"]["contentMetadataViewModel"]
+                ["metadataRows"];
+
+            for row in metadata_rows.as_array().unwrap() {
+                if let Some(metadata_parts) = row.get("metadataParts").and_then(Value::as_array) {
+                    for content in metadata_parts
+                        .iter()
+                        .filter_map(|value| value["text"]["content"].as_str())
+                    {
+                        if let Ok(unix_time) = utils::published(content) {
+                            published = unix_time;
+                            published_text = Some(content.to_owned());
+                            break;
+                        }
+                    }
+                } else if let Some(badges) = row.get("badges").and_then(Value::as_array) {
+                    members_only = badges.iter().any(|value| {
+                        value["badgeViewModel"]["badgeStyle"]
+                            .as_str()
+                            .is_some_and(|s| s == "BADGE_MEMBERS_ONLY")
+                    });
+                }
+            }
+        }
 
         videos.push(Video {
             channel_name: None,
