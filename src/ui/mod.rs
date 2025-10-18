@@ -189,12 +189,12 @@ fn draw_videos(f: &mut Frame, app: &mut App, area: Rect) {
                 Cell::from(Line::from(vec![
                     Span::raw(video.title.clone()),
                     Span::styled(
-                        if video.new { " [N]" } else { "" },
-                        THEME.new_video_indicator,
-                    ),
-                    Span::styled(
                         if video.members_only { " [M]" } else { "" },
                         THEME.members_only_indicator,
+                    ),
+                    Span::styled(
+                        if video.new { " [N]" } else { "" },
+                        THEME.new_video_indicator,
                     ),
                 ])),
                 Cell::from(Span::raw(if let Some(length) = video.length {
