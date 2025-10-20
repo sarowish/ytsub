@@ -5,33 +5,56 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [0.7.0] - 2025-10-21
 ### Added
 - Show status messages related the video playing process.
+[`de9cf6`](https://github.com/sarowish/ytsub/commit/de9cf6)
 - Highlight new video indicators.
+[`19ef92`](https://github.com/sarowish/ytsub/commit/19ef92)
 - Add a command to load more videos for channels.
+[`431917`](https://github.com/sarowish/ytsub/commit/431917)
 - Automatically set Invidious instance when trying to open Invidous page in browser.
+[`3b0e12`](https://github.com/sarowish/ytsub/commit/3b0e12)
 - Update video title when refreshing if there is a change.
+[`8fcc40`](https://github.com/sarowish/ytsub/commit/8fcc40)
 - Show an indicator next to members only videos.
+[`185c72`](https://github.com/sarowish/ytsub/commit/185c72)
 - Separate videos, streams and shorts tabs.
+[`62c17e`](https://github.com/sarowish/ytsub/commit/62c17e)
 - Add an option for original audio track preference
+[`a39c79`](https://github.com/sarowish/ytsub/commit/a39c79)
 
 ### Changed
 - Reduce `tick_rate` default value to 10 milliseconds.
+[`69ffd7`](https://github.com/sarowish/ytsub/commit/69ffd7)
 - Change the constraint type of the `Channel` column to `Length` from `Percentage`.
+[`b688f7`](https://github.com/sarowish/ytsub/commit/b688f7)
 - Rename `play_videos` command to `play_using_ytdlp` and swap its default
 key binding with `play_from_formats` command.
+[`7776f3`](https://github.com/sarowish/ytsub/commit/7776f3)
 - Change the default value of the `rss_threshold` option to 9999.
+[`b54f5c`](https://github.com/sarowish/ytsub/commit/b54f5c)
 - Use videos endpoint in the Invidious API to get the videos tab
+[`07fdf6`](https://github.com/sarowish/ytsub/commit/07fdf6)
 - Jump to the selected video when jumping with `jump_to_channel`.
+[`69caf7`](https://github.com/sarowish/ytsub/commit/69caf7)
 
 ### Fixed
 - Don't block when resolving channel ids.
+[`f382a5`](https://github.com/sarowish/ytsub/commit/f382a5)
 - Make buildable on non unix systems.
+[`0853e6`](https://github.com/sarowish/ytsub/commit/0853e6)
 - Add new videos in the correct order.
+[`c221d7`](https://github.com/sarowish/ytsub/commit/c221d7)
 - Preserve the order of videos videos when subscribing.
+[`9860da`](https://github.com/sarowish/ytsub/commit/9860da)
 - Ignore key release events.
+[`419702`](https://github.com/sarowish/ytsub/commit/419702)
 - Make the `video_quality` option in the config file optional.
+[`ce79e9`](https://github.com/sarowish/ytsub/commit/ce79e9)
 - Support extracting videos from `lockupViewModel`
+[`f2d966`](https://github.com/sarowish/ytsub/commit/f2d966)
 
 ## [0.6.0] - 2025-06-29
 ### Added
