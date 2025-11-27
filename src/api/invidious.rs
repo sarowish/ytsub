@@ -154,9 +154,7 @@ impl Api for Instance {
                 .all(|video| present_videos.contains(&video.video_id))
         };
 
-        if new_video_present(&feed.videos) {
-            return Ok(feed);
-        }
+        let new = new_video_present(&feed.videos);
 
         while self.continuation.is_some()
             && let Ok(videos) = self.get_more_videos_helper(channel_id, tab).await
@@ -169,7 +167,11 @@ impl Api for Instance {
             }
         }
 
-        Ok(ChannelFeed::default())
+        if !new {
+            feed.get_mut_videos(tab).clear();
+        }
+
+        Ok(feed)
     }
 
     async fn get_video_formats(&self, video_id: &str) -> Result<VideoInfo> {

@@ -525,9 +525,7 @@ impl Api for Local {
                 .all(|video| present_videos.contains(&video.video_id))
         };
 
-        if new_video_present(&feed.videos) {
-            return Ok(feed);
-        }
+        let new = new_video_present(&feed.videos);
 
         while let Ok(videos) = self.get_continuation(tab).await {
             let new = new_video_present(&videos);
@@ -538,7 +536,11 @@ impl Api for Local {
             }
         }
 
-        Ok(ChannelFeed::default())
+        if !new {
+            feed.get_mut_videos(tab).clear();
+        }
+
+        Ok(feed)
     }
 
     async fn get_video_formats(&self, video_id: &str) -> Result<VideoInfo> {
