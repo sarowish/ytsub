@@ -2,7 +2,7 @@ use crate::KEY_BINDINGS;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use std::ops::{Deref, DerefMut};
 
-const DESCRIPTIONS_LEN: usize = 33;
+const DESCRIPTIONS_LEN: usize = 34;
 const DESCRIPTIONS: [&str; DESCRIPTIONS_LEN] = [
     "Switch to subscriptions mode",
     "Switch to latest videos mode",
@@ -28,6 +28,7 @@ const DESCRIPTIONS: [&str; DESCRIPTIONS_LEN] = [
     "Refresh videos of every channel",
     "Refresh videos of channels which their latest refresh was a failure",
     "Load more videos",
+    "Load all videos",
     "Open channel or video Invidious page in browser",
     "Open channel or video Youtube page in browser",
     "Play video in video player using stream formats",

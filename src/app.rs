@@ -198,7 +198,7 @@ impl App {
         }
     }
 
-    pub fn get_more_videos(&mut self) {
+    pub fn get_more_videos(&mut self, get_all: bool) {
         if let Some(current_channel) = self.channels.get_selected()
             && let Some(tab) = self.tabs.get_selected()
         {
@@ -225,6 +225,7 @@ impl App {
                 channel_id,
                 tab.variant,
                 present_videos,
+                get_all,
             ));
         }
     }

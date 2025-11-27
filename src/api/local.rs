@@ -510,6 +510,7 @@ impl Api for Local {
         channel_id: &str,
         tab: ChannelTab,
         present_videos: HashSet<String>,
+        get_all: bool,
     ) -> Result<ChannelFeed> {
         let mut feed = ChannelFeed::new(channel_id);
 
@@ -525,13 +526,13 @@ impl Api for Local {
                 .all(|video| present_videos.contains(&video.video_id))
         };
 
-        let new = new_video_present(feed.get_videos(tab));
+        let mut new = new_video_present(feed.get_videos(tab));
 
         while let Ok(videos) = self.get_continuation(tab).await {
-            let new = new_video_present(&videos);
+            new = new || new_video_present(&videos);
             feed.extend_videos(videos, tab);
 
-            if new {
+            if !get_all && new {
                 return Ok(feed);
             }
         }

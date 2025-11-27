@@ -469,6 +469,7 @@ pub trait Api: Sync + Send + DynClone {
         channel_id: &str,
         tab: ChannelTab,
         present_videos: HashSet<String>,
+        get_all: bool,
     ) -> Result<ChannelFeed>;
     async fn get_video_formats(&self, video_id: &str) -> Result<VideoInfo>;
     async fn get_caption_paths(&self, formats: &Formats) -> Vec<String>;

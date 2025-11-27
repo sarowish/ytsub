@@ -265,7 +265,7 @@ pub enum IoEvent {
     SubscribeToChannel(String),
     ImportChannels(Vec<String>),
     RefreshChannels(Vec<String>),
-    LoadMoreVideos(String, ChannelTab, HashSet<String>),
+    LoadMoreVideos(String, ChannelTab, HashSet<String>, bool),
     FetchFormats(String, String, bool),
     PlayFromFormats(Box<Formats>),
     PlayUsingYtdlp(String),
