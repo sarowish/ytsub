@@ -525,7 +525,7 @@ impl Api for Local {
                 .all(|video| present_videos.contains(&video.video_id))
         };
 
-        let new = new_video_present(&feed.videos);
+        let new = new_video_present(feed.get_videos(tab));
 
         while let Ok(videos) = self.get_continuation(tab).await {
             let new = new_video_present(&videos);

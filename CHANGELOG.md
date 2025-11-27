@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Don't return immediately if there are new recent videos when getting more videos.
 
+### Fixed
+- Check if there are new recent videos for the specified tab instead of the videos tab
+when getting more videos.
+
 ## [0.7.0] - 2025-10-21
 ### Added
 - Show status messages related the video playing process.

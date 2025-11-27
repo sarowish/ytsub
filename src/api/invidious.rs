@@ -154,7 +154,7 @@ impl Api for Instance {
                 .all(|video| present_videos.contains(&video.video_id))
         };
 
-        let new = new_video_present(&feed.videos);
+        let new = new_video_present(feed.get_videos(tab));
 
         while self.continuation.is_some()
             && let Ok(videos) = self.get_more_videos_helper(channel_id, tab).await
