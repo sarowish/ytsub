@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Check if there are new recent videos for the specified tab instead of the videos tab
 when getting more videos.
+- Use Android VR client for player endpoint
 
 ## [0.7.0] - 2025-10-21
 ### Added
