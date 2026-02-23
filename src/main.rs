@@ -245,6 +245,11 @@ fn handle_event(event: ClientRequest, app: &mut App) {
             }
         }
         ClientRequest::UpdateChannel(feed) => app.add_tabs(feed),
+        ClientRequest::UpdateTitle(video_id, title) => {
+            if database::update_title(&app.conn, &video_id, &title).is_ok() {
+                app.load_videos(true);
+            }
+        }
         ClientRequest::EnterFormatSelection(formats) => {
             app.input_mode = InputMode::FormatSelection;
             app.stream_formats = *formats;
@@ -266,6 +271,7 @@ pub enum IoEvent {
     ImportChannels(Vec<String>),
     RefreshChannels(Vec<String>),
     LoadMoreVideos(String, ChannelTab, HashSet<String>, bool),
+    GetVideoTitle(String),
     FetchFormats(String, String, bool),
     PlayFromFormats(Box<Formats>),
     PlayUsingYtdlp(String),

@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 ### Added
 - Add a command to load all videos for channels.
+- Add an option for original video title preference
 
 ### Changed
 - Don't return immediately if there are new recent videos when getting more videos.

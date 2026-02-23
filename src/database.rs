@@ -283,6 +283,15 @@ pub fn delete_video(conn: &Connection, video_id: &str) -> Result<()> {
     Ok(())
 }
 
+pub fn update_title(conn: &Connection, video_id: &str, title: &str) -> Result<()> {
+    conn.execute(
+        "UPDATE videos SET title=?1 WHERE video_id=?2",
+        params![title, video_id],
+    )?;
+
+    Ok(())
+}
+
 pub fn get_channels(conn: &Connection, tags: &[&str]) -> Result<Vec<Channel>> {
     let mut stmt;
     let values;

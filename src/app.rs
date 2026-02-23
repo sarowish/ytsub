@@ -163,6 +163,10 @@ impl App {
                     to_be_added.insert(video.published);
                 }
             } else {
+                if OPTIONS.prefer_original_titles {
+                    self.dispatch(IoEvent::GetVideoTitle(video.video_id.clone()));
+                }
+
                 self.new_video_ids.insert(video.video_id.clone());
                 added_new_video = true;
                 to_be_added.insert(video.published);

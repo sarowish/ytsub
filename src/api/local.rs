@@ -351,6 +351,31 @@ impl Local {
         Ok(response.error_for_status()?.json().await?)
     }
 
+    pub async fn post_oembed(&self, video_id: &str) -> Result<Value> {
+        let url = "https://www.youtube.com/oembed";
+        let video_url = format!("https://www.youtube.com/watch?v={video_id}");
+
+        let response = self
+            .client
+            .get(url)
+            .query(&[("url", &video_url)])
+            .send()
+            .await?;
+
+        Ok(response.error_for_status()?.json().await?)
+    }
+
+    pub async fn get_original_title(&self, video_id: &str) -> Result<String> {
+        let response = self.post_oembed(video_id).await?;
+
+        let title = response
+            .get("title")
+            .and_then(Value::as_str)
+            .ok_or_else(|| anyhow::anyhow!("Couldn't extract title from response"))?;
+
+        Ok(title.to_owned())
+    }
+
     async fn get_videos_tab(
         &mut self,
         channel_id: &str,

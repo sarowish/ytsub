@@ -27,6 +27,7 @@ pub enum ClientRequest {
     CheckChannel(String, Sender<bool>),
     FinalizeImport(bool),
     UpdateChannel(ChannelFeed),
+    UpdateTitle(String, String),
     EnterFormatSelection(Box<Formats>),
     SetWatched(String, bool),
     SetMessage(String, MessageType, Option<u64>),
@@ -110,6 +111,10 @@ impl Client {
                     tokio::spawn(async move {
                         get_more_videos(instance, &id, tab, present_videos, load_all).await
                     });
+                }
+                IoEvent::GetVideoTitle(video_id) => {
+                    let local = self.local_api.clone();
+                    tokio::spawn(async move { get_video_title(local, &video_id).await });
                 }
                 IoEvent::FetchFormats(title, video_id, play_selected) => {
                     let instance = self.instance();
@@ -352,6 +357,13 @@ async fn get_more_videos(
         }
         Err(e) => emit_msg!(error, &e.to_string()),
     }
+
+    Ok(())
+}
+
+async fn get_video_title(local: Local, video_id: &str) -> Result<()> {
+    let title = local.get_original_title(video_id).await?;
+    TX.send(ClientRequest::UpdateTitle(video_id.to_owned(), title))?;
 
     Ok(())
 }

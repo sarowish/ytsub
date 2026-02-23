@@ -154,9 +154,7 @@ pub struct Video {
 
 impl Video {
     pub fn needs_update(&self, other: &Video) -> bool {
-        self.title != other.title
-            || self.length != other.length
-            || self.members_only != other.members_only
+        self.length != other.length || self.members_only != other.members_only
     }
 }
 
