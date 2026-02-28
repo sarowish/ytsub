@@ -237,4 +237,11 @@ impl Api for Instance {
             .map(|caption| format!("{}{}", self.domain, caption.get_url()))
             .collect()
     }
+
+    async fn get_thumbnail(&self, video_id: &str) -> Result<Vec<u8>> {
+        let url = format!("{}/vi/{video_id}/mqdefault.jpg", self.domain);
+
+        let response = self.client.get(url).send().await?;
+        Ok(response.error_for_status()?.bytes().await?.to_vec())
+    }
 }

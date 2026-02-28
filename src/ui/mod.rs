@@ -1,5 +1,6 @@
 use crate::app::{App, Mode, Selected, StatefulList};
 use crate::channel::{HideVideos, tabs_to_be_loaded};
+use crate::config::options::VideoInfoPosition;
 use crate::help::HelpWindowState;
 use crate::input::InputMode;
 use crate::message::MessageType;
@@ -22,7 +23,7 @@ mod utils;
 pub fn draw(f: &mut Frame, app: &mut App) {
     let (main_layout, footer) = if app.is_footer_active() {
         let chunks = Layout::default()
-            .constraints([Constraint::Min(1), Constraint::Length(1)].as_ref())
+            .constraints([Constraint::Min(1), Constraint::Length(1)])
             .direction(Direction::Vertical)
             .split(f.area());
         (chunks[0], Some(chunks[1]))
@@ -66,7 +67,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
 
 fn draw_subscriptions(f: &mut Frame, app: &mut App, area: Rect) {
     let chunks = Layout::default()
-        .constraints([Constraint::Percentage(30), Constraint::Percentage(70)].as_ref())
+        .constraints([Constraint::Percentage(30), Constraint::Percentage(70)])
         .direction(Direction::Horizontal)
         .split(area);
     draw_channels(f, app, chunks[0]);
@@ -129,16 +130,38 @@ fn draw_videos(f: &mut Frame, app: &mut App, area: Rect) {
         .first()
         .is_some_and(|item| item.header == "Channel");
 
-    let (video_area, video_info_area) =
-        if shown_columns.len() < columns.len() && app.get_current_video().is_some() {
-            let chunks = Layout::default()
-                .constraints([Constraint::Min(10), Constraint::Length(6)])
-                .direction(Direction::Vertical)
-                .split(area);
-            (chunks[0], Some(chunks[1]))
+    let (video_info_area, video_area) = if (OPTIONS.show_thumbnails
+        || OPTIONS.always_show_video_info
+        || shown_columns.len() < columns.len())
+        && app.get_current_video().is_some()
+    {
+        let height = if let Some(emulator) = &app.emulator
+            && let Some(thumbnail) = &emulator.thumbnail
+        {
+            thumbnail.height.div_ceil(emulator.cell_height)
         } else {
-            (area, None)
+            4
         };
+
+        match OPTIONS.video_info_position {
+            VideoInfoPosition::Top => {
+                let chunks = Layout::default()
+                    .constraints([Constraint::Length(height + 2), Constraint::Min(10)])
+                    .direction(Direction::Vertical)
+                    .split(area);
+                (Some(chunks[0]), chunks[1])
+            }
+            VideoInfoPosition::Bottom => {
+                let chunks = Layout::default()
+                    .constraints([Constraint::Min(10), Constraint::Length(height + 2)])
+                    .direction(Direction::Vertical)
+                    .split(area);
+                (Some(chunks[1]), chunks[0])
+            }
+        }
+    } else {
+        (None, area)
+    };
 
     let mut block = Block::default()
         .borders(Borders::ALL)
@@ -245,32 +268,68 @@ fn draw_videos(f: &mut Frame, app: &mut App, area: Rect) {
 }
 
 fn draw_video_info(f: &mut Frame, app: &mut App, area: Rect) {
-    let current_video = app.get_current_video().unwrap();
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .title(Span::styled("Video Info", THEME.title));
+    let inner_area = block.inner(area);
+    f.render_widget(block, area);
+
+    let current_video = app.tabs.get_selected_video().unwrap();
+
+    let video_info_area = if let Some(emulator) = &mut app.emulator
+        && let Some(thumbnail) = &mut emulator.thumbnail
+    {
+        let width = thumbnail.width.div_ceil(emulator.cell_width);
+
+        let chunks = Layout::default()
+            .constraints([Constraint::Length(width), Constraint::Fill(1)])
+            .direction(Direction::Horizontal)
+            .spacing(1)
+            .split(inner_area);
+
+        let buf = f.buffer_mut();
+
+        if thumbnail
+            .render(buf, chunks[0], emulator.clear_needed)
+            .is_ok()
+        {
+            chunks[1]
+        } else {
+            inner_area
+        }
+    } else {
+        inner_area
+    };
+
+    let length = if let Some(length) = current_video.length {
+        crate::utils::length_as_hhmmss(length)
+    } else {
+        String::new()
+    };
+
     let video_info = Paragraph::new(vec![
-        Line::from(format!(
-            "channel: {}",
+        to_info_line(
+            "channel",
             match &current_video.channel_name {
                 Some(channel_name) => channel_name,
                 None => &app.get_current_channel().unwrap().channel_name,
-            }
-        )),
-        Line::from(format!("title: {}", current_video.title)),
-        Line::from(format!(
-            "length: {}",
-            if let Some(length) = current_video.length {
-                crate::utils::length_as_hhmmss(length)
-            } else {
-                String::new()
-            }
-        )),
-        Line::from(format!("date: {}", current_video.published_text)),
+            },
+        ),
+        to_info_line("title", &current_video.title),
+        to_info_line("length", &length),
+        to_info_line("date", &current_video.published_text),
     ])
-    .block(
-        Block::default()
-            .borders(Borders::ALL)
-            .title(Span::styled("Video Info", THEME.title)),
-    );
-    f.render_widget(video_info, area);
+    .wrap(Wrap { trim: false });
+
+    f.render_widget(video_info, video_info_area);
+}
+
+fn to_info_line<'a>(field: &'a str, value: &'a str) -> Line<'a> {
+    Line::from(vec![
+        Span::styled(field, THEME.video_info),
+        Span::raw(": "),
+        Span::raw(value),
+    ])
 }
 
 fn draw_footer(f: &mut Frame, app: &mut App, area: Rect) {

@@ -15,6 +15,7 @@ mod protobuf;
 mod ro_cell;
 mod search;
 mod stream_formats;
+mod thumbnail;
 mod ui;
 mod utils;
 
@@ -23,6 +24,8 @@ use crate::config::Config;
 use crate::config::keys::KeyBindings;
 use crate::config::options::Options;
 use crate::config::theme::Theme;
+use crate::thumbnail::emulator::Emulator;
+use crate::thumbnail::protocols::GraphicsProtocol;
 use anyhow::Result;
 use api::ApiBackend;
 use app::App;
@@ -177,6 +180,11 @@ async fn run_tui(
     let mut client = client::Client::new(rx).await?;
     tokio::spawn(async move { client.run().await });
 
+    if OPTIONS.show_thumbnails {
+        app.emulator = Emulator::new().ok();
+        app.on_change_video();
+    }
+
     render(&mut app, terminal)?;
 
     let (mut timeout, mut last_render) = (None, Instant::now());
@@ -250,6 +258,12 @@ fn handle_event(event: ClientRequest, app: &mut App) {
                 app.load_videos(true);
             }
         }
+        ClientRequest::SetThumbnail(data) => {
+            app.emulator
+                .as_mut()
+                .expect("Shouldn't send request if no emulator")
+                .thumbnail = data;
+        }
         ClientRequest::EnterFormatSelection(formats) => {
             app.input_mode = InputMode::FormatSelection;
             app.stream_formats = *formats;
@@ -272,6 +286,7 @@ pub enum IoEvent {
     RefreshChannels(Vec<String>),
     LoadMoreVideos(String, ChannelTab, HashSet<String>, bool),
     GetVideoTitle(String),
+    GetThumbnail(GraphicsProtocol, String),
     FetchFormats(String, String, bool),
     PlayFromFormats(Box<Formats>),
     PlayUsingYtdlp(String),

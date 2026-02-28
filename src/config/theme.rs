@@ -136,6 +136,7 @@ pub struct UserTheme {
     new_video_indicator: Option<UserStyle>,
     members_only_indicator: Option<UserStyle>,
     selected_block: Option<UserStyle>,
+    video_info: Option<UserStyle>,
     error: Option<UserStyle>,
     warning: Option<UserStyle>,
     help: Option<UserStyle>,
@@ -152,6 +153,7 @@ pub struct Theme {
     pub new_video_indicator: Style,
     pub members_only_indicator: Style,
     pub selected_block: Style,
+    pub video_info: Style,
     pub error: Style,
     pub warning: Style,
     pub help: Style,
@@ -182,6 +184,7 @@ impl Default for Theme {
                 .fg(Color::Green)
                 .add_modifier(Modifier::ITALIC),
             selected_block: Style::default().fg(Color::Magenta),
+            video_info: Style::default().fg(Color::Green),
             error: Style::default().fg(Color::Red),
             warning: Style::default().fg(Color::Yellow),
             help: Style::default().fg(Color::Green),
@@ -215,6 +218,7 @@ impl TryFrom<UserTheme> for Theme {
         set_theme_field!(new_video_indicator);
         set_theme_field!(members_only_indicator);
         set_theme_field!(selected_block);
+        set_theme_field!(video_info);
         set_theme_field!(error);
         set_theme_field!(warning);
         set_theme_field!(help);

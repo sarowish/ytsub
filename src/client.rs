@@ -6,16 +6,23 @@ use crate::{
     player::{self, open_in_invidious, open_in_youtube, play_from_formats, play_using_ytdlp},
     ro_cell::RoCell,
     stream_formats::Formats,
+    thumbnail::{Thumbnail, protocols::GraphicsProtocol},
     utils,
 };
 use anyhow::Result;
 use futures_util::StreamExt;
-use std::{collections::HashSet, time::Instant};
+use std::{
+    collections::HashSet,
+    fs::File,
+    io::{Read, Write},
+    time::{Duration, Instant},
+};
 use tokio::{
     sync::{
         mpsc::{UnboundedReceiver, UnboundedSender},
         oneshot::{self, Sender},
     },
+    task::AbortHandle,
     time::sleep,
 };
 use tokio_util::sync::CancellationToken;
@@ -28,6 +35,7 @@ pub enum ClientRequest {
     FinalizeImport(bool),
     UpdateChannel(ChannelFeed),
     UpdateTitle(String, String),
+    SetThumbnail(Option<Thumbnail>),
     EnterFormatSelection(Box<Formats>),
     SetWatched(String, bool),
     SetMessage(String, MessageType, Option<u64>),
@@ -92,6 +100,8 @@ impl Client {
     }
 
     pub async fn run(&mut self) -> Result<()> {
+        let mut thumbnail_handle: Option<AbortHandle> = None;
+
         while let Some(event) = self.rx.recv().await {
             match event {
                 IoEvent::SubscribeToChannel(id) => {
@@ -115,6 +125,21 @@ impl Client {
                 IoEvent::GetVideoTitle(video_id) => {
                     let local = self.local_api.clone();
                     tokio::spawn(async move { get_video_title(local, &video_id).await });
+                }
+                IoEvent::GetThumbnail(protocol, video_id) => {
+                    let instance = self.instance();
+
+                    if let Some(handle) = thumbnail_handle {
+                        handle.abort();
+                    }
+
+                    thumbnail_handle = Some(
+                        tokio::spawn(async move {
+                            let data = get_thumbnail(instance, protocol, &video_id).await;
+                            TX.send(ClientRequest::SetThumbnail(data.ok()))
+                        })
+                        .abort_handle(),
+                    );
                 }
                 IoEvent::FetchFormats(title, video_id, play_selected) => {
                     let instance = self.instance();
@@ -366,6 +391,46 @@ async fn get_video_title(local: Local, video_id: &str) -> Result<()> {
     TX.send(ClientRequest::UpdateTitle(video_id.to_owned(), title))?;
 
     Ok(())
+}
+
+async fn get_thumbnail(
+    instance: Box<dyn Api>,
+    protocol: GraphicsProtocol,
+    video_id: &str,
+) -> Result<Thumbnail> {
+    let dir_path = utils::get_cache_dir()?.join("thumbnail");
+    let path = dir_path.join(format!("{video_id}.jpg"));
+
+    let mut bytes = Vec::new();
+
+    if path.exists()
+        && let Ok(mut file) = File::open(&path)
+    {
+        sleep(Duration::from_millis(10)).await;
+        file.read_to_end(&mut bytes)?;
+    } else {
+        sleep(Duration::from_millis(69)).await;
+        bytes = instance.get_thumbnail(video_id).await?;
+
+        if !dir_path.exists() {
+            std::fs::create_dir_all(&dir_path)?;
+        }
+
+        let mut file = File::create(&path)?;
+        file.write_all(&bytes)?;
+    }
+
+    let image = image::load_from_memory(&bytes)?;
+    let width = image.width() as u16;
+    let height = image.height() as u16;
+    let data = protocol.display_image(image)?;
+
+    Ok(Thumbnail {
+        data,
+        width,
+        height,
+        area: None,
+    })
 }
 
 async fn fetch_formats(

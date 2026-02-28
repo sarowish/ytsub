@@ -111,6 +111,9 @@ request_timeout = 5 # Request timeout in seconds
 highlight_symbol = "" # Symbol to highlight selected items
 hide_watched = false # Hide watched videos by default
 hide_members_only = false # Hide members only videos
+show_thumbnails = true # Show video thumbnails in the video info area
+video_info_position = "top" # Position of the video info area [possible values: top, bottom]
+always_show_video_info = true # If `false`, shown only when there isn't enough space for all columns. Ignored if `show_thumbnails` is `true`
 video_player_for_stream_formats = "mpv" # Video player to use to play streams [possible values: mpv, vlc]
 mpv_path = "mpv" # Path to mpv
 vlc_path = "vlc" # Path to vlc
@@ -182,6 +185,9 @@ modifiers = "italic"
 # Border of selected block
 [selected_block]
 fg = "Magenta"
+# Video info fields
+[video_info]
+fg = "Green"
 # Error message
 [error]
 fg = "Red"

@@ -487,7 +487,12 @@ impl Local {
         video_id: &str,
         language_code: &str,
     ) -> Result<PathBuf> {
-        let path = utils::get_cache_dir()?.join(format!("{video_id}_{language_code}.srt"));
+        let dir_path = utils::get_cache_dir()?.join("caption");
+        if !dir_path.exists() {
+            std::fs::create_dir_all(&dir_path)?;
+        }
+
+        let path = dir_path.join(format!("{video_id}_{language_code}.srt"));
 
         if let Ok(true) = path.try_exists() {
             return Ok(path);
@@ -684,5 +689,12 @@ impl Api for Local {
         .map_while(Result::ok)
         .map(|path| path.to_string_lossy().to_string())
         .collect()
+    }
+
+    async fn get_thumbnail(&self, video_id: &str) -> Result<Vec<u8>> {
+        let url = format!("https://i.ytimg.com/vi/{video_id}/mqdefault.jpg");
+
+        let response = self.client.get(url).send().await?;
+        Ok(response.error_for_status()?.bytes().await?.to_vec())
     }
 }

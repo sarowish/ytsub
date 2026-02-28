@@ -338,7 +338,12 @@ pub struct Chapters {
 
 impl Chapters {
     pub fn write_to_file(&self, video_id: &str) -> Result<PathBuf> {
-        let path = utils::get_cache_dir()?.join(format!("{video_id}.ffmetadata"));
+        let dir_path = utils::get_cache_dir()?.join("chapters");
+        if !dir_path.exists() {
+            std::fs::create_dir_all(&dir_path)?;
+        }
+
+        let path = dir_path.join(format!("{video_id}.ffmetadata"));
 
         if let Ok(true) = path.try_exists() {
             return Ok(path);
@@ -473,4 +478,5 @@ pub trait Api: Sync + Send + DynClone {
     ) -> Result<ChannelFeed>;
     async fn get_video_formats(&self, video_id: &str) -> Result<VideoInfo>;
     async fn get_caption_paths(&self, formats: &Formats) -> Vec<String>;
+    async fn get_thumbnail(&self, video_id: &str) -> Result<Vec<u8>>;
 }

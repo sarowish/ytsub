@@ -8,6 +8,7 @@ use crate::input::InputMode;
 use crate::message::Message;
 use crate::search::{Search, SearchDirection, SearchState};
 use crate::stream_formats::Formats;
+use crate::thumbnail::emulator::Emulator;
 use crate::{CLAP_ARGS, IoEvent, OPTIONS, database, utils};
 use anyhow::{Context, Result};
 use ratatui::widgets::{ListState, TableState};
@@ -35,6 +36,7 @@ pub struct App {
     pub selected: Selected,
     pub mode: Mode,
     pub conn: Connection,
+    pub emulator: Option<Emulator>,
     pub message: Message,
     pub input: String,
     pub input_mode: InputMode,
@@ -68,6 +70,7 @@ impl App {
             selected: Selected::Channels,
             mode: Mode::Subscriptions,
             conn: Connection::open(OPTIONS.database.clone())?,
+            emulator: None,
             message: Message::new(),
             input: String::default(),
             input_mode: InputMode::Normal,
@@ -244,6 +247,7 @@ impl App {
             }
             videos.items.remove(idx);
             videos.check_bounds();
+            self.on_change_video();
         }
     }
 
@@ -547,10 +551,24 @@ impl App {
             }
             None => tab.videos.reset_state(),
         }
+
+        self.on_change_video();
     }
 
     pub fn on_change_channel(&mut self) {
         self.load_videos(false);
+        self.on_change_video();
+    }
+
+    pub fn on_change_video(&mut self) {
+        if let Some(emulator) = &self.emulator
+            && let Some(video) = self.get_current_video()
+        {
+            self.dispatch(IoEvent::GetThumbnail(
+                emulator.graphics_protocol,
+                video.video_id.clone(),
+            ));
+        }
     }
 
     pub fn set_channel_refresh_state(&mut self, channel_id: &str, refresh_state: RefreshState) {
@@ -582,6 +600,7 @@ impl App {
             Selected::Videos => {
                 if let Some(videos) = self.tabs.get_videos_mut() {
                     videos.next();
+                    self.on_change_video();
                 }
             }
         }
@@ -596,6 +615,7 @@ impl App {
             Selected::Videos => {
                 if let Some(videos) = self.tabs.get_videos_mut() {
                     videos.previous();
+                    self.on_change_video();
                 }
             }
         }
@@ -625,6 +645,7 @@ impl App {
             Selected::Videos => {
                 if let Some(videos) = self.tabs.get_videos_mut() {
                     videos.select_first();
+                    self.on_change_video();
                 }
             }
         }
@@ -643,6 +664,7 @@ impl App {
             Selected::Videos => {
                 if let Some(videos) = self.tabs.get_videos_mut() {
                     videos.select_last();
+                    self.on_change_video();
                 }
             }
         }
@@ -669,6 +691,7 @@ impl App {
                     && let Some(index) = videos.find_by_id(&video_id)
                 {
                     videos.select_with_index(index);
+                    self.on_change_video();
                 }
             }
         }
@@ -749,7 +772,8 @@ impl App {
                 }
                 Selected::Videos => {
                     if let Some(videos) = self.tabs.get_videos_mut() {
-                        self.search.search(videos, &self.input)
+                        self.search.search(videos, &self.input);
+                        self.on_change_video();
                     }
                 }
             },
@@ -774,7 +798,8 @@ impl App {
                 }
                 Selected::Videos => {
                     if let Some(videos) = self.tabs.get_videos_mut() {
-                        self.search.repeat_last(videos, opposite)
+                        self.search.repeat_last(videos, opposite);
+                        self.on_change_video();
                     }
                 }
             },
@@ -943,7 +968,8 @@ impl App {
                     }
                     Selected::Videos => {
                         if let Some(videos) = self.tabs.get_videos_mut() {
-                            self.search.recover_item(videos)
+                            self.search.recover_item(videos);
+                            self.on_change_video();
                         }
                     }
                 },

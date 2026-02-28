@@ -17,6 +17,13 @@ bitflags! {
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all(deserialize = "snake_case"))]
+pub enum VideoInfoPosition {
+    Top,
+    Bottom,
+}
+
+#[derive(Deserialize)]
 pub struct UserOptions {
     database: Option<PathBuf>,
     instances: Option<PathBuf>,
@@ -35,6 +42,9 @@ pub struct UserOptions {
     vlc_path: Option<PathBuf>,
     hide_watched: Option<bool>,
     hide_members_only: Option<bool>,
+    show_thumbnails: Option<bool>,
+    video_info_position: Option<VideoInfoPosition>,
+    always_show_video_info: Option<bool>,
     subtitle_languages: Option<Vec<String>>,
     prefer_dash_formats: Option<bool>,
     prefer_original_titles: Option<bool>,
@@ -62,6 +72,9 @@ pub struct Options {
     pub vlc_path: PathBuf,
     pub hide_watched: bool,
     pub hide_members_only: bool,
+    pub show_thumbnails: bool,
+    pub video_info_position: VideoInfoPosition,
+    pub always_show_video_info: bool,
     pub subtitle_languages: Vec<String>,
     pub prefer_dash_formats: bool,
     pub prefer_original_titles: bool,
@@ -114,6 +127,9 @@ impl Default for Options {
             vlc_path: PathBuf::from("vlc"),
             hide_watched: false,
             hide_members_only: false,
+            show_thumbnails: true,
+            video_info_position: VideoInfoPosition::Top,
+            always_show_video_info: true,
             subtitle_languages: Vec::new(),
             prefer_dash_formats: true,
             prefer_original_titles: true,
@@ -153,6 +169,9 @@ impl From<UserOptions> for Options {
         set_options_field!(highlight_symbol);
         set_options_field!(hide_watched);
         set_options_field!(hide_members_only);
+        set_options_field!(show_thumbnails);
+        set_options_field!(video_info_position);
+        set_options_field!(always_show_video_info);
         set_options_field!(video_player_for_stream_formats);
         set_options_field!(mpv_path);
         set_options_field!(vlc_path);

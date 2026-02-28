@@ -56,8 +56,14 @@ fn handle_key_normal_mode(key: KeyEvent, app: &mut App) -> bool {
             Command::OnRight => app.on_right(),
             Command::SelectFirst => app.select_first(),
             Command::SelectLast => app.select_last(),
-            Command::NextTab => app.tabs.next(),
-            Command::PreviousTab => app.tabs.previous(),
+            Command::NextTab => {
+                app.tabs.next();
+                app.on_change_video();
+            }
+            Command::PreviousTab => {
+                app.tabs.previous();
+                app.on_change_video();
+            }
             Command::JumpToChannel => app.jump_to_channel(),
             Command::ToggleHide => app.toggle_hide(),
             Command::Subscribe => app.prompt_for_subscription(),
