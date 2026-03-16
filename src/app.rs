@@ -1351,7 +1351,7 @@ impl<T, S: State> StatefulList<T, S> {
     }
 
     pub fn select_last(&mut self) {
-        self.select_with_index(self.items.len().checked_sub(1).unwrap_or_default());
+        self.select_with_index(self.items.len().saturating_sub(1));
     }
 
     fn reset_state(&mut self) {
