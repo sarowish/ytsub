@@ -100,7 +100,7 @@ fn draw_channels(f: &mut Frame, app: &mut App, area: Rect) {
                     Selected::Videos => Style::default(),
                 }),
         )
-        .highlight_symbol(&OPTIONS.highlight_symbol)
+        .highlight_symbol(OPTIONS.highlight_symbol.as_str())
         .highlight_style(match app.selected {
             Selected::Channels => THEME.focused,
             Selected::Videos => THEME.selected,
@@ -583,7 +583,7 @@ fn draw_list_with_help_tabs<T: Display>(
         .collect::<Vec<ListItem>>();
 
     let w = List::new(list_items)
-        .highlight_symbol(&OPTIONS.highlight_symbol)
+        .highlight_symbol(OPTIONS.highlight_symbol.as_str())
         .highlight_style(THEME.focused);
 
     f.render_stateful_widget(w, entry_area, &mut list.state);
