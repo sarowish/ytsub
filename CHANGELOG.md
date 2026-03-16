@@ -5,18 +5,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [0.8.0] - 2026-03-16
 ### Added
 - Add a command to load all videos for channels.
+[`da0efe`](https://github.com/sarowish/ytsub/commit/da0efe)
 - Add an option for original video title preference.
+[`a20b20`](https://github.com/sarowish/ytsub/commit/a20b20)
 - Add thumbnail support.
+[`5a7733`](https://github.com/sarowish/ytsub/commit/5a7733)
 
 ### Changed
 - Don't return immediately if there are new recent videos when getting more videos.
+[`634c27`](https://github.com/sarowish/ytsub/commit/634c27)
 
 ### Fixed
 - Check if there are new recent videos for the specified tab instead of the videos tab
 when getting more videos.
+[`3fb727`](https://github.com/sarowish/ytsub/commit/3fb727)
 - Use Android VR client for player endpoint
+[`198c40`](https://github.com/sarowish/ytsub/commit/198c40)
 
 ## [0.7.0] - 2025-10-21
 ### Added

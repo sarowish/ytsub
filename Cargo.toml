@@ -1,6 +1,6 @@
 [package]
 name = "ytsub"
-version = "0.7.0"
+version = "0.8.0"
 edition = "2024"
 description = "A subscriptions only TUI Youtube client"
 authors = ["Berke Enercan <berkeenercan@tutanota.com>"]
