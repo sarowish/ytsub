@@ -294,7 +294,7 @@ fg = "Green"
 > At the time of writing, there are no suitable instances available on https://api.invidious.io,
 > and they've rarely been available for quite a while now.
 
-A custom path to the `instances` file can be specified with the `-i` flag.
+A custom path to the `instances` file can be specified with the `-s` flag.
 The file can either be manually created by adding instances that have API enabled or
 automatically generated from the instances in https://api.invidious.io by running the app with `-g` flag.
 Every instance entry is separated by a line.
