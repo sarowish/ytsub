@@ -34,6 +34,7 @@ pub struct UserOptions {
     hide_disabled_tabs: Option<bool>,
     api: Option<ApiBackend>,
     refresh_threshold: Option<u64>,
+    refresh_on_launch: Option<bool>,
     rss_threshold: Option<usize>,
     tick_rate: Option<u64>,
     request_timeout: Option<u64>,
@@ -66,6 +67,7 @@ pub struct Options {
     pub hide_disabled_tabs: bool,
     pub api: ApiBackend,
     pub refresh_threshold: u64,
+    pub refresh_on_launch: bool,
     pub rss_threshold: usize,
     pub tick_rate: u64,
     pub request_timeout: u64,
@@ -122,6 +124,7 @@ impl Default for Options {
             hide_disabled_tabs: true,
             api: ApiBackend::Local,
             refresh_threshold: 600,
+            refresh_on_launch: true,
             rss_threshold: 9999,
             tick_rate: 10,
             request_timeout: 5,
@@ -168,6 +171,7 @@ impl From<UserOptions> for Options {
         set_options_field!(hide_disabled_tabs);
         set_options_field!(api);
         set_options_field!(refresh_threshold);
+        set_options_field!(refresh_on_launch);
         set_options_field!(rss_threshold);
         set_options_field!(tick_rate);
         set_options_field!(request_timeout);

@@ -106,6 +106,7 @@ tabs = ["videos"] # Tabs to fetch videos from [possible values: videos, shorts, 
 hide_disabled_tabs = true # Hide available tabs in the ui if they are not in the `tabs` option
 api = "local" # API to be used for fetching videos [possible values: invidious, local]
 refresh_threshold = 600 # Time in seconds that needs to pass before refreshing a channel using the refresh_channels command
+refresh_on_launch = true # Refresh all channels on application launch
 rss_threshold = 9999 # Use RSS if the number of channels being refreshed or being subscribed to exceeds the specified amount
 tick_rate = 10 # Tick rate in milliseconds
 request_timeout = 5 # Request timeout in seconds
