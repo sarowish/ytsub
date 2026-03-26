@@ -1416,6 +1416,7 @@ pub enum Selected {
 #[serde(rename_all(deserialize = "snake_case"))]
 pub enum Mode {
     #[default]
+    #[serde(alias = "subs")]
     Subscriptions,
     LatestVideos,
 }
