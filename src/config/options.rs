@@ -240,23 +240,3 @@ where
         )));
     }))
 }
-
-fn deserialize_mode<'de, D>(deserializer: D) -> Result<Option<Mode>, D::Error>
-where
-    D: de::Deserializer<'de>,
-{
-    use serde::de::Error;
-
-    let Some(mode): Option<String> = de::Deserialize::deserialize(deserializer)? else {
-        return Ok(None);
-    };
-
-    let m = mode.to_lowercase();
-    Ok(if m == "subscriptions" || m == "subs" {
-        Some(Mode::Subscriptions)
-    } else if m == "latest_videos" {
-        Some(Mode::LatestVideos)
-    } else {
-        return Err(Error::custom(format!("\"{mode}\" is not a valid mode")));
-    })
-}
