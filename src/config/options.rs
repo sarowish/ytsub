@@ -27,7 +27,6 @@ pub enum VideoInfoPosition {
 pub struct UserOptions {
     database: Option<PathBuf>,
     instances: Option<PathBuf>,
-    #[serde(default, deserialize_with = "deserialize_mode")]
     mode: Option<Mode>,
     #[serde(default, deserialize_with = "deserialize_tabs")]
     tabs: Option<EnabledTabs>,
