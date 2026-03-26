@@ -101,7 +101,7 @@ Path to the configuration file can be specified with the `-c` flag.
 
 database = "/home/username/.local/share/ytsub/videos.db" # Path to database file
 instances = "/home/username/.config/ytsub/instances" # Path to instances file
-mode = "subs" # Default application mode [possible values: subs or subscriptions, latest_videos]
+mode = "subscriptions" # Default application mode [possible values: subscriptions (or subs), latest_videos]
 tabs = ["videos"] # Tabs to fetch videos from [possible values: videos, shorts, streams]
 hide_disabled_tabs = true # Hide available tabs in the ui if they are not in the `tabs` option
 api = "local" # API to be used for fetching videos [possible values: invidious, local]
