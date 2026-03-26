@@ -99,18 +99,18 @@ impl App {
 
         database::initialize_db(&mut app.conn)?;
 
+        app.load_channels();
+
         match OPTIONS.mode {
-            Mode::LatestVideos => {
-                app.set_mode_latest_videos();
-                app.on_change_video()
-            }
             Mode::Subscriptions => {
                 app.set_mode_subs();
                 app.on_change_channel()
             }
+            Mode::LatestVideos => {
+                app.set_mode_latest_videos();
+                app.on_change_video()
+            }
         }
-
-        app.load_channels();
 
         app.tags = SelectionList::new(database::get_tags(&app.conn)?);
 
