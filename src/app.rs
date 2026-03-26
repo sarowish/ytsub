@@ -1413,6 +1413,7 @@ pub enum Selected {
 }
 
 #[derive(PartialEq, Eq, Clone, Debug, Default, Deserialize)]
+#[serde(rename_all(deserialize = "snake_case"))]
 pub enum Mode {
     #[default]
     Subscriptions,
