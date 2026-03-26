@@ -112,6 +112,10 @@ impl App {
             }
         }
 
+        if OPTIONS.refresh_on_launch {
+            app.refresh_channels()
+        }
+
         app.tags = SelectionList::new(database::get_tags(&app.conn)?);
 
         Ok(app)
