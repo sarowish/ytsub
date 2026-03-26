@@ -115,6 +115,8 @@ impl Default for KeyBindings {
         insert_binding!(general, "F", Command::RefreshFailedChannels);
         insert_binding!(general, "J", Command::LoadMoreVideos);
         insert_binding!(general, "ctrl-j", Command::LoadAllVideos);
+        insert_binding!(general, "y", Command::CopyYoutubeLink);
+        insert_binding!(general, "Y", Command::CopyInvidiousLink);
         insert_binding!(general, "o", Command::OpenInYoutube);
         insert_binding!(general, "O", Command::OpenInInvidious);
         insert_binding!(general, "p", Command::PlayFromFormats);

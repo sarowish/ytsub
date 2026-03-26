@@ -3,7 +3,9 @@ use crate::{
     api::{Api, ApiBackend, ChannelFeed, invidious::Instance, local::Local},
     channel::{ChannelTab, RefreshState},
     message::MessageType,
-    player::{self, open_in_invidious, open_in_youtube, play_from_formats, play_using_ytdlp},
+    player::{
+        self, copy_link, open_in_invidious, open_in_youtube, play_from_formats, play_using_ytdlp,
+    },
     ro_cell::RoCell,
     stream_formats::Formats,
     thumbnail::{Thumbnail, protocols::GraphicsProtocol},
@@ -153,6 +155,9 @@ impl Client {
                 }
                 IoEvent::PlayUsingYtdlp(video_id) => {
                     tokio::spawn(async move { play_using_ytdlp(&video_id).await });
+                }
+                IoEvent::CopyLink(url_component, api) => {
+                    copy_link(self, &url_component, api).await?
                 }
                 IoEvent::OpenInBrowser(url_component, api) => match api {
                     ApiBackend::Local => open_in_youtube(&url_component),

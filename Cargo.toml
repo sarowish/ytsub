@@ -47,6 +47,7 @@ which = "8.0.2"
 libc = "0.2.183"
 
 [target.'cfg(windows)'.dependencies]
+clipboard-win = "5.4.1"
 rusqlite = { version = "0.39.0", features = ["bundled", "fallible_uint"]}
 
 [features]

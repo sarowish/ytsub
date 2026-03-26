@@ -15,6 +15,13 @@ impl<T> RoCell<T> {
         }
     }
 
+    pub const fn with_const(value: T) -> Self {
+        Self {
+            content: UnsafeCell::new(MaybeUninit::new(value)),
+            initialized: UnsafeCell::new(true),
+        }
+    }
+
     pub fn init(&self, value: T) {
         unsafe {
             self.initialized.get().replace(true);

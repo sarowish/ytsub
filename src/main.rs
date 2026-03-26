@@ -3,6 +3,7 @@ mod app;
 mod channel;
 mod cli;
 mod client;
+mod clipboard;
 mod commands;
 mod config;
 mod database;
@@ -290,6 +291,7 @@ pub enum IoEvent {
     FetchFormats(String, String, bool),
     PlayFromFormats(Box<Formats>),
     PlayUsingYtdlp(String),
+    CopyLink(String, ApiBackend),
     OpenInBrowser(String, ApiBackend),
     ClearMessage(CancellationToken, u64),
     SwitchApi,

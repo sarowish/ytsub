@@ -9,6 +9,9 @@ ytsub is a subscriptions only tui youtube client.
 `mpv` and `yt-dlp` are optional dependencies for video playback. `yt-dlp` is not
 needed for playback when using the `play_from_formats` command.
 
+`xclip`, `xsel`, `wl-clipboard` and `wayclip` are optional dependencies for
+clipboard support on Linux.
+
 `sqlite` is a required dependency. If it is not available on the system,
 it can be compiled and linked by enabling
 the `bundled_sqlite` feature when building with cargo:
@@ -79,6 +82,31 @@ Pressing `i` prompts the user to enter a channel id or url.
 - `<INVIDIOUS_INSTANCE>/channel/UCsXVk37bltHxD1rDPwtNM8Q`
 - `@kurzgesagt`
 - `https://youtube.com/@kurzgesagt`
+
+## Clipboard
+
+For clipboard support, one of the following providers is used if available:
+
+- Wayland: `wl-clipboard` or `wayclip`
+- X11: `xclip` or `xsel`
+- macOS: `pbcopy`
+- Windows: native clipboard API
+
+If no clipboard provider is available, or if invoking the clipboard provider
+fails, ytsub falls back to OSC52 for copying.
+
+> [!WARNING]
+> OSC52 capability is queried through DA1 and XTGETTCAP, but some terminals do
+> not report it despite supporting it. Because of this, OSC52 sequences are
+> sent regardless of detection.
+>
+> The status message after pressing `y` or `Y` is one of:
+>
+> - `Copied: {link}`
+> - `OSC52 copy sent: {link}`
+>
+> The second message is shown when support could not be confirmed.
+> This means an OSC52 copy sequence was sent, but actual copying may not occur.
 
 ## Configuration
 
@@ -238,6 +266,8 @@ fg = "Green"
 "J" = "load_more_videos" # Load more videos for the selected channel
 "ctrl-j" = "load_all_videos" # Load all videos for the selected channel
 "F" = "refresh_failed_channels" # Refresh videos of channels which their latest refresh was a failure
+"y" = "copy_youtube_link" # Copy channel or video Youtube link to clipboard
+"Y" = "copy_invidious_link" # Copy channel or video Invidious link to clipboard
 "o" = "open_in_youtube" # Open channel or video Youtube page in browser
 "O" = "open_in_invidious" # Open channel or video Invidious page in browser
 "p" = "play_from_formats" # Play selected video in a video player using stream formats

@@ -1,5 +1,7 @@
 use crate::TX;
+use crate::api::ApiBackend;
 use crate::client::{Client, ClientRequest};
+use crate::clipboard::{CopyStatus, copy_to_clipboard};
 use crate::{OPTIONS, api::Api, app::VideoPlayer, emit_msg, stream_formats::Formats};
 use anyhow::Result;
 use std::path::Path;
@@ -132,12 +134,9 @@ fn gen_video_player_command(
     command
 }
 
-pub async fn open_in_invidious(client: &mut Client, url_component: &str) -> Result<()> {
-    if client.invidious_instance.is_none()
-        && let Err(e) = client.set_instance().await
-    {
-        emit_msg!(error, e.to_string());
-        return Ok(());
+async fn invidious_url(client: &mut Client, url_component: &str) -> Result<String> {
+    if client.invidious_instance.is_none() {
+        client.set_instance().await?;
     }
 
     let instance = client
@@ -145,15 +144,48 @@ pub async fn open_in_invidious(client: &mut Client, url_component: &str) -> Resu
         .as_ref()
         .expect("The function should return before if an instance couldn't be set");
 
-    let url = format!("{}/{}", instance.domain, url_component);
+    Ok(format!("{}/{}", instance.domain, url_component))
+}
 
-    open_in_browser(&url);
+pub async fn copy_link(client: &mut Client, url_component: &str, api: ApiBackend) -> Result<()> {
+    let url = match api {
+        ApiBackend::Local => format!("https://www.youtube.com/{url_component}"),
+        ApiBackend::Invidious => match invidious_url(client, url_component).await {
+            Ok(url) => url,
+            Err(e) => {
+                emit_msg!(error, e.to_string());
+                return Ok(());
+            }
+        },
+    };
+
+    match copy_to_clipboard(&url) {
+        Ok(CopyStatus::Copied) => emit_msg!(format!("Copied: {url}")),
+        Ok(CopyStatus::UnconfirmedOsc52) => {
+            emit_msg!(format!("OSC52 copy sent: {url}"));
+        }
+        Err(e) => emit_msg!(error, e.to_string()),
+    }
 
     Ok(())
 }
 
 pub fn open_in_youtube(url_component: &str) {
     open_in_browser(&format!("https://www.youtube.com/{url_component}"));
+}
+
+pub async fn open_in_invidious(client: &mut Client, url_component: &str) -> Result<()> {
+    let url = match invidious_url(client, url_component).await {
+        Ok(url) => url,
+        Err(e) => {
+            emit_msg!(error, e.to_string());
+            return Ok(());
+        }
+    };
+
+    open_in_browser(&url);
+
+    Ok(())
 }
 
 pub fn open_in_browser(url: &str) {

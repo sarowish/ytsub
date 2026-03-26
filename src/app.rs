@@ -415,6 +415,25 @@ impl App {
         self.dispatch(IoEvent::PlayFromFormats(Box::new(formats)));
     }
 
+    pub fn copy_url_to_clipboard(&mut self, api: ApiBackend) {
+        let url_component = match self.selected {
+            Selected::Channels => match self.get_current_channel() {
+                Some(current_channel) => {
+                    format!("channel/{}", current_channel.channel_id)
+                }
+                None => return,
+            },
+            Selected::Videos => match self.get_current_video() {
+                Some(current_video) => {
+                    format!("watch?v={}", current_video.video_id)
+                }
+                None => return,
+            },
+        };
+
+        self.dispatch(IoEvent::CopyLink(url_component, api));
+    }
+
     pub fn open_in_browser(&mut self, api: ApiBackend) {
         let url_component = match self.selected {
             Selected::Channels => match self.get_current_channel() {

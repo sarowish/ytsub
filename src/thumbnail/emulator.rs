@@ -1,6 +1,7 @@
 use super::Thumbnail;
 use super::mux::{self, detect_tmux};
 use super::protocols::GraphicsProtocol;
+use crate::clipboard::OSC52_SUPPORTED;
 use crate::thumbnail::mux::IS_TMUX;
 use crate::thumbnail::protocols::ueberzug;
 use crate::utils::binary_exists;
@@ -10,6 +11,7 @@ use crossterm::{
     execute, queue,
     style::Print,
 };
+use std::fmt::Write as _;
 use std::{env, io::Read};
 
 #[derive(Clone, Copy)]
@@ -32,7 +34,6 @@ impl Emulator {
         detect_tmux();
 
         let mut w = std::io::stdout();
-        let mut r = std::io::stdin();
 
         queue!(w, SavePosition,)?;
 
@@ -54,28 +55,7 @@ impl Emulator {
             RestorePosition,
         )?;
 
-        let mut parser = ResponseParser::default();
-        let mut responses = Vec::new();
-
-        'outer: loop {
-            let mut buf: [u8; 128] = [0; 128];
-            let n = r.read(&mut buf)?;
-
-            if n == 0 {
-                break;
-            }
-
-            for ch in buf.iter().take(n) {
-                if let Some(resp) = parser.process(char::from(*ch)) {
-                    parser.reset();
-                    responses.push(resp);
-
-                    if let ParserResponse::Status = resp {
-                        break 'outer;
-                    }
-                }
-            }
-        }
+        let responses = read_responses()?;
 
         let mut graphics_protocol = None;
         let mut cell_size = None;
@@ -90,8 +70,23 @@ impl Emulator {
                         graphics_protocol = Some(GraphicsProtocol::Sixel);
                     }
                 }
+                ParserResponse::SupportsOsc52 => {
+                    OSC52_SUPPORTED.init(true);
+                }
                 a @ ParserResponse::CellSize(_, _) => cell_size = Some(a),
                 _ => {}
+            }
+        }
+
+        if !*OSC52_SUPPORTED {
+            execute!(
+                w,
+                Print(xtgettcap_query(&["Ms"])),
+                Print(mux::csi("\x1b[5n"))
+            )?;
+
+            if read_responses()?.contains(&ParserResponse::SupportsOsc52) {
+                OSC52_SUPPORTED.init(true);
             }
         }
 
@@ -145,6 +140,37 @@ impl Emulator {
     }
 }
 
+fn read_responses() -> Result<Vec<ParserResponse>> {
+    let mut r = std::io::stdin();
+    let mut buf: [u8; 128] = [0; 128];
+    let mut responses = Vec::new();
+    let mut parser = ResponseParser::default();
+
+    'outer: loop {
+        let n = r.read(&mut buf)?;
+
+        if n == 0 {
+            break;
+        }
+
+        for ch in buf.iter().take(n) {
+            let mut v = parser.process(char::from(*ch));
+
+            if !v.is_empty() {
+                parser.reset();
+            }
+
+            if v == [ParserResponse::Status] {
+                break 'outer;
+            }
+
+            responses.append(&mut v);
+        }
+    }
+
+    Ok(responses)
+}
+
 fn clear_needed(graphics_protocol: GraphicsProtocol, term_program: Option<String>) -> ClearNeeded {
     if term_program.is_some_and(|t| t == "WarpTerminal") {
         return ClearNeeded::Full;
@@ -184,6 +210,7 @@ enum ParserState {
     Unknown,
     Kitty,
     Csi,
+    Terminfo,
 }
 
 #[derive(Debug, PartialEq, Copy, Clone)]
@@ -191,6 +218,7 @@ enum ParserResponse {
     SupportsKgp,
     SupportsSixel,
     CellSize(u16, u16),
+    SupportsOsc52,
     Status,
 }
 
@@ -201,19 +229,23 @@ struct ResponseParser {
 }
 
 impl ResponseParser {
-    fn process(&mut self, next: char) -> Option<ParserResponse> {
+    fn process(&mut self, next: char) -> Vec<ParserResponse> {
         match self.state {
             ParserState::Unknown => {
                 match (self.data.as_str(), next) {
                     (_, '\x1b') => {
                         self.reset();
-                        return None;
+                        return Vec::new();
                     }
                     ("_Gi=31", ';') => {
                         self.state = ParserState::Kitty;
                     }
                     ("[", _) => {
                         self.state = ParserState::Csi;
+                    }
+                    ("P1+r", _) => {
+                        self.data.clear();
+                        self.state = ParserState::Terminfo;
                     }
                     _ => {}
                 }
@@ -223,7 +255,7 @@ impl ResponseParser {
             ParserState::Kitty => {
                 if next == '\\' {
                     if self.data == "_Gi=31;OK\x1b" {
-                        return Some(ParserResponse::SupportsKgp);
+                        return vec![ParserResponse::SupportsKgp];
                     }
 
                     self.reset();
@@ -234,36 +266,92 @@ impl ResponseParser {
             ParserState::Csi => match next {
                 'n' => {
                     if self.data.starts_with("[0") {
-                        return Some(ParserResponse::Status);
+                        return vec![ParserResponse::Status];
                     }
                 }
                 'c' => {
-                    if self.data.starts_with("[?") && self.data[2..].split(';').any(|p| p == "4") {
-                        return Some(ParserResponse::SupportsSixel);
+                    let mut attributes = Vec::new();
+
+                    if let Some(s) = self.data.strip_prefix("[?") {
+                        for attr in s.split(';') {
+                            match attr {
+                                "4" => attributes.push(ParserResponse::SupportsSixel),
+                                "52" => attributes.push(ParserResponse::SupportsOsc52),
+                                _ => {}
+                            }
+                        }
                     }
 
                     self.reset();
+                    return attributes;
                 }
                 't' => {
-                    if self.data.starts_with("[6;")
-                        && let Some((height, width)) = self.data[3..].split_once(';')
+                    if let Some(s) = self.data.strip_prefix("[6;")
+                        && let Some((height, width)) = s.split_once(';')
                         && let Ok(height) = height.parse()
                         && let Ok(width) = width.parse()
                     {
-                        return Some(ParserResponse::CellSize(height, width));
+                        return vec![ParserResponse::CellSize(height, width)];
+                    }
+                }
+                _ => self.data.push(next),
+            },
+            ParserState::Terminfo => match next {
+                '\x1b' => {
+                    if let Some((key, value)) = self.data.split_once('=')
+                        && decode_xtgettcap_hex(key).is_some_and(|k| k == "Ms")
+                        && decode_xtgettcap_hex(value).is_some()
+                    {
+                        return vec![ParserResponse::SupportsOsc52];
                     }
                 }
                 _ => self.data.push(next),
             },
         }
 
-        None
+        Vec::new()
     }
 
     fn reset(&mut self) {
         *self = Self::default();
     }
 }
+
+fn xtgettcap_query(names: &[&str]) -> String {
+    let mut s = String::from("\x1bP+q");
+
+    for (i, name) in names.iter().enumerate() {
+        if i > 0 {
+            s.push(';');
+        }
+
+        for b in name.as_bytes() {
+            write!(&mut s, "{:02x}", b).unwrap();
+        }
+    }
+
+    s.push_str("\x1b\\");
+
+    s
+}
+
+fn decode_xtgettcap_hex(s: &str) -> Option<String> {
+    if !s.len().is_multiple_of(2) {
+        return None;
+    }
+
+    let mut decoded = Vec::with_capacity(s.len() / 2);
+    let chunks = s.as_bytes().chunks_exact(2);
+
+    for chunk in chunks {
+        let hex = str::from_utf8(chunk).ok()?;
+        let b = u8::from_str_radix(hex, 16).ok()?;
+        decoded.push(b);
+    }
+
+    String::from_utf8(decoded).ok()
+}
+
 
 #[cfg(test)]
 mod tests {
@@ -275,10 +363,13 @@ mod tests {
         let mut responses = Vec::new();
 
         for next in data.chars() {
-            if let Some(resp) = parser.process(next) {
+            let mut v = parser.process(next);
+
+            if !v.is_empty() {
                 parser.reset();
-                responses.push(resp);
             }
+
+            responses.append(&mut v);
         }
 
         responses
@@ -292,8 +383,18 @@ mod tests {
     }
 
     #[test]
-    fn sixel() {
+    fn primary_device_attributes() {
         let data = "\x1b[?62;4;22;28;52c";
+
+        assert_eq!(
+            parse(data),
+            vec![ParserResponse::SupportsSixel, ParserResponse::SupportsOsc52]
+        );
+    }
+
+    #[test]
+    fn sixel() {
+        let data = "\x1b[?4c";
 
         assert_eq!(parse(data), vec![ParserResponse::SupportsSixel]);
     }
@@ -320,10 +421,18 @@ mod tests {
             parse(data),
             vec![
                 ParserResponse::SupportsKgp,
+                ParserResponse::SupportsOsc52,
                 ParserResponse::CellSize(18, 9),
                 ParserResponse::Status
             ]
         );
+    }
+
+    #[test]
+    fn xtgettcap() {
+        let data = "\x1bP1+r4d73=1B5D35323B25703125733B25703225731B5C\x1b\\";
+
+        assert_eq!(parse(data), vec![ParserResponse::SupportsOsc52]);
     }
 
     #[test]
