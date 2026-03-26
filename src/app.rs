@@ -62,13 +62,12 @@ impl App {
             (false, true) => HideVideos::MEMBERS_ONLY,
             (false, false) => HideVideos::empty(),
         };
-
         let mut app = Self {
             channels: StatefulList::with_items(Vec::default()),
             tabs: Tabs::default(),
             tags: SelectionList::default(),
-            selected: Selected::Channels,
-            mode: Mode::Subscriptions,
+            selected: Selected::default(),
+            mode: Mode::default(),
             conn: Connection::open(OPTIONS.database.clone())?,
             emulator: None,
             message: Message::new(),
@@ -99,9 +98,19 @@ impl App {
         }
 
         database::initialize_db(&mut app.conn)?;
-        app.set_mode_subs();
+
         app.load_channels();
-        app.on_change_channel();
+
+        match OPTIONS.mode {
+            Mode::Subscriptions => {
+                app.set_mode_subs();
+                app.on_change_channel()
+            }
+            Mode::LatestVideos => {
+                app.set_mode_latest_videos();
+                app.on_change_video()
+            }
+        }
 
         app.tags = SelectionList::new(database::get_tags(&app.conn)?);
 
@@ -1396,13 +1405,18 @@ impl<T, S: State + Default> From<Vec<T>> for StatefulList<T, S> {
     }
 }
 
+#[derive(Default)]
 pub enum Selected {
+    #[default]
     Channels,
     Videos,
 }
 
-#[derive(PartialEq, Eq, Clone, Debug)]
+#[derive(PartialEq, Eq, Clone, Debug, Default, Deserialize)]
+#[serde(rename_all(deserialize = "snake_case"))]
 pub enum Mode {
+    #[default]
+    #[serde(alias = "subs")]
     Subscriptions,
     LatestVideos,
 }

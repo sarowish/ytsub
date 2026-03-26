@@ -1,7 +1,7 @@
 use crate::{
     CLAP_ARGS,
     api::{ApiBackend, VideoFormat},
-    app::VideoPlayer,
+    app::{Mode, VideoPlayer},
     channel::ChannelTab,
 };
 use bitflags::bitflags;
@@ -27,6 +27,7 @@ pub enum VideoInfoPosition {
 pub struct UserOptions {
     database: Option<PathBuf>,
     instances: Option<PathBuf>,
+    mode: Option<Mode>,
     #[serde(default, deserialize_with = "deserialize_tabs")]
     tabs: Option<EnabledTabs>,
     hide_disabled_tabs: Option<bool>,
@@ -59,6 +60,7 @@ pub struct UserOptions {
 pub struct Options {
     pub database: PathBuf,
     pub instances: PathBuf,
+    pub mode: Mode,
     pub tabs: EnabledTabs,
     pub hide_disabled_tabs: bool,
     pub api: ApiBackend,
@@ -114,6 +116,7 @@ impl Default for Options {
         Options {
             database: PathBuf::default(),
             instances: PathBuf::default(),
+            mode: Mode::default(),
             tabs: EnabledTabs::VIDEOS,
             hide_disabled_tabs: true,
             api: ApiBackend::Local,
@@ -159,6 +162,7 @@ impl From<UserOptions> for Options {
 
         set_options_field!(database);
         set_options_field!(instances);
+        set_options_field!(mode);
         set_options_field!(tabs);
         set_options_field!(hide_disabled_tabs);
         set_options_field!(api);

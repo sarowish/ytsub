@@ -71,7 +71,7 @@ For default key bindings, press `ctrl-h` in the app or refer to
 the [example `config.toml` file](#example-configtoml-with-default-values).
 
 ### Subscribing
-Pressing `i` prompts the user to enter a channel id or url. 
+Pressing `i` prompts the user to enter a channel id or url.
 
 #### Example inputs
 
@@ -101,6 +101,7 @@ Path to the configuration file can be specified with the `-c` flag.
 
 database = "/home/username/.local/share/ytsub/videos.db" # Path to database file
 instances = "/home/username/.config/ytsub/instances" # Path to instances file
+mode = "subscriptions" # Default application mode [possible values: subscriptions (or subs), latest_videos]
 tabs = ["videos"] # Tabs to fetch videos from [possible values: videos, shorts, streams]
 hide_disabled_tabs = true # Hide available tabs in the ui if they are not in the `tabs` option
 api = "local" # API to be used for fetching videos [possible values: invidious, local]
