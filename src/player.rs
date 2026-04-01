@@ -191,7 +191,7 @@ fn copy(value: String) -> Result<()> {
     };
     match result {
         Ok(request) => {
-            emit_msg!(perm, request);
+            emit_msg!(perm, format!("{request} (copied)"));
             Ok(())
         }
         Err(e) => {
