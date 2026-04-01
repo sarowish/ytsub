@@ -168,20 +168,37 @@ pub fn copy_youtube_link(url_component: &str) -> Result<()> {
 }
 
 pub async fn copy_invidious_link(client: &mut Client, url_component: &str) -> Result<()> {
-    copy(
-        invidious_url(client, url_component)
-            .await?
-            .unwrap_or_default(),
-    )
+    if let Some(link) = invidious_url(client, url_component).await? {
+        copy(link)?
+    }
+    Ok(())
 }
 
 // shared helpers:
 
 fn copy(value: String) -> Result<()> {
-    ClipboardContext::new()
-        .map_err(|e| anyhow!("Clipboard init error: {e}"))?
-        .set_contents(value)
-        .map_err(|e| anyhow!("Clipboard action error: {e}"))
+    let result = {
+        let mut clipboard =
+            ClipboardContext::new().map_err(|e| anyhow!("Clipboard init error: {e}"))?;
+
+        clipboard
+            .set_contents(value)
+            .map_err(|e| anyhow!("Clipboard set error: {e}"))?;
+
+        clipboard
+            .get_contents()
+            .map_err(|e| anyhow!("Clipboard get error: {e}"))
+    };
+    match result {
+        Ok(request) => {
+            emit_msg!(perm, request);
+            Ok(())
+        }
+        Err(e) => {
+            emit_msg!(error, e.to_string());
+            Err(e)
+        }
+    }
 }
 
 async fn invidious_url(client: &mut Client, url_component: &str) -> Result<Option<String>> {
