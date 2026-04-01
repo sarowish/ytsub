@@ -179,9 +179,9 @@ pub async fn copy_invidious_link(client: &mut Client, url_component: &str) -> Re
 
 fn copy(value: String) -> Result<()> {
     ClipboardContext::new()
-        .map_err(|e| anyhow!("Clipboard init error: {}", e))?
+        .map_err(|e| anyhow!("Clipboard init error: {e}"))?
         .set_contents(value)
-        .map_err(|e| anyhow!("Clipboard action error: {}", e))
+        .map_err(|e| anyhow!("Clipboard action error: {e}"))
 }
 
 async fn invidious_url(client: &mut Client, url_component: &str) -> Result<Option<String>> {
@@ -197,5 +197,5 @@ async fn invidious_url(client: &mut Client, url_component: &str) -> Result<Optio
         .as_ref()
         .expect("The function should return before if an instance couldn't be set");
 
-    Ok(Some(format!("{}/{}", instance.domain, url_component)))
+    Ok(Some(format!("{}/{url_component}", instance.domain)))
 }
