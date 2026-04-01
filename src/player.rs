@@ -190,8 +190,8 @@ fn copy(value: String) -> Result<()> {
             .map_err(|e| anyhow!("Clipboard get error: {e}"))
     };
     match result {
-        Ok(request) => {
-            emit_msg!(perm, format!("{request} (copied)"));
+        Ok(v) => {
+            emit_msg!(perm, format!("{v} (copied)"));
             Ok(())
         }
         Err(e) => {
