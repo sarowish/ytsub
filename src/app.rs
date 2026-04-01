@@ -416,22 +416,43 @@ impl App {
     }
 
     pub fn open_in_browser(&mut self, api: ApiBackend) {
-        let url_component = match self.selected {
-            Selected::Channels => match self.get_current_channel() {
-                Some(current_channel) => {
-                    format!("channel/{}", current_channel.channel_id)
-                }
-                None => return,
+        self.dispatch(IoEvent::OpenInBrowser(
+            match self.selected {
+                Selected::Channels => match self.get_current_channel() {
+                    Some(current_channel) => {
+                        format!("channel/{}", current_channel.channel_id)
+                    }
+                    None => return,
+                },
+                Selected::Videos => match self.get_current_video() {
+                    Some(current_video) => {
+                        format!("watch?v={}", current_video.video_id)
+                    }
+                    None => return,
+                },
             },
-            Selected::Videos => match self.get_current_video() {
-                Some(current_video) => {
-                    format!("watch?v={}", current_video.video_id)
-                }
-                None => return,
-            },
-        };
+            api,
+        ))
+    }
 
-        self.dispatch(IoEvent::OpenInBrowser(url_component, api));
+    pub fn copy_link(&mut self, api: ApiBackend) {
+        self.dispatch(IoEvent::CopyLink(
+            match self.selected {
+                Selected::Channels => match self.get_current_channel() {
+                    Some(current_channel) => {
+                        format!("channel/{}", current_channel.channel_id)
+                    }
+                    None => return,
+                },
+                Selected::Videos => match self.get_current_video() {
+                    Some(current_video) => {
+                        format!("watch?v={}", current_video.video_id)
+                    }
+                    None => return,
+                },
+            },
+            api,
+        ))
     }
 
     fn get_videos_of_current_channel(&self) -> Result<TabList> {

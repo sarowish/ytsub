@@ -3,7 +3,10 @@ use crate::{
     api::{Api, ApiBackend, ChannelFeed, invidious::Instance, local::Local},
     channel::{ChannelTab, RefreshState},
     message::MessageType,
-    player::{self, open_in_invidious, open_in_youtube, play_from_formats, play_using_ytdlp},
+    player::{
+        self, copy_invidious_link, copy_youtube_link, open_in_invidious, open_in_youtube,
+        play_from_formats, play_using_ytdlp,
+    },
     ro_cell::RoCell,
     stream_formats::Formats,
     thumbnail::{Thumbnail, protocols::GraphicsProtocol},
@@ -157,6 +160,10 @@ impl Client {
                 IoEvent::OpenInBrowser(url_component, api) => match api {
                     ApiBackend::Local => open_in_youtube(&url_component),
                     ApiBackend::Invidious => open_in_invidious(self, &url_component).await?,
+                },
+                IoEvent::CopyLink(url_component, api) => match api {
+                    ApiBackend::Local => copy_youtube_link(&url_component)?,
+                    ApiBackend::Invidious => copy_invidious_link(self, &url_component).await?,
                 },
                 IoEvent::ClearMessage(token, duration) => {
                     tokio::spawn(async move { clear_message(token, duration).await });

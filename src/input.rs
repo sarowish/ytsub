@@ -81,6 +81,8 @@ fn handle_key_normal_mode(key: KeyEvent, app: &mut App) -> bool {
             Command::LoadAllVideos => app.get_more_videos(true),
             Command::OpenInInvidious => app.open_in_browser(ApiBackend::Invidious),
             Command::OpenInYoutube => app.open_in_browser(ApiBackend::Local),
+            Command::CopyInvidiousLink => app.copy_link(ApiBackend::Invidious),
+            Command::CopyYoutubeLink => app.copy_link(ApiBackend::Local),
             Command::PlayFromFormats => app.play_from_formats(),
             Command::PlayUsingYtdlp => app.play_video(),
             Command::SelectFormats => app.enter_format_selection(),

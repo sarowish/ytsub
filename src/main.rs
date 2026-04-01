@@ -291,6 +291,7 @@ pub enum IoEvent {
     PlayFromFormats(Box<Formats>),
     PlayUsingYtdlp(String),
     OpenInBrowser(String, ApiBackend),
+    CopyLink(String, ApiBackend),
     ClearMessage(CancellationToken, u64),
     SwitchApi,
 }

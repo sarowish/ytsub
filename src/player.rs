@@ -1,7 +1,8 @@
 use crate::TX;
 use crate::client::{Client, ClientRequest};
 use crate::{OPTIONS, api::Api, app::VideoPlayer, emit_msg, stream_formats::Formats};
-use anyhow::Result;
+use anyhow::{Result, anyhow};
+use copypasta::{ClipboardContext, ClipboardProvider};
 use std::path::Path;
 use std::process::Stdio;
 use tokio::process::Command;
@@ -133,22 +134,9 @@ fn gen_video_player_command(
 }
 
 pub async fn open_in_invidious(client: &mut Client, url_component: &str) -> Result<()> {
-    if client.invidious_instance.is_none()
-        && let Err(e) = client.set_instance().await
-    {
-        emit_msg!(error, e.to_string());
-        return Ok(());
+    if let Some(ref request) = invidious_url(client, url_component).await? {
+        open_in_browser(request)
     }
-
-    let instance = client
-        .invidious_instance
-        .as_ref()
-        .expect("The function should return before if an instance couldn't be set");
-
-    let url = format!("{}/{}", instance.domain, url_component);
-
-    open_in_browser(&url);
-
     Ok(())
 }
 
@@ -173,4 +161,41 @@ pub fn open_in_browser(url: &str) {
         emit_msg!(error, &last_error.unwrap().to_string());
         anyhow::Ok(())
     });
+}
+
+pub fn copy_youtube_link(url_component: &str) -> Result<()> {
+    copy(format!("https://www.youtube.com/{url_component}"))
+}
+
+pub async fn copy_invidious_link(client: &mut Client, url_component: &str) -> Result<()> {
+    copy(
+        invidious_url(client, url_component)
+            .await?
+            .unwrap_or_default(),
+    )
+}
+
+// shared helpers:
+
+fn copy(value: String) -> Result<()> {
+    ClipboardContext::new()
+        .map_err(|e| anyhow!("Clipboard init error: {}", e))?
+        .set_contents(value)
+        .map_err(|e| anyhow!("Clipboard action error: {}", e))
+}
+
+async fn invidious_url(client: &mut Client, url_component: &str) -> Result<Option<String>> {
+    if client.invidious_instance.is_none()
+        && let Err(e) = client.set_instance().await
+    {
+        emit_msg!(error, e.to_string());
+        return Ok(None);
+    }
+
+    let instance = client
+        .invidious_instance
+        .as_ref()
+        .expect("The function should return before if an instance couldn't be set");
+
+    Ok(Some(format!("{}/{}", instance.domain, url_component)))
 }
