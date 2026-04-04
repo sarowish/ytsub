@@ -4,7 +4,7 @@ pub mod protocols;
 
 use crate::thumbnail::{
     emulator::ClearNeeded,
-    protocols::{halfblocks, kitty::place, ueberzug},
+    protocols::{chafa, halfblocks, kitty::place, ueberzug},
 };
 use anyhow::Result;
 use crossterm::{
@@ -29,21 +29,37 @@ impl Thumbnail {
 
         self.area = Some(area);
 
+        let mut erase = match clear {
+            ClearNeeded::Full if area_changed => clear_area(area)?,
+            ClearNeeded::LastLine if area_changed => clear_last_line(area)?,
+            _ => String::new(),
+        };
+
         match &self.data {
             ImageData::Kgp => {
                 send_buffer(&place(area)?)?;
                 draw_thumbnail(buf, area, "");
             }
             ImageData::Iip(data) | ImageData::Sixel(data) => {
-                let mut erase = match clear {
-                    ClearNeeded::Full if area_changed => clear_area(area)?,
-                    ClearNeeded::LastLine if area_changed => clear_last_line(area)?,
-                    _ => String::new(),
-                };
                 erase.push_str(data);
                 draw_thumbnail(buf, area, &erase);
             }
             ImageData::Ueberzug(path) => ueberzug::display_image(path, &area)?,
+            ImageData::Chafa(path) => {
+                let output = chafa::show_image(path, &area)?;
+                erase.push_str(&String::from_utf8_lossy(&output));
+
+                for (y, line) in erase.split('\n').enumerate() {
+                    let row = area.top() + y as u16;
+
+                    buf.cell_mut((area.left(), row))
+                        .map(|cell| cell.set_symbol(line));
+
+                    for x in (area.left() + 1)..area.right() {
+                        buf.cell_mut((x, row)).map(|cell| cell.set_skip(true));
+                    }
+                }
+            }
             ImageData::HalfBlocks(path) => {
                 let data = halfblocks::display_image(path, &area)?;
                 let mut blocks = data.iter();

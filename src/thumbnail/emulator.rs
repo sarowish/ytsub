@@ -103,6 +103,8 @@ impl Emulator {
                     .expect("Emulator capabilites should only be detected once");
                 ueberzug::start();
                 graphics_protocol = Some(GraphicsProtocol::Ueberzug);
+            } else if binary_exists("chafa") {
+                graphics_protocol = Some(GraphicsProtocol::Chafa);
             } else {
                 graphics_protocol = Some(GraphicsProtocol::HalfBlocks);
             }
@@ -181,6 +183,7 @@ fn clear_needed(graphics_protocol: GraphicsProtocol, term_program: Option<String
             ClearNeeded::None
         }
         GraphicsProtocol::Iip | GraphicsProtocol::Sixel => ClearNeeded::LastLine,
+        GraphicsProtocol::Chafa => ClearNeeded::Full,
     }
 }
 
@@ -353,7 +356,6 @@ fn decode_xtgettcap_hex(s: &str) -> Option<String> {
 
     String::from_utf8(decoded).ok()
 }
-
 
 #[cfg(test)]
 mod tests {
