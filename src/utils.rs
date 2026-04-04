@@ -224,6 +224,14 @@ pub fn time_passed(time: u64) -> Result<u64> {
     Ok(now()?.saturating_sub(time))
 }
 
+pub fn binary_exists(program: &str) -> bool {
+    which::which(program).is_ok()
+}
+
+pub fn env_var_is_set(name: &str) -> bool {
+    std::env::var_os(name).is_some_and(|var| !var.is_empty())
+}
+
 #[cfg(test)]
 mod tests {
 

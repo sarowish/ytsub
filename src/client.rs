@@ -423,7 +423,7 @@ async fn get_thumbnail(
     let image = image::load_from_memory(&bytes)?;
     let width = image.width() as u16;
     let height = image.height() as u16;
-    let data = protocol.display_image(image)?;
+    let data = protocol.display_image(image, path)?;
 
     Ok(Thumbnail {
         data,

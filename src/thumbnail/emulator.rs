@@ -2,6 +2,8 @@ use super::Thumbnail;
 use super::mux::{self, detect_tmux};
 use super::protocols::GraphicsProtocol;
 use crate::thumbnail::mux::IS_TMUX;
+use crate::thumbnail::protocols::ueberzug;
+use crate::utils::binary_exists;
 use anyhow::{Result, bail};
 use crossterm::{
     cursor::{RestorePosition, SavePosition},
@@ -99,6 +101,17 @@ impl Emulator {
             graphics_protocol = Some(GraphicsProtocol::Iip);
         }
 
+        if graphics_protocol.is_none()
+            && binary_exists("ueberzugpp")
+            && let Some(method) = ueberzug::compositor_support()
+        {
+            ueberzug::METHOD
+                .set(method)
+                .expect("Emulator capabilites should only be detected once");
+            ueberzug::start();
+            graphics_protocol = Some(GraphicsProtocol::Ueberzug);
+        }
+
         if cell_size.is_none()
             && let Ok(mut window) = crossterm::terminal::window_size()
         {
@@ -137,7 +150,7 @@ fn clear_needed(graphics_protocol: GraphicsProtocol, term_program: Option<String
     }
 
     match graphics_protocol {
-        GraphicsProtocol::Kgp => ClearNeeded::None,
+        GraphicsProtocol::Kgp | GraphicsProtocol::Ueberzug => ClearNeeded::None,
         GraphicsProtocol::Iip | GraphicsProtocol::Sixel => ClearNeeded::LastLine,
     }
 }

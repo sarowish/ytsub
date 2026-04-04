@@ -41,6 +41,7 @@ itertools = "0.14.0"
 url = "2.5.8"
 quantette = "0.5.1"
 image = { version = "0.25.10", default-features = false, features = ["jpeg"] }
+which = "8.0.2"
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2.183"

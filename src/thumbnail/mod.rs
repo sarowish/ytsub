@@ -2,7 +2,10 @@ pub mod emulator;
 pub mod mux;
 pub mod protocols;
 
-use crate::thumbnail::{emulator::ClearNeeded, protocols::kitty::place};
+use crate::thumbnail::{
+    emulator::ClearNeeded,
+    protocols::{kitty::place, ueberzug},
+};
 use anyhow::Result;
 use crossterm::{
     cursor::{RestorePosition, SavePosition},
@@ -40,6 +43,7 @@ impl Thumbnail {
                 erase.push_str(data);
                 draw_thumbnail(buf, area, &erase);
             }
+            ImageData::Ueberzug(path) => ueberzug::display_image(path, &area)?,
         }
 
         Ok(())

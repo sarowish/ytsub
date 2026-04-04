@@ -1,6 +1,9 @@
 pub mod iip;
 pub mod kitty;
 pub mod sixel;
+pub mod ueberzug;
+
+use std::path::PathBuf;
 
 use anyhow::Result;
 use image::DynamicImage;
@@ -10,16 +13,18 @@ pub enum GraphicsProtocol {
     Kgp,
     Iip,
     Sixel,
+    Ueberzug,
 }
 
 pub enum ImageData {
     Kgp,
     Iip(String),
     Sixel(String),
+    Ueberzug(PathBuf),
 }
 
 impl GraphicsProtocol {
-    pub fn display_image(self, image: DynamicImage) -> Result<ImageData> {
+    pub fn display_image(self, image: DynamicImage, path: PathBuf) -> Result<ImageData> {
         let s = match self {
             GraphicsProtocol::Kgp => {
                 kitty::display_image(image)?;
@@ -27,6 +32,7 @@ impl GraphicsProtocol {
             }
             GraphicsProtocol::Iip => ImageData::Iip(iip::display_image(&image)?),
             GraphicsProtocol::Sixel => ImageData::Sixel(sixel::display_image(image)?),
+            GraphicsProtocol::Ueberzug => ImageData::Ueberzug(path),
         };
 
         Ok(s)
