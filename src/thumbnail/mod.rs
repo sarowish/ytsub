@@ -4,7 +4,7 @@ pub mod protocols;
 
 use crate::thumbnail::{
     emulator::ClearNeeded,
-    protocols::{kitty::place, ueberzug},
+    protocols::{halfblocks, kitty::place, ueberzug},
 };
 use anyhow::Result;
 use crossterm::{
@@ -44,6 +44,20 @@ impl Thumbnail {
                 draw_thumbnail(buf, area, &erase);
             }
             ImageData::Ueberzug(path) => ueberzug::display_image(path, &area)?,
+            ImageData::HalfBlocks(path) => {
+                let data = halfblocks::display_image(path, &area)?;
+                let mut blocks = data.iter();
+
+                for y in area.top()..(area.bottom()) {
+                    for x in area.left()..area.right() {
+                        if let Some(block) = blocks.next()
+                            && let Some(cell) = buf.cell_mut((x, y))
+                        {
+                            block.set_cell(cell)
+                        }
+                    }
+                }
+            }
         }
 
         Ok(())

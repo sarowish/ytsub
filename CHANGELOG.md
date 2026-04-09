@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 ### Added
 - Add Überzug++ as fallback for image rendering.
+- Add Unicode half-blocks image rendering as fallback.
 
 ## [0.8.0] - 2026-03-16
 ### Added

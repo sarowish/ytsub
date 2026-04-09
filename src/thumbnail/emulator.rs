@@ -99,17 +99,18 @@ impl Emulator {
             && supports_iip(term)
         {
             graphics_protocol = Some(GraphicsProtocol::Iip);
-        }
-
-        if graphics_protocol.is_none()
-            && binary_exists("ueberzugpp")
-            && let Some(method) = ueberzug::compositor_support()
-        {
-            ueberzug::METHOD
-                .set(method)
-                .expect("Emulator capabilites should only be detected once");
-            ueberzug::start();
-            graphics_protocol = Some(GraphicsProtocol::Ueberzug);
+        } else if graphics_protocol.is_none() {
+            if binary_exists("ueberzugpp")
+                && let Some(method) = ueberzug::compositor_support()
+            {
+                ueberzug::METHOD
+                    .set(method)
+                    .expect("Emulator capabilites should only be detected once");
+                ueberzug::start();
+                graphics_protocol = Some(GraphicsProtocol::Ueberzug);
+            } else {
+                graphics_protocol = Some(GraphicsProtocol::HalfBlocks);
+            }
         }
 
         if cell_size.is_none()
@@ -150,7 +151,9 @@ fn clear_needed(graphics_protocol: GraphicsProtocol, term_program: Option<String
     }
 
     match graphics_protocol {
-        GraphicsProtocol::Kgp | GraphicsProtocol::Ueberzug => ClearNeeded::None,
+        GraphicsProtocol::Kgp | GraphicsProtocol::Ueberzug | GraphicsProtocol::HalfBlocks => {
+            ClearNeeded::None
+        }
         GraphicsProtocol::Iip | GraphicsProtocol::Sixel => ClearNeeded::LastLine,
     }
 }

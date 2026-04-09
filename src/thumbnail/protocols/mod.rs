@@ -1,3 +1,4 @@
+pub mod halfblocks;
 pub mod iip;
 pub mod kitty;
 pub mod sixel;
@@ -14,6 +15,7 @@ pub enum GraphicsProtocol {
     Iip,
     Sixel,
     Ueberzug,
+    HalfBlocks,
 }
 
 pub enum ImageData {
@@ -21,6 +23,7 @@ pub enum ImageData {
     Iip(String),
     Sixel(String),
     Ueberzug(PathBuf),
+    HalfBlocks(PathBuf),
 }
 
 impl GraphicsProtocol {
@@ -33,6 +36,7 @@ impl GraphicsProtocol {
             GraphicsProtocol::Iip => ImageData::Iip(iip::display_image(&image)?),
             GraphicsProtocol::Sixel => ImageData::Sixel(sixel::display_image(image)?),
             GraphicsProtocol::Ueberzug => ImageData::Ueberzug(path),
+            GraphicsProtocol::HalfBlocks => ImageData::HalfBlocks(path),
         };
 
         Ok(s)
