@@ -58,3 +58,7 @@ lto = true
 codegen-units = 1
 panic = "abort"
 strip = "symbols"
+
+[profile.dev-opt]
+inherits = "dev"
+opt-level = 2
