@@ -38,8 +38,6 @@
         craneLib = (crane.mkLib pkgs).overrideToolchain rust-toolchain;
 
         ytsub = craneLib.buildPackage {
-          CARGO_PROFILE = "release-lto";
-
           src = craneLib.cleanCargoSource ./.;
 
           buildInputs = [

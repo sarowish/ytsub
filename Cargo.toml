@@ -53,9 +53,7 @@ rusqlite = { version = "0.39.0", features = ["bundled", "fallible_uint"]}
 [features]
 bundled_sqlite = ["rusqlite/bundled"]
 
-
-[profile.release-lto]
-inherits = "release"
+[profile.release]
 lto = true
 codegen-units = 1
 panic = "abort"
