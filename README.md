@@ -9,6 +9,9 @@ ytsub is a subscriptions only tui youtube client.
 `mpv` and `yt-dlp` are optional dependencies for video playback. `yt-dlp` is not
 needed for playback when using the `play_from_formats` command.
 
+`ueberzugpp` and `chafa` are optional dependencies for thumbnail
+support when the terminal does not provide a native graphics protocol.
+
 `xclip`, `xsel`, `wl-clipboard` and `wayclip` are optional dependencies for
 clipboard support on Linux.
 
@@ -82,6 +85,68 @@ Pressing `i` prompts the user to enter a channel id or url.
 - `<INVIDIOUS_INSTANCE>/channel/UCsXVk37bltHxD1rDPwtNM8Q`
 - `@kurzgesagt`
 - `https://youtube.com/@kurzgesagt`
+
+## Thumbnails
+
+Video thumbnails can be displayed inside the video info area. The rendering
+method is selected automatically based on terminal support and the availability
+of external tools.
+
+Supported native graphics protocols are
+[Sixel](https://www.vt100.net/docs/vt3xx-gp/chapter14.html),
+[Inline Images Protocol](https://iterm2.com/documentation-images.html) and
+[Kitty Graphics Protocol](https://sw.kovidgoyal.net/kitty/graphics-protocol).
+Support is detected using terminal queries, while environment variables are
+also used as hints when choosing a protocol.
+
+Terminal cell size is detected from terminal responses when available and
+otherwise derived from the window size. If no native graphics protocol is
+available, rendering falls back to
+[`ueberzugpp`](https://github.com/jstkdng/ueberzugpp), then
+[`chafa`](https://hpjansson.org/chafa/), and finally an internal half-block
+renderer that uses Unicode half-block symbols.
+
+Downloaded thumbnails are cached under the ytsub cache directory in
+`thumbnail/` (for example `~/.cache/ytsub/thumbnail` on Linux).
+
+### Tested Terminal Emulators
+
+| Terminal         | Protocol                  | Works | Notes                                                             |
+|------------------|---------------------------|:-----:|-------------------------------------------------------------------|
+| kitty            | `Kitty Graphics Protocol` | ✔️    | -                                                                 |
+| Ghostty          | `Kitty Graphics Protocol` | ✔️    | -                                                                 |
+| foot             | `Sixel`                   | ✔️    | -                                                                 |
+| Contour          | `Sixel`                   | ✔️    | -                                                                 |
+| xterm            | `Sixel`                   | ✔️    | Launch with `-ti 340` to make sure sixel support is enabled.      |
+| BlackBox         | `Sixel`                   | ✔️    | Requires `Sixel support` at compilation and in preferences.       |
+| Windows Terminal | `Sixel`                   | ✔️    | -                                                                 |
+| WezTerm          | `Inline Images Protocol`  | ✔️    | Also supports `Sixel`, but images seem to be misplaced sometimes. |
+| Rio              | `Inline Images Protocol`  | ✔️    | Also supports `Sixel`.                                            |
+| Warp             | `Inline Images Protocol`  | ✔️    | -                                                                 |
+| mlterm           | `Inline Images Protocol`  | ✔️    | Also supports `Sixel`.                                            |
+| Tabby            | `Inline Images Protocol`  | ✔️    | Also supports `Sixel`.                                            |
+| Bobcat           | `Inline Images Protocol`  | ✔️    | Also supports `Sixel`. `Inline Images` option should be enabled   |
+| Konsole          | `Sixel`                   | ❌    | Also supports `iip`. Images aren't cleared properly.              |
+| VSCode           | `Sixel`                   | ❌    | Also supports `iip`. Images aren't cleared properly.              |
+| ctx              | `Sixel`                   | ❌    | -                                                                 |
+
+### tmux
+
+To make thumbnail rendering work correctly in `tmux`, add the following options
+to your `tmux.conf`:
+
+```tmux
+set -g allow-passthrough on
+set -ga update-environment TERM
+set -ga update-environment TERM_PROGRAM
+```
+
+Then restart `tmux`:
+
+```bash
+tmux kill-server && tmux || tmux
+```
+
 
 ## Clipboard
 
