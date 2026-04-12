@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Handle cell sizes with floating point numbers.
 - Don't divide by zero for fallback cell size detection.
+- Handle csv files with localized header names when importing subscriptions.
 
 ## [0.8.0] - 2026-03-16
 ### Added

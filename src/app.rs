@@ -1025,8 +1025,8 @@ impl App {
 
     pub fn select_channels_to_import(&mut self, path: &Path, format: import::Format) -> Result<()> {
         let mut import_state = match format {
-            import::Format::YoutubeCsv => import::YoutubeCsv::read_subscriptions(path),
-            import::Format::NewPipe => import::NewPipe::read_subscriptions(path),
+            import::Format::YoutubeCsv => import::YoutubeCsv::import(path),
+            import::Format::NewPipe => import::NewPipe::import(path),
         }
         .with_context(|| "Failed to import")?;
 

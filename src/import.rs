@@ -1,7 +1,12 @@
 use crate::channel::{Channel, ListItem, RefreshState};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use std::{fmt::Display, fs::File, io::BufReader, path::Path};
+use std::{
+    fmt::Display,
+    fs::File,
+    io::{self, BufReader},
+    path::Path,
+};
 
 #[derive(Clone, Copy)]
 pub enum Format {
@@ -34,14 +39,25 @@ pub struct YoutubeCsv {
 }
 
 impl YoutubeCsv {
-    pub fn read_subscriptions(path: &Path) -> Result<Vec<ImportItem>> {
+    pub fn import(path: &Path) -> Result<Vec<ImportItem>> {
         let file = File::open(path)?;
-        let mut rdr = csv::Reader::from_reader(file);
+        YoutubeCsv::read_subscriptions(file)
+    }
 
-        let mut subscriptions: Vec<YoutubeCsv> = Vec::new();
+    fn read_subscriptions<R: io::Read>(reader: R) -> Result<Vec<ImportItem>> {
+        let mut rdr = csv::ReaderBuilder::new()
+            .has_headers(false)
+            .from_reader(reader);
 
-        for record in rdr.deserialize() {
-            subscriptions.push(record?);
+        let mut subscriptions = Vec::new();
+        let mut records = rdr.records();
+
+        // skip localized header row
+        records.next();
+
+        for record in records {
+            let sub: YoutubeCsv = record?.deserialize(None)?;
+            subscriptions.push(sub);
         }
 
         Ok(subscriptions.into_iter().map(ImportItem::from).collect())
@@ -108,9 +124,13 @@ impl NewPipe {
         }
     }
 
-    pub fn read_subscriptions(path: &Path) -> Result<Vec<ImportItem>> {
+    pub fn import(path: &Path) -> Result<Vec<ImportItem>> {
         let file = File::open(path)?;
-        let rdr = BufReader::new(file);
+        NewPipe::read_subscriptions(file)
+    }
+
+    fn read_subscriptions<R: io::Read>(rdr: R) -> Result<Vec<ImportItem>> {
+        let rdr = BufReader::new(rdr);
 
         let newpipe: NewPipe = serde_json::from_reader(rdr)?;
 
@@ -180,5 +200,26 @@ impl Display for ImportItem {
             },
             self.channel_title
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::import::YoutubeCsv;
+
+    #[test]
+    fn non_english_headers() {
+        let csv = concat!(
+            "Kanal Kimliği,Kanal URL'si,Kanal Başlığı\n",
+            "UC-ocBsC30pAnk5pxJXvnXLg,http://www.youtube.com/channel/UC-ocBsC30pAnk5pxJXvnXLg,Humphrey Wittingtonsworth IV\n",
+            "UCotlzoNU0DtqlbpBw5m-6Fg,http://www.youtube.com/channel/UCotlzoNU0DtqlbpBw5m-6Fg,JustRecycle.",
+        );
+
+        let items = YoutubeCsv::read_subscriptions(csv.as_bytes()).unwrap();
+        let item = &items[0];
+
+        assert_eq!(items.len(), 2);
+        assert_eq!(item.channel_id, "UC-ocBsC30pAnk5pxJXvnXLg");
+        assert_eq!(item.channel_title, "Humphrey Wittingtonsworth IV");
     }
 }
