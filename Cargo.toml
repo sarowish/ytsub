@@ -10,6 +10,16 @@ readme = "README.md"
 keywords = ["youtube", "cli", "tui", "terminal"]
 categories = ["command-line-utilities"]
 
+[profile.dev-opt]
+inherits = "dev"
+opt-level = 2
+
+[profile.release]
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = "symbols"
+
 [dependencies]
 anyhow = "1.0.102"
 clap = "4.6.0"
@@ -52,13 +62,3 @@ rusqlite = { version = "0.39.0", features = ["bundled", "fallible_uint"]}
 
 [features]
 bundled_sqlite = ["rusqlite/bundled"]
-
-[profile.release]
-lto = true
-codegen-units = 1
-panic = "abort"
-strip = "symbols"
-
-[profile.dev-opt]
-inherits = "dev"
-opt-level = 2
