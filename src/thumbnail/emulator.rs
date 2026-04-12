@@ -73,7 +73,7 @@ impl Emulator {
                 ParserResponse::SupportsOsc52 => {
                     OSC52_SUPPORTED.init(true);
                 }
-                a @ ParserResponse::CellSize(_, _) => cell_size = Some(a),
+                ParserResponse::CellSize(h, w) => cell_size = Some((h, w)),
                 _ => {}
             }
         }
@@ -110,24 +110,17 @@ impl Emulator {
             }
         }
 
-        if cell_size.is_none()
-            && let Ok(mut window) = crossterm::terminal::window_size()
-        {
-            if (window.columns == 0 || window.rows == 0)
-                && let Ok((columns, rows)) = crossterm::terminal::size()
-            {
-                window.columns = columns;
-                window.rows = rows;
-            }
-
-            cell_size = Some(ParserResponse::CellSize(
-                window.height / window.rows,
-                window.width / window.columns,
-            ));
-        }
+        cell_size = cell_size.or_else(cell_size_fallback).or_else(|| {
+            // use a default size for symbol related protocols
+            graphics_protocol
+                .is_some_and(|p| {
+                    matches!(p, GraphicsProtocol::Chafa | GraphicsProtocol::HalfBlocks)
+                })
+                .then_some((18, 9))
+        });
 
         if let Some(gp) = graphics_protocol
-            && let Some(ParserResponse::CellSize(height, width)) = cell_size
+            && let Some((height, width)) = cell_size
         {
             Ok(Self {
                 graphics_protocol: gp,
@@ -139,6 +132,23 @@ impl Emulator {
         } else {
             bail!("Won't be able to show thumbnails");
         }
+    }
+}
+
+fn cell_size_fallback() -> Option<(u16, u16)> {
+    let mut window = crossterm::terminal::window_size().ok()?;
+
+    if (window.columns == 0 || window.rows == 0)
+        && let Ok((columns, rows)) = crossterm::terminal::size()
+    {
+        window.columns = columns;
+        window.rows = rows;
+    }
+
+    if window.columns == 0 || window.rows == 0 || window.height == 0 || window.width == 0 {
+        None
+    } else {
+        Some((window.height / window.rows, window.width / window.columns))
     }
 }
 
