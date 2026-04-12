@@ -288,11 +288,13 @@ impl ResponseParser {
                 't' => {
                     if let Some(s) = self.data.strip_prefix("[6;")
                         && let Some((height, width)) = s.split_once(';')
-                        && let Ok(height) = height.parse()
-                        && let Ok(width) = width.parse()
+                        && let Ok(height) = height.parse::<f32>()
+                        && let Ok(width) = width.parse::<f32>()
                     {
-                        return vec![ParserResponse::CellSize(height, width)];
+                        return vec![ParserResponse::CellSize(height as u16, width as u16)];
                     }
+
+                    self.reset();
                 }
                 _ => self.data.push(next),
             },
@@ -402,6 +404,13 @@ mod tests {
     #[test]
     fn cell_size() {
         let data = "\x1b[6;17;8t";
+
+        assert_eq!(parse(data), vec![ParserResponse::CellSize(17, 8)]);
+    }
+
+    #[test]
+    fn cell_size_floating_point() {
+        let data = "\x1b[6;17;8.203125t";
 
         assert_eq!(parse(data), vec![ParserResponse::CellSize(17, 8)]);
     }

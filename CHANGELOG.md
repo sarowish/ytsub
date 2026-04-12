@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add Unicode half-blocks image rendering as fallback.
 - Add a command for copying links to clipboard.
 
+### Fixed
+- Handle cell sizes with floating point numbers.
+
 ## [0.8.0] - 2026-03-16
 ### Added
 - Add a command to load all videos for channels.
