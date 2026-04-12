@@ -75,6 +75,8 @@ Options:
 For default key bindings, press `ctrl-h` in the app or refer to
 the [example `config.toml` file](#example-configtoml-with-default-values).
 
+## Managing subscriptions
+
 ### Subscribing
 Pressing `i` prompts the user to enter a channel id or url.
 
@@ -85,6 +87,47 @@ Pressing `i` prompts the user to enter a channel id or url.
 - `<INVIDIOUS_INSTANCE>/channel/UCsXVk37bltHxD1rDPwtNM8Q`
 - `@kurzgesagt`
 - `https://youtube.com/@kurzgesagt`
+
+### Importing subscriptions
+
+Subscriptions can be imported with:
+
+```bash
+ytsub import [--format FORMAT] <FILE>
+```
+
+Supported formats are:
+
+- `youtube_csv` (default) for YouTube subscription exports
+- `newpipe` for NewPipe subscription exports
+
+#### From YouTube / Google Takeout
+
+1. Go to [Google Takeout](https://takeout.google.com/takeout/custom/youtube).
+2. Sign in if prompted.
+3. Under `Create a New Export`, make sure `YouTube and YouTube Music` is selected.
+4. Click `All YouTube data included`.
+5. Click `Deselect all`, then enable only `subscriptions` and click `OK`.
+6. Click `Next step`, then `Create export`.
+7. Download the generated `.zip` file when it is ready.
+8. Extract the archive and locate `Takeout/YouTube and YouTube Music/subscriptions/subscriptions.csv`
+   (the directory and file names may differ depending on your language settings).
+9. Import the extracted CSV with:
+
+```bash
+ytsub import "Takeout/YouTube and YouTube Music/subscriptions/subscriptions.csv"
+```
+
+#### From NewPipe
+
+1. In NewPipe, go to the subscriptions page.
+2. Tap the three-dot menu in the top-right corner, then choose `Export to`, then `File`.
+3. Transfer the exported file to the device where you use `ytsub`.
+4. Import it with:
+
+```bash
+ytsub import --format newpipe <newpipe-subscriptions-file>
+```
 
 ## Thumbnails
 
