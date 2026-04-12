@@ -4,7 +4,7 @@ use super::protocols::GraphicsProtocol;
 use crate::clipboard::OSC52_SUPPORTED;
 use crate::thumbnail::mux::IS_TMUX;
 use crate::thumbnail::protocols::ueberzug;
-use crate::utils::binary_exists;
+use crate::utils::{binary_exists, env_var_is_set};
 use anyhow::{Result, bail};
 use crossterm::{
     cursor::{RestorePosition, SavePosition},
@@ -38,7 +38,7 @@ impl Emulator {
         queue!(w, SavePosition,)?;
 
         let term_program = get_term_program();
-        let is_konsole = env::var("KONSOLE_VERSION").is_ok_and(|s| !s.is_empty());
+        let is_konsole = env_var_is_set("KONSOLE_VERSION");
 
         if !(term_program.as_ref().is_some_and(|t| t == "WezTerm") || is_konsole) {
             queue!(
@@ -215,6 +215,7 @@ fn supports_iip(term_program: &str) -> bool {
         || term_program.contains("rio")
         || term_program.contains("Bobcat")
         || term_program.contains("WarpTerminal")
+        || env_var_is_set("MLTERM")
 }
 
 #[derive(Default)]
