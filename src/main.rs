@@ -7,6 +7,7 @@ mod clipboard;
 mod commands;
 mod config;
 mod database;
+mod emulator;
 mod help;
 mod import;
 mod input;
@@ -25,7 +26,7 @@ use crate::config::Config;
 use crate::config::keys::KeyBindings;
 use crate::config::options::Options;
 use crate::config::theme::Theme;
-use crate::thumbnail::emulator::Emulator;
+use crate::emulator::Emulator;
 use crate::thumbnail::protocols::GraphicsProtocol;
 use anyhow::Result;
 use api::ApiBackend;
@@ -260,10 +261,7 @@ fn handle_event(event: ClientRequest, app: &mut App) {
             }
         }
         ClientRequest::SetThumbnail(data) => {
-            app.emulator
-                .as_mut()
-                .expect("Shouldn't send request if no emulator")
-                .thumbnail = data;
+            app.thumbnail = data;
         }
         ClientRequest::EnterFormatSelection(formats) => {
             app.input_mode = InputMode::FormatSelection;

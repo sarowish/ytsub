@@ -1,4 +1,4 @@
-use crate::thumbnail::mux::{END, ESCAPE, START};
+use crate::emulator::mux::{END, ESCAPE, START};
 use anyhow::Result;
 use image::DynamicImage;
 use quantette::{

@@ -1,14 +1,11 @@
+use crate::emulator::mux::{END, ESCAPE, START};
+use crate::thumbnail::send_buffer;
 use anyhow::Result;
 use base64::{Engine, prelude::BASE64_STANDARD};
 use image::DynamicImage;
 use ratatui::layout::Rect;
 use std::fmt::Write;
 use std::sync::LazyLock;
-
-use crate::thumbnail::{
-    mux::{END, ESCAPE, START},
-    send_buffer,
-};
 
 static IMAGE_ID: LazyLock<u32> = LazyLock::new(|| std::process::id() % (1 << 6));
 

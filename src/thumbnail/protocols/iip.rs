@@ -1,4 +1,4 @@
-use crate::thumbnail::mux::{END, START};
+use crate::emulator::mux::{END, START};
 use anyhow::Result;
 use base64::{Engine, engine::Config, prelude::BASE64_STANDARD};
 use image::{DynamicImage, codecs::jpeg::JpegEncoder};

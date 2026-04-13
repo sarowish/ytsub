@@ -136,7 +136,7 @@ fn draw_videos(f: &mut Frame, app: &mut App, area: Rect) {
         && app.get_current_video().is_some()
     {
         let height = if let Some(emulator) = &app.emulator
-            && let Some(thumbnail) = &emulator.thumbnail
+            && let Some(thumbnail) = &app.thumbnail
         {
             thumbnail.height.div_ceil(emulator.cell_height)
         } else {
@@ -277,7 +277,7 @@ fn draw_video_info(f: &mut Frame, app: &mut App, area: Rect) {
     let current_video = app.tabs.get_selected_video().unwrap();
 
     let video_info_area = if let Some(emulator) = &mut app.emulator
-        && let Some(thumbnail) = &mut emulator.thumbnail
+        && let Some(thumbnail) = &mut app.thumbnail
     {
         let width = thumbnail.width.div_ceil(emulator.cell_width);
 

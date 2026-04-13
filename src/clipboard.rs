@@ -1,5 +1,5 @@
+use crate::emulator::mux::{END, ESCAPE, START};
 use crate::ro_cell::RoCell;
-use crate::thumbnail::mux::{END, ESCAPE, START};
 use anyhow::Result;
 use base64::{Engine, prelude::BASE64_STANDARD};
 use crossterm::execute;

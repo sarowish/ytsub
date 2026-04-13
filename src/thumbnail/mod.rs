@@ -1,10 +1,8 @@
-pub mod emulator;
-pub mod mux;
 pub mod protocols;
 
-use crate::thumbnail::{
+use crate::{
     emulator::ClearNeeded,
-    protocols::{chafa, halfblocks, kitty::place, ueberzug},
+    thumbnail::protocols::{chafa, halfblocks, kitty::place, ueberzug},
 };
 use anyhow::Result;
 use crossterm::{

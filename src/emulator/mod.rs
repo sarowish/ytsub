@@ -1,8 +1,7 @@
-use super::Thumbnail;
-use super::mux::{self, detect_tmux};
-use super::protocols::GraphicsProtocol;
+pub mod mux;
+
 use crate::clipboard::OSC52_SUPPORTED;
-use crate::thumbnail::mux::IS_TMUX;
+use crate::thumbnail::protocols::GraphicsProtocol;
 use crate::thumbnail::protocols::ueberzug;
 use crate::utils::{binary_exists, env_var_is_set};
 use anyhow::{Result, bail};
@@ -11,6 +10,7 @@ use crossterm::{
     execute, queue,
     style::Print,
 };
+use mux::{IS_TMUX, detect_tmux};
 use std::env;
 use std::fmt::Write as _;
 use std::time::Duration;
@@ -30,7 +30,6 @@ pub struct Emulator {
     pub clear_needed: ClearNeeded,
     pub cell_height: u16,
     pub cell_width: u16,
-    pub thumbnail: Option<Thumbnail>,
 }
 
 impl Emulator {
@@ -132,7 +131,6 @@ impl Emulator {
                 clear_needed: clear_needed(gp, term_program),
                 cell_height: height,
                 cell_width: width,
-                thumbnail: None,
             })
         } else {
             bail!("Won't be able to show thumbnails");

@@ -2,13 +2,14 @@ use crate::api::{ApiBackend, ChannelFeed};
 use crate::channel::{
     Channel, ChannelTab, HideVideos, ListItem, RefreshState, Video, tabs_to_be_loaded,
 };
+use crate::emulator::Emulator;
 use crate::help::HelpWindowState;
 use crate::import::{self, ImportItem};
 use crate::input::InputMode;
 use crate::message::Message;
 use crate::search::{Search, SearchDirection, SearchState};
 use crate::stream_formats::Formats;
-use crate::thumbnail::emulator::Emulator;
+use crate::thumbnail::Thumbnail;
 use crate::{CLAP_ARGS, IoEvent, OPTIONS, database, utils};
 use anyhow::{Context, Result};
 use ratatui::widgets::{ListState, TableState};
@@ -30,13 +31,14 @@ impl ListItem for String {
 }
 
 pub struct App {
+    pub emulator: Option<Emulator>,
     pub channels: StatefulList<Channel, ListState>,
     pub tabs: Tabs,
     pub tags: SelectionList<String>,
     pub selected: Selected,
     pub mode: Mode,
     pub conn: Connection,
-    pub emulator: Option<Emulator>,
+    pub thumbnail: Option<Thumbnail>,
     pub message: Message,
     pub input: String,
     pub input_mode: InputMode,
@@ -63,13 +65,14 @@ impl App {
             (false, false) => HideVideos::empty(),
         };
         let mut app = Self {
+            emulator: None,
             channels: StatefulList::with_items(Vec::default()),
             tabs: Tabs::default(),
             tags: SelectionList::default(),
             selected: Selected::default(),
             mode: Mode::default(),
             conn: Connection::open(OPTIONS.database.clone())?,
-            emulator: None,
+            thumbnail: None,
             message: Message::new(),
             input: String::default(),
             input_mode: InputMode::Normal,
