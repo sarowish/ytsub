@@ -11,8 +11,12 @@ use crossterm::{
     execute, queue,
     style::Print,
 };
+use std::env;
 use std::fmt::Write as _;
-use std::{env, io::Read};
+use std::time::Duration;
+use tokio::io::AsyncReadExt;
+use tokio::time;
+use tokio_util::bytes::BytesMut;
 
 #[derive(Clone, Copy)]
 pub enum ClearNeeded {
@@ -30,7 +34,7 @@ pub struct Emulator {
 }
 
 impl Emulator {
-    pub fn new() -> Result<Self> {
+    pub async fn new() -> Result<Self> {
         detect_tmux();
 
         let mut w = std::io::stdout();
@@ -55,7 +59,7 @@ impl Emulator {
             RestorePosition,
         )?;
 
-        let responses = read_responses()?;
+        let responses = read_responses().await?;
 
         let mut graphics_protocol = None;
         let mut cell_size = None;
@@ -85,7 +89,10 @@ impl Emulator {
                 Print(mux::csi("\x1b[5n"))
             )?;
 
-            if read_responses()?.contains(&ParserResponse::SupportsOsc52) {
+            if read_responses()
+                .await?
+                .contains(&ParserResponse::SupportsOsc52)
+            {
                 OSC52_SUPPORTED.init(true);
             }
         }
@@ -152,20 +159,25 @@ fn cell_size_fallback() -> Option<(u16, u16)> {
     }
 }
 
-fn read_responses() -> Result<Vec<ParserResponse>> {
-    let mut r = std::io::stdin();
-    let mut buf: [u8; 128] = [0; 128];
+async fn read_responses() -> Result<Vec<ParserResponse>> {
+    let mut r = tokio::io::stdin();
+    let mut buf = BytesMut::with_capacity(128);
     let mut responses = Vec::new();
     let mut parser = ResponseParser::default();
 
     'outer: loop {
-        let n = r.read(&mut buf)?;
-
-        if n == 0 {
+        if time::timeout(Duration::from_millis(500), r.read_buf(&mut buf))
+            .await
+            .is_err()
+        {
             break;
         }
 
-        for ch in buf.iter().take(n) {
+        if buf.is_empty() {
+            break;
+        }
+
+        for ch in buf.iter() {
             let mut v = parser.process(char::from(*ch));
 
             if !v.is_empty() {

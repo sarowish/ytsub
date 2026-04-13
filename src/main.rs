@@ -182,7 +182,7 @@ async fn run_tui(
     tokio::spawn(async move { client.run().await });
 
     if OPTIONS.show_thumbnails {
-        app.emulator = Emulator::new().ok();
+        app.emulator = Emulator::new().await.ok();
         app.on_change_video();
     }
 
