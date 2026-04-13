@@ -11,7 +11,7 @@ use crate::{
     thumbnail::{Thumbnail, protocols::GraphicsProtocol},
     utils,
 };
-use anyhow::Result;
+use anyhow::{Result, bail};
 use futures_util::StreamExt;
 use std::{
     collections::HashSet,
@@ -201,7 +201,7 @@ impl Client {
     pub async fn set_instance(&mut self) -> Result<()> {
         if let Some(invidious_instances) = &self.invidious_instances {
             if invidious_instances.is_empty() {
-                return Err(anyhow::anyhow!("No Invidious instance available."));
+                bail!("No Invidious instance available.");
             }
 
             self.invidious_instance = Some(Instance::new(invidious_instances));
@@ -212,9 +212,9 @@ impl Client {
                 emit_msg!();
                 self.invidious_instances = Some(instances);
                 Box::pin(self.set_instance()).await?;
+            } else {
+                bail!("Failed to fetch instances.");
             }
-
-            return Err(anyhow::anyhow!("Failed to fetch instances"));
         }
 
         Ok(())
