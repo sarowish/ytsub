@@ -168,7 +168,7 @@ Downloaded thumbnails are cached under the ytsub cache directory in
 | Warp             | `Inline Images Protocol`  | ✔️    | -                                                                 |
 | mlterm           | `Inline Images Protocol`  | ✔️    | Also supports `Sixel`.                                            |
 | Tabby            | `Inline Images Protocol`  | ✔️    | Also supports `Sixel`.                                            |
-| Bobcat           | `Inline Images Protocol`  | ✔️    | Also supports `Sixel`. `Inline Images` option should be enabled   |
+| Bobcat           | `Inline Images Protocol`  | ✔️    | Also supports `Sixel`. `Inline Images` option should be enabled.  |
 | Konsole          | `Sixel`                   | ❌    | Also supports `iip`. Images aren't cleared properly.              |
 | VSCode           | `Sixel`                   | ❌    | Also supports `iip`. Images aren't cleared properly.              |
 | ctx              | `Sixel`                   | ❌    | -                                                                 |
