@@ -110,18 +110,12 @@ impl NewPipeInner {
 
 #[derive(Deserialize, Serialize)]
 pub struct NewPipe {
-    app_version: String,
-    app_version_int: u64,
     pub subscriptions: Vec<NewPipeInner>,
 }
 
 impl NewPipe {
     fn new(subscriptions: Vec<NewPipeInner>) -> Self {
-        Self {
-            app_version: "0.23.0".to_string(),
-            app_version_int: 986,
-            subscriptions,
-        }
+        Self { subscriptions }
     }
 
     pub fn import(path: &Path) -> Result<Vec<ImportItem>> {
@@ -205,7 +199,7 @@ impl Display for ImportItem {
 
 #[cfg(test)]
 mod tests {
-    use crate::import::YoutubeCsv;
+    use super::{NewPipe, YoutubeCsv};
 
     #[test]
     fn non_english_headers() {
@@ -221,5 +215,41 @@ mod tests {
         assert_eq!(items.len(), 2);
         assert_eq!(item.channel_id, "UC-ocBsC30pAnk5pxJXvnXLg");
         assert_eq!(item.channel_title, "Humphrey Wittingtonsworth IV");
+    }
+
+    #[test]
+    fn newpipe() {
+        let json = serde_json::json!({
+            "app_version": "0.28.5",
+            "app_version_int": 1010,
+            "subscriptions": [
+                {
+                    "service_id": 0,
+                    "url": "http://www.youtube.com/channel/UC-ocBsC30pAnk5pxJXvnXLg",
+                    "name": "JustRecycle."
+                }
+            ]
+        });
+
+        let s: NewPipe = serde_json::from_value(json).unwrap();
+
+        assert_eq!(s.subscriptions.len(), 1);
+    }
+
+    #[test]
+    fn pipepipe() {
+        let json = serde_json::json!({
+            "subscriptions": [
+                {
+                    "service_id": 0,
+                    "url": "http://www.youtube.com/channel/UC-ocBsC30pAnk5pxJXvnXLg",
+                    "name": "JustRecycle."
+                }
+            ]
+        });
+
+        let s: NewPipe = serde_json::from_value(json).unwrap();
+
+        assert_eq!(s.subscriptions.len(), 1);
     }
 }
