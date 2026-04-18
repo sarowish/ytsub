@@ -12,6 +12,7 @@ use std::ops::{Deref, DerefMut};
 pub struct UserKeyBindings {
     #[serde(flatten)]
     general: Option<HashMap<String, String>>,
+    help: Option<HashMap<String, String>>,
     import: Option<HashMap<String, String>>,
     tag: Option<HashMap<String, String>>,
     channel_selection: Option<HashMap<String, String>>,
@@ -212,6 +213,10 @@ impl TryFrom<UserKeyBindings> for KeyBindings {
             set_bindings(&mut key_bindings, &bindings)?;
         }
 
+        if let Some(bindings) = user_key_bindings.help {
+            set_bindings(&mut key_bindings.help, &bindings)?;
+        }
+
         if let Some(bindings) = user_key_bindings.import {
             set_bindings(&mut key_bindings.import, &bindings)?;
         }
@@ -303,6 +308,7 @@ mod tests {
 
         let mut user_key_bindings = UserKeyBindings {
             general: Some(HashMap::new()),
+            help: None,
             import: None,
             tag: None,
             channel_selection: None,
@@ -346,6 +352,7 @@ mod tests {
 
         let mut user_key_bindings = UserKeyBindings {
             general: Some(HashMap::new()),
+            help: None,
             import: None,
             tag: None,
             channel_selection: None,
