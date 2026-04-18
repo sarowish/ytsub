@@ -69,10 +69,8 @@ impl Emulator {
                 ParserResponse::SupportsKgp => {
                     graphics_protocol = Some(GraphicsProtocol::Kgp);
                 }
-                ParserResponse::SupportsSixel => {
-                    if graphics_protocol.is_none() {
-                        graphics_protocol = Some(GraphicsProtocol::Sixel);
-                    }
+                ParserResponse::SupportsSixel if graphics_protocol.is_none() => {
+                    graphics_protocol = Some(GraphicsProtocol::Sixel);
                 }
                 ParserResponse::SupportsOsc52 => {
                     OSC52_SUPPORTED.init(true);
