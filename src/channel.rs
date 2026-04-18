@@ -56,6 +56,21 @@ pub enum RefreshState {
     Failed,
 }
 
+impl Display for RefreshState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                RefreshState::ToBeRefreshed => "□ ",
+                RefreshState::Refreshing => "■ ",
+                RefreshState::Completed => "",
+                RefreshState::Failed => "✗ ",
+            }
+        )
+    }
+}
+
 pub trait ListItem {
     fn id(&self) -> &str;
 }
@@ -98,15 +113,8 @@ impl Display for Channel {
 
 impl From<&Channel> for Line<'_> {
     fn from(value: &Channel) -> Self {
-        let refresh_indicator = match value.refresh_state {
-            RefreshState::ToBeRefreshed => "□ ",
-            RefreshState::Refreshing => "■ ",
-            RefreshState::Completed => "",
-            RefreshState::Failed => "✗ ",
-        };
-
         Line::from(vec![
-            Span::raw(format!("{}{}", refresh_indicator, value.channel_name)),
+            Span::raw(format!("{}{}", value.refresh_state, value.channel_name)),
             Span::styled(
                 if value.new_video { " [N]" } else { "" },
                 THEME.new_video_indicator,

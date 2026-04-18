@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Use Inline Images Protocol for mlterm.
+- Display error indicator while importing.
 
 ### Fixed
 - Handle cell sizes with floating point numbers.

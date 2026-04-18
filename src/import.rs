@@ -184,16 +184,7 @@ impl ListItem for ImportItem {
 
 impl Display for ImportItem {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{} {}",
-            match self.sub_state {
-                RefreshState::ToBeRefreshed => "□",
-                RefreshState::Refreshing => "■",
-                _ => "",
-            },
-            self.channel_title
-        )
+        write!(f, "{} {}", self.sub_state, self.channel_title)
     }
 }
 
