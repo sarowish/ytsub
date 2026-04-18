@@ -245,11 +245,15 @@ async fn subscribe_to_channel(mut instance: Box<dyn Api>, input: String) -> Resu
     let channel_feed = instance.get_videos_for_the_first_time(&channel_id).await;
 
     match channel_feed {
-        Ok(channel_feed) => {
+        Ok(channel_feed) if channel_feed.channel_title.is_some() => {
             emit_msg!();
             TX.send(ClientRequest::AddChannel(channel_feed))?;
         }
         Err(e) => emit_msg!(error, format!("Failed to subscribe: {e}")),
+        _ => emit_msg!(
+            error,
+            format!("Failed to subscribe: no channel title present")
+        ),
     }
 
     Ok(())
@@ -286,13 +290,13 @@ async fn import_channels(instance: Box<dyn Api>, channel_ids: Vec<String>) -> Re
 
     while let Some(Ok((feed, id))) = buffered.next().await {
         match feed {
-            Ok(feed) => {
+            Ok(feed) if feed.channel_title.is_some() => {
                 TX.send(ClientRequest::SetImportState(id, RefreshState::Completed))?;
                 TX.send(ClientRequest::AddChannel(feed))?;
                 emit_msg!(perm, format!("Subscribing to channels: {count}/{total}"));
                 count += 1;
             }
-            Err(_) => TX.send(ClientRequest::SetImportState(id, RefreshState::Failed))?,
+            _ => TX.send(ClientRequest::SetImportState(id, RefreshState::Failed))?,
         }
     }
 

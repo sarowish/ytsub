@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fix imports for PipePipe.
 - Correctly set Invidious instance upon fetching.
 - Don't hang on terminal capability detection if the terminal doesn't respond.
+- Handle channels that don't exist or were removed while subscribing.
 
 ## [0.8.0] - 2026-03-16
 ### Added

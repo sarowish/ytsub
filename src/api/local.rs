@@ -3,7 +3,7 @@ use crate::channel::ListItem;
 use crate::config::options::EnabledTabs;
 use crate::stream_formats::Formats;
 use crate::{OPTIONS, channel::Video, utils};
-use anyhow::Result;
+use anyhow::{Result, bail};
 use async_trait::async_trait;
 use futures_util::future::join_all;
 use regex_lite::Regex;
@@ -384,6 +384,19 @@ impl Local {
         let response = self
             .post_browse(&[("browseId", channel_id), ("params", "EgZ2aWRlb3PyBgQKAjoA")])
             .await?;
+
+        if let Some(alerts) = response["alerts"].as_array() {
+            for alert in alerts.iter().filter_map(|alert| alert.get("alertRenderer")) {
+                if alert["type"].as_str().is_some_and(|s| s == "ERROR") {
+                    bail!(
+                        alert["text"]["simpleText"]
+                            .as_str()
+                            .map(ToString::to_string)
+                            .unwrap_or_else(|| "Error when getting videos tab".to_string())
+                    );
+                }
+            }
+        }
 
         let mut videos = get_tab_by_title(&response, "Videos")
             .and_then(|tab| extract_videos_from_tab(tab))
