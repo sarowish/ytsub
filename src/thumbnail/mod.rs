@@ -23,14 +23,12 @@ pub struct Thumbnail {
 
 impl Thumbnail {
     pub fn render(&mut self, buf: &mut Buffer, area: Rect, clear: ClearNeeded) -> Result<()> {
-        let area_changed = self.area.is_none_or(|cur| cur != area);
-
         self.area = Some(area);
 
         let mut erase = match clear {
-            ClearNeeded::Full if area_changed => clear_area(area)?,
-            ClearNeeded::LastLine if area_changed => clear_last_line(area)?,
-            _ => String::new(),
+            ClearNeeded::Full => clear_area(area)?,
+            ClearNeeded::LastLine => clear_last_line(area)?,
+            ClearNeeded::None => String::new(),
         };
 
         match &self.data {
