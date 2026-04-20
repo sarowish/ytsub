@@ -132,7 +132,17 @@ async fn main() -> Result<()> {
 }
 
 fn render(app: &mut App, terminal: &mut DefaultTerminal) -> Result<()> {
+    let prev_covered_area = app.thumbnail.as_ref().and_then(|t| t.covered_area);
+
     terminal.draw(|f| draw(f, app))?;
+
+    if let Some(e) = &app.emulator
+        && let Some(t) = &app.thumbnail
+        && t.needs_rerender(prev_covered_area, e.graphics_protocol)
+    {
+        terminal.swap_buffers();
+        terminal.draw(|f| draw(f, app))?;
+    }
 
     const SEARCH_MODE_CURSOR_OFFSET: u16 = 1;
     const SUBSCRIBE_MODE_CURSOR_OFFSET: u16 = 25;

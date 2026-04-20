@@ -45,4 +45,14 @@ impl GraphicsProtocol {
 
         Ok(s)
     }
+
+    pub fn uses_skipped_cells(self) -> bool {
+        matches!(
+            self,
+            GraphicsProtocol::Kgp
+                | GraphicsProtocol::Iip
+                | GraphicsProtocol::Sixel
+                | GraphicsProtocol::Chafa
+        )
+    }
 }

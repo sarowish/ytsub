@@ -434,12 +434,7 @@ async fn get_thumbnail(
     let height = image.height() as u16;
     let data = protocol.display_image(image, path)?;
 
-    Ok(Thumbnail {
-        data,
-        width,
-        height,
-        area: None,
-    })
+    Ok(Thumbnail::new(data, width, height))
 }
 
 async fn fetch_formats(

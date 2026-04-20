@@ -47,11 +47,11 @@ pub fn draw(f: &mut Frame, app: &mut App) {
         &app.input_mode
     };
 
-    match input_mode {
+    let popup_area = match input_mode {
         InputMode::Normal if app.help_window_state.show => draw_help(f, &mut app.help_window_state),
         InputMode::Confirmation => draw_confirmation_window(f, app),
         InputMode::Import => {
-            draw_list_with_help(f, "Import".to_string(), &mut app.import_state, &HELP.import);
+            draw_list_with_help(f, "Import".to_string(), &mut app.import_state, &HELP.import)
         }
         InputMode::Tag => draw_list_with_help(f, "Tags".to_string(), &mut app.tags, &HELP.tag),
         InputMode::ChannelSelection => draw_list_with_help(
@@ -61,7 +61,19 @@ pub fn draw(f: &mut Frame, app: &mut App) {
             &HELP.channel_selection,
         ),
         InputMode::FormatSelection => draw_format_selection(f, &mut app.stream_formats),
-        _ => (),
+        _ => {
+            if let Some(thumbnail) = &mut app.thumbnail {
+                thumbnail.covered_area.take();
+            }
+            return;
+        }
+    };
+
+    if let Some(thumbnail) = &mut app.thumbnail {
+        thumbnail.covered_area = thumbnail
+            .area
+            .map(|area| area.intersection(popup_area))
+            .filter(|area| area.area() != 0);
     }
 }
 
@@ -365,7 +377,7 @@ fn draw_footer(f: &mut Frame, app: &mut App, area: Rect) {
     f.render_widget(text, area);
 }
 
-fn draw_confirmation_window(f: &mut Frame, app: &App) {
+fn draw_confirmation_window(f: &mut Frame, app: &App) -> Rect {
     let window = popup_window_from_percentage(50, 15, f.area());
     f.render_widget(Clear, window);
     f.render_widget(Block::default().borders(Borders::ALL), window);
@@ -408,9 +420,11 @@ fn draw_confirmation_window(f: &mut Frame, app: &App) {
     f.render_widget(text, chunks[0]);
     f.render_widget(yes, yes_area);
     f.render_widget(no, no_area);
+
+    window
 }
 
-fn draw_help(f: &mut Frame, help_window_state: &mut HelpWindowState) {
+fn draw_help(f: &mut Frame, help_window_state: &mut HelpWindowState) -> Rect {
     let window = popup_window_from_percentage(80, 70, f.area());
     f.render_widget(Clear, window);
 
@@ -444,9 +458,11 @@ fn draw_help(f: &mut Frame, help_window_state: &mut HelpWindowState) {
     }
 
     f.render_widget(help_text, window);
+
+    window
 }
 
-fn draw_format_selection(f: &mut Frame, stream_formats: &mut Formats) {
+fn draw_format_selection(f: &mut Frame, stream_formats: &mut Formats) -> Rect {
     let tabs = Tabs::new(vec![
         Line::from("Video"),
         Line::from(Span::styled(
@@ -479,7 +495,7 @@ fn draw_format_selection(f: &mut Frame, stream_formats: &mut Formats) {
         Some(tabs),
         stream_formats.get_mut_selected_tab(),
         &HELP.format_selection,
-    );
+    )
 }
 
 fn draw_list_with_help<T: Display>(
@@ -487,8 +503,8 @@ fn draw_list_with_help<T: Display>(
     title: String,
     list: &mut StatefulList<T, ListState>,
     help_entries: &[(String, &str)],
-) {
-    draw_list_with_help_tabs(f, title, None, list, help_entries);
+) -> Rect {
+    draw_list_with_help_tabs(f, title, None, list, help_entries)
 }
 
 fn draw_list_with_help_tabs<T: Display>(
@@ -497,7 +513,7 @@ fn draw_list_with_help_tabs<T: Display>(
     tabs: Option<Tabs>,
     list: &mut StatefulList<T, ListState>,
     help_entries: &[(String, &str)],
-) {
+) -> Rect {
     const VER_MARGIN: u16 = 6;
     const RIGHT_PADDING: u16 = 4;
 
@@ -588,6 +604,8 @@ fn draw_list_with_help_tabs<T: Display>(
 
     f.render_stateful_widget(w, entry_area, &mut list.state);
     f.render_widget(help_widget, help_area);
+
+    window
 }
 
 fn popup_window_from_dimensions(height: u16, width: u16, r: Rect) -> Rect {

@@ -2,7 +2,7 @@ pub mod protocols;
 
 use crate::{
     emulator::ClearNeeded,
-    thumbnail::protocols::{chafa, halfblocks, kitty::place, ueberzug},
+    thumbnail::protocols::{GraphicsProtocol, chafa, halfblocks, kitty::place, ueberzug},
 };
 use anyhow::Result;
 use protocols::ImageData;
@@ -14,9 +14,20 @@ pub struct Thumbnail {
     pub width: u16,
     pub height: u16,
     pub area: Option<Rect>,
+    pub covered_area: Option<Rect>,
 }
 
 impl Thumbnail {
+    pub fn new(data: ImageData, width: u16, height: u16) -> Self {
+        Self {
+            data,
+            width,
+            height,
+            area: None,
+            covered_area: None,
+        }
+    }
+
     pub fn render(&mut self, buf: &mut Buffer, area: Rect, clear: ClearNeeded) -> Result<()> {
         self.area = Some(area);
 
@@ -59,6 +70,18 @@ impl Thumbnail {
         }
 
         Ok(())
+    }
+
+    pub fn needs_rerender(
+        &self,
+        prev_covered_area: Option<Rect>,
+        graphics_protocol: GraphicsProtocol,
+    ) -> bool {
+        graphics_protocol.uses_skipped_cells()
+            && prev_covered_area.is_some_and(|prev_area| {
+                self.covered_area
+                    .is_none_or(|cur_area| cur_area.intersection(prev_area) != prev_area)
+            })
     }
 }
 
