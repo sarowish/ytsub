@@ -5,11 +5,6 @@ use crate::{
     thumbnail::protocols::{chafa, halfblocks, kitty::place, ueberzug},
 };
 use anyhow::Result;
-use crossterm::{
-    cursor::{RestorePosition, SavePosition},
-    execute,
-    style::Print,
-};
 use protocols::ImageData;
 use ratatui::{buffer::Buffer, layout::Rect};
 use std::fmt::Write;
@@ -33,28 +28,19 @@ impl Thumbnail {
 
         match &self.data {
             ImageData::Kgp => {
-                send_buffer(&place(area)?)?;
-                draw_thumbnail(buf, area, "");
+                let place = place(area)?;
+                render_linewise_by_first_cells(buf, area, place);
             }
             ImageData::Iip(data) | ImageData::Sixel(data) => {
                 erase.push_str(data);
-                draw_thumbnail(buf, area, &erase);
+                render_by_first_cell(buf, area, &erase);
             }
             ImageData::Ueberzug(path) => ueberzug::display_image(path, &area)?,
             ImageData::Chafa(path) => {
                 let output = chafa::show_image(path, &area)?;
                 erase.push_str(&String::from_utf8_lossy(&output));
 
-                for (y, line) in erase.split('\n').enumerate() {
-                    let row = area.top() + y as u16;
-
-                    buf.cell_mut((area.left(), row))
-                        .map(|cell| cell.set_symbol(line));
-
-                    for x in (area.left() + 1)..area.right() {
-                        buf.cell_mut((x, row)).map(|cell| cell.set_skip(true));
-                    }
-                }
+                render_linewise_by_first_cells(buf, area, erase.split('\n'));
             }
             ImageData::HalfBlocks(path) => {
                 let data = halfblocks::display_image(path, &area)?;
@@ -103,13 +89,9 @@ fn clear_last_line(area: Rect) -> Result<String> {
     Ok(erase)
 }
 
-fn draw_thumbnail(buf: &mut Buffer, area: Rect, data: &str) {
-    let mut skip_first = if data.is_empty() {
-        true
-    } else {
-        buf.cell_mut(area).map(|cell| cell.set_symbol(data));
-        false
-    };
+fn render_by_first_cell(buf: &mut Buffer, area: Rect, data: &str) {
+    buf.cell_mut(area).map(|cell| cell.set_symbol(data));
+    let mut skip_first = false;
 
     for y in area.top()..(area.bottom()) {
         for x in area.left()..area.right() {
@@ -122,8 +104,20 @@ fn draw_thumbnail(buf: &mut Buffer, area: Rect, data: &str) {
     }
 }
 
-fn send_buffer(buf: &str) -> Result<()> {
-    execute!(std::io::stdout(), SavePosition, Print(buf), RestorePosition)?;
+fn render_linewise_by_first_cells<T>(buf: &mut Buffer, area: Rect, data: T)
+where
+    T: IntoIterator,
+    T::Item: AsRef<str>,
+{
+    for (y, line) in data.into_iter().enumerate() {
+        let row = area.top() + y as u16;
+        let line = line.as_ref();
 
-    Ok(())
+        buf.cell_mut((area.left(), row))
+            .map(|cell| cell.set_symbol(line));
+
+        for x in (area.left() + 1)..area.right() {
+            buf.cell_mut((x, row)).map(|cell| cell.set_skip(true));
+        }
+    }
 }

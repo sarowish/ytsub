@@ -1,7 +1,11 @@
 use crate::emulator::mux::{END, ESCAPE, START};
-use crate::thumbnail::send_buffer;
 use anyhow::Result;
 use base64::{Engine, prelude::BASE64_STANDARD};
+use crossterm::{
+    cursor::{RestorePosition, SavePosition},
+    execute,
+    style::Print,
+};
 use image::DynamicImage;
 use ratatui::layout::Rect;
 use std::fmt::Write;
@@ -44,31 +48,39 @@ pub fn display_image(image: DynamicImage) -> Result<()> {
         )?;
     }
 
-    send_buffer(&buf)?;
+    execute!(std::io::stdout(), SavePosition, Print(buf), RestorePosition)?;
 
     Ok(())
 }
 
-pub fn place(area: Rect) -> Result<String> {
-    let mut buf = String::new();
+pub fn place(area: Rect) -> Result<Vec<String>> {
+    let mut rows = Vec::with_capacity(area.height.into());
 
     let id = *IMAGE_ID;
     let (r, g, b) = ((id >> 16) & 0xff, (id >> 8) & 0xff, id & 0xff);
-    write!(buf, "\x1b[38;2;{r};{g};{b}m")?;
+    let id_specifier = format!("\x1b[38;2;{r};{g};{b}m");
+
+    let estimated_row_size = id_specifier.len() + area.width as usize * 8 + 5;
+    let mut buf = String::with_capacity(estimated_row_size);
 
     for y in 0..area.height {
-        write!(buf, "\x1b[{};{}H", area.y + y + 1, area.x + 1)?;
+        buf.clear();
+        buf.push_str(&id_specifier);
+
         for x in 0..area.width {
-            write!(
-                buf,
-                "\u{10EEEE}{}{}",
-                DIACRITICS.get(y as usize).unwrap_or(&DIACRITICS[0]),
-                DIACRITICS.get(x as usize).unwrap_or(&DIACRITICS[0]),
-            )?;
+            write!(buf, "\u{10EEEE}{}{}", get_diacratic(y), get_diacratic(x))?;
         }
+
+        buf.push_str("\x1b[39m");
+
+        rows.push(buf.clone());
     }
 
-    Ok(buf)
+    Ok(rows)
+}
+
+fn get_diacratic(i: u16) -> char {
+    *DIACRITICS.get(i as usize).unwrap_or(&DIACRITICS[0])
 }
 
 static DIACRITICS: [char; 297] = [
