@@ -72,15 +72,12 @@ Options:
   -V, --version           Print version
 ```
 
-For default key bindings, press `ctrl-h` in the app or refer to
-the [example `config.toml` file](#example-configtoml-with-default-values).
+### Managing subscriptions
 
-## Managing subscriptions
-
-### Subscribing
+#### Subscribing
 Pressing `i` prompts the user to enter a channel id or url.
 
-#### Example inputs
+##### Example inputs
 
 - `UCsXVk37bltHxD1rDPwtNM8Q`
 - `https://youtube.com/channel/UCsXVk37bltHxD1rDPwtNM8Q`
@@ -88,7 +85,7 @@ Pressing `i` prompts the user to enter a channel id or url.
 - `@kurzgesagt`
 - `https://youtube.com/@kurzgesagt`
 
-### Importing subscriptions
+#### Importing subscriptions
 
 Subscriptions can be imported with:
 
@@ -101,7 +98,7 @@ Supported formats are:
 - `youtube_csv` (default) for YouTube subscription exports
 - `newpipe` for NewPipe subscription exports
 
-#### From YouTube / Google Takeout
+##### From YouTube / Google Takeout
 
 1. Go to [Google Takeout](https://takeout.google.com/takeout/custom/youtube).
 2. Sign in if prompted.
@@ -118,7 +115,7 @@ Supported formats are:
 ytsub import "Takeout/YouTube and YouTube Music/subscriptions/subscriptions.csv"
 ```
 
-#### From NewPipe
+##### From NewPipe
 
 1. In NewPipe, go to the subscriptions page.
 2. Tap the three-dot menu in the top-right corner, then choose `Export to`, then `File`.
@@ -128,6 +125,55 @@ ytsub import "Takeout/YouTube and YouTube Music/subscriptions/subscriptions.csv"
 ```bash
 ytsub import --format newpipe <newpipe-subscriptions-file>
 ```
+
+### Key Bindings
+
+The table below lists the default general key bindings.
+
+Press `ctrl-h` in the app to open the binding help window.
+Window-specific bindings are shown as inline help in popup windows.
+
+| Command                       | Description                                                         | Default keys   |
+| ----------------------------- | ------------------------------------------------------------------- | ---------------|
+| `set_mode_subs`               | Switch to subscriptions mode                                        | `1`            |
+| `set_mode_latest_videos`      | Switch to latest videos mode                                        | `2`            |
+| `on_down`                     | Go one line downward                                                | `j`, `down`    |
+| `on_up`                       | Go one line upward                                                  | `k`, `up`      |
+| `on_left`                     | Switch to channels block                                            | `h`, `left`    |
+| `on_right`                    | Switch to videos block                                              | `l`, `right`   |
+| `select_first`                | Jump to the first line                                              | `g`            |
+| `select_last`                 | Jump to the last line                                               | `G`            |
+| `next_tab`                    | Select next tab                                                     | `L`            |
+| `previous_tab`                | Select previous tab                                                 | `H`            |
+| `jump_to_channel`             | Jump to the channel of the selected video from latest videos mode   | `c`            |
+| `toggle_hide`                 | Hide/unhide watched videos                                          | `t`            |
+| `subscribe`                   | Subscribe                                                           | `i`            |
+| `unsubscribe`                 | Unsubscribe                                                         | `d`            |
+| `delete_video`                | Delete the selected video from database                             | `D`            |
+| `search_forward`              | Search Forward                                                      | `/`            |
+| `search_backward`             | Search backward                                                     | `?`            |
+| `repeat_last_search`          | Repeat last search                                                  | `n`            |
+| `repeat_last_search_opposite` | Repeat last search in the opposite direction                        | `N`            |
+| `switch_api`                  | Switch API                                                          | `s`            |
+| `refresh_channel`             | Refresh videos of the selected channel                              | `r`            |
+| `refresh_channels`            | Refresh videos of every channel                                     | `R`            |
+| `refresh_failed_channels`     | Refresh videos of channels which their latest refresh was a failure | `F`            |
+| `load_more_videos`            | Load more videos                                                    | `J`            |
+| `load_all_videos`             | Load all videos                                                     | `ctrl-j`       |
+| `copy_youtube_link`           | Copy channel or video Youtube link to clipboard                     | `y`            |
+| `copy_invidious_link`         | Copy channel or video Invidious link to clipboard                   | `Y`            |
+| `open_in_youtube`             | Open channel or video Youtube page in browser                       | `o`            |
+| `open_in_invidious`           | Open channel or video Invidious page in browser                     | `O`            |
+| `play_from_formats`           | Play video in video player using stream formats                     | `p`            |
+| `play_using_ytdlp`            | Play video in mpv using yt-dlp                                      | `P`            |
+| `select_formats`              | Toggle format selection window                                      | `f`            |
+| `toggle_watched`              | Mark/unmark video as watched                                        | `m`            |
+| `toggle_help`                 | Toggle help window                                                  | `ctrl-h`       |
+| `toggle_tag`                  | Toggle tag selection window                                         | `T`            |
+| `quit`                        | Quit application                                                    | `q`, `ctrl-c`  |
+
+To configure the key bindings, see the
+[key bindings section in the configuration documentation](docs/configuration.md#key-bindings).
 
 ## Thumbnails
 
@@ -218,214 +264,13 @@ fails, ytsub falls back to OSC52 for copying.
 
 ## Configuration
 
-Default directory of the configuration files is `$HOME/.config/ytsub`.
+By default, `config.toml` and the `instances` file are read from
+`$HOME/.config/ytsub`.
 
-| File                         | Description                                   |
-|------------------------------|-----------------------------------------------|
-| [`config.toml`](#configtoml) | option, key binding and theme configurations  |
-| [`instances`](#instances)    | list of invidious instances                   |
+You can change the `config.toml` path with the `-c` flag and the `instances`
+file path with the `-s` flag.
 
-### `config.toml`
+If no `config.toml` is found, `ytsub` starts with built-in defaults.
 
-Path to the configuration file can be specified with the `-c` flag.
+See the [configuration documentation](docs/configuration.md) for details.
 
-#### Example `config.toml` with default values
-
-```toml
-# Options
-
-database = "/home/username/.local/share/ytsub/videos.db" # Path to database file
-instances = "/home/username/.config/ytsub/instances" # Path to instances file
-mode = "subscriptions" # Default application mode [possible values: subscriptions (or subs), latest_videos]
-tabs = ["videos"] # Tabs to fetch videos from [possible values: videos, shorts, streams]
-hide_disabled_tabs = true # Hide available tabs in the ui if they are not in the `tabs` option
-api = "local" # API to be used for fetching videos [possible values: invidious, local]
-refresh_threshold = 600 # Time in seconds that needs to pass before refreshing a channel using the refresh_channels command
-refresh_on_launch = true # Refresh all channels on application launch
-rss_threshold = 9999 # Use RSS if the number of channels being refreshed or being subscribed to exceeds the specified amount
-tick_rate = 10 # Tick rate in milliseconds
-request_timeout = 5 # Request timeout in seconds
-highlight_symbol = "" # Symbol to highlight selected items
-hide_watched = false # Hide watched videos by default
-hide_members_only = false # Hide members only videos
-show_thumbnails = true # Show video thumbnails in the video info area
-video_info_position = "top" # Position of the video info area [possible values: top, bottom]
-always_show_video_info = true # If `false`, shown only when there isn't enough space for all columns. Ignored if `show_thumbnails` is `true`
-video_player_for_stream_formats = "mpv" # Video player to use to play streams [possible values: mpv, vlc]
-mpv_path = "mpv" # Path to mpv
-vlc_path = "vlc" # Path to vlc
-
-# the options below apply only while playing stream formats
-subtitle_languages = [] # Subtitle languages to add
-prefer_dash_formats = true # Use adaptive formats
-prefer_original_titles = true # Use original video titles
-prefer_original_audio = true # Use original audio tracks
-video_quality = "best" # Preferred video quality
-# the commented out options below are `None` by default
-# preferred_video_codec = "webm" # [possible values: webm, mp4]
-# preferred_audio_codec = "webm"
-chapters = true # Get chapter information of videos
-
-# Theme
-[theme]
-
-# fg and bg fields can be set with rgb (ex: "255, 255, 255"),
-# hex (ex: "#ffffff") or named colors.
-# Valid color names are Black, Red, Green, Yellow, Blue, Magenta
-# Cyan, Gray, DarkGray, LightRed, LightGreen, LightGreen,
-# LightYellow, LightBlue, LightMagenta, LightCyan, White and Reset.
-
-# Valid modifiers are bold, dim, italic, underlined,
-# slow_blink, rapid_blink, reversed, hidden and crossed_out.
-
-# Example:
-# title = { fg = "#123456", bg = "10, 250, 99", modifiers = "bold reversed italic" }
-
-# Example with alternative syntax:
-# [theme.title]
-# fg = "#123456"
-# bg = "10, 250, 99"
-# modifiers = "bold reversed italic"
-
-# Block titles
-title = { fg = "Cyan", modifiers = "bold" }
-# Channel, Title, Length and Date headers
-header = { fg = "Yellow", modifiers = "bold" }
-# Selected item in inactive block
-selected = { fg = "Blue", modifiers = "bold" }
-# Selected item in active block
-focused = { fg = "Magenta", modifiers = "bold" }
-# Watched videos
-watched = { fg = "DarkGray" }
-# Selected watched video in inactive block
-# Overrides the modifiers of [selected]. If fg and bg are set, they are patched to [selected]
-selected_watched = {}
-# Selected watched video in active block
-# Overrides the modifiers of [focused]. If fg and bg are set, they are patched to [focused]
-focused_watched = {}
-# New video indicator
-new_video_indicator = { fg = "Red", modifiers = "italic" }
-# Members only video indicator
-members_only_indicator = { fg = "Green", modifiers = "italic" }
-# Border of selected block
-selected_block = { fg = "Magenta" }
-# Video info fields
-video_info = { fg = "Green" }
-# Error message
-error = { fg = "Red" }
-# Warning message
-warning = { fg = "Yellow" }
-# Key bindings in the help window
-help = { fg = "Green" }
-
-# Key Bindings
-
-# Valid key codes are backspace, space, enter, left, right, up, down, home, end
-# pageup, pagedown, tab, backtab, del, delete, insert, esc, escape and characters.
-
-# Valid modifiers are ctrl, shift and alt.
-
-# Multiple key bindings can be set in a single line.
-# Example: "escape q ctrl-c" = "quit"
-
-# A default binding can be removed by setting it to an empty string.
-# Example: "q" = ""
-
-[key_bindings]
-"1" = "set_mode_subs" # Switch to subscriptions mode
-"2" = "set_mode_latest_videos" # Switch to latest videos mode
-"j down" = "on_down" # Go one line downward
-"k up" = "on_up" # Go one line upward
-"h left" = "on_left" # Switch to channels block
-"l right" = "on_right" # Switch to videos block
-"g" = "select_first" # Jump to the first line in the list
-"G" = "select_last" # Jump to the last line in the list
-"L" = "next_tab" # Select next video tab
-"H" = "previous_tab" # Select previous video tab
-"c" = "jump_to_channel" # Jump to the channel of the selected video from latest videos mode
-"t" = "toggle_hide" # Hide/unhide watched videos
-"i" = "subscribe" # Enter editing mode to enter channel id or url
-"d" = "unsubscribe" # Open confirmation window to unsubcribe from the selected channel
-"D" = "delete_video" # Delete the selected video from database
-"/" = "search_forward" # Enter editing mode to make a forward search
-"?" = "search_backward" # Enter editing mode to make a backward search
-"n" = "repeat_last_search" # Search with the latest pattern and direction
-"N" = "repeat_last_search_opposite" # Search with the latest pattern and opposite direction
-"s" = "switch_api" # Switch between the available APIs
-"r" = "refresh_channel" # Refresh videos of the selected channel
-"R" = "refresh_channels" # Refresh videos of every channel
-"J" = "load_more_videos" # Load more videos for the selected channel
-"ctrl-j" = "load_all_videos" # Load all videos for the selected channel
-"F" = "refresh_failed_channels" # Refresh videos of channels which their latest refresh was a failure
-"y" = "copy_youtube_link" # Copy channel or video Youtube link to clipboard
-"Y" = "copy_invidious_link" # Copy channel or video Invidious link to clipboard
-"o" = "open_in_youtube" # Open channel or video Youtube page in browser
-"O" = "open_in_invidious" # Open channel or video Invidious page in browser
-"p" = "play_from_formats" # Play selected video in a video player using stream formats
-"P" = "play_using_ytdlp" # Play selected video in mpv using yt-dlp
-"f" = "select_formats" # Toggle format selection window
-"m" = "toggle_watched" # Mark/unmark selected video as watched
-"ctrl-h" = "toggle_help" # Toggle help window
-"T" = "toggle_tag" # Toggle tag window
-"q ctrl-c" = "quit" # Quit application
-
-[key_bindings.help]
-"ctrl-y" = "scroll_up" #general "on_up" binding also applies
-"ctrl-e" = "scroll_down" # general "on_down" binding also applies
-"g" = "go_to_top" # general "select_first" binding also applies
-"G" = "go_to_bottom" # general "select_last" binding also applies
-"escape" = "abort"
-
-[key_bindings.import]
-"space" = "toggle_selection" # Select/Unselect channel
-"a" = "select_all" # Select all channels
-"z" = "deselect_all" # Deselect all channels
-"enter" = "import" # Import selected channels
-
-[key_bindings.tag]
-"i" = "create_tag"
-"d" = "delete_tag"
-"r" = "rename_tag"
-"s" = "select_channels" # Pick channels for the tag
-"space" = "toggle_selection" # Select/Unselect tag
-"a" = "select_all" # Select all tags
-"z" = "deselect_all" # Deselect all tags
-"escape" = "abort" # Close window
-
-[key_bindings.channel_selection]
-"enter" = "confirm" # Confirm the selection of channels
-"escape" = "abort" # Drop changes
-"space" = "toggle_selection" # Select/Unselect channel
-"a" = "select_all" # Select all channels
-"z" = "deselect_all" # Deselect all channels
-
-[key_bindings.format_selection]
-"enter" = "play_video"
-"escape" = "abort"
-"space" = "select"
-"l right" = "next_tab"
-"h left" = "previous_tab"
-"s" = "switch_format_type"
-```
-
-### `instances`
-
-> [!NOTE]
-> At the time of writing, there are no suitable instances available on https://api.invidious.io,
-> and they've rarely been available for quite a while now.
-
-A custom path to the `instances` file can be specified with the `-s` flag.
-The file can either be manually created by adding instances that have API enabled or
-automatically generated from the instances in https://api.invidious.io by running the app with `-g` flag.
-Every instance entry is separated by a line.
-If the `instances` file doesn't exist, instances list will be built from https://api.invidious.io when
-Invidious is selected as the API (as opposed to the local API).
-
-#### Example `instances` file
-
-```
-https://vid.puffyan.us
-https://invidio.xamh.de
-https://inv.riverside.rocks
-https://yt.artemislena.eu
-```

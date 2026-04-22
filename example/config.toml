@@ -1,0 +1,129 @@
+database = "/home/username/.local/share/ytsub/videos.db"
+instances = "/home/username/.config/ytsub/instances"
+mode = "subscriptions"
+tabs = ["videos"]
+hide_disabled_tabs = true
+api = "local"
+refresh_threshold = 600
+refresh_on_launch = true
+rss_threshold = 9999
+tick_rate = 10
+request_timeout = 5
+highlight_symbol = ""
+hide_watched = false
+hide_members_only = false
+show_thumbnails = true
+video_info_position = "top"
+always_show_video_info = true
+video_player_for_stream_formats = "mpv"
+mpv_path = "mpv"
+vlc_path = "vlc"
+
+subtitle_languages = []
+prefer_dash_formats = true
+prefer_original_titles = true
+prefer_original_audio = true
+video_quality = "best"
+# the commented out options below are `None` by default
+# preferred_video_codec = "webm"
+# preferred_audio_codec = "webm"
+chapters = true
+
+[theme]
+title = { fg = "Cyan", modifiers = "bold" }
+header = { fg = "Yellow", modifiers = "bold" }
+selected = { fg = "Blue", modifiers = "bold" }
+focused = { fg = "Magenta", modifiers = "bold" }
+watched = { fg = "DarkGray" }
+selected_watched = {}
+focused_watched = {}
+new_video_indicator = { fg = "Red", modifiers = "italic" }
+members_only_indicator = { fg = "Green", modifiers = "italic" }
+selected_block = { fg = "Magenta" }
+video_info = { fg = "Green" }
+error = { fg = "Red" }
+warning = { fg = "Yellow" }
+help = { fg = "Green" }
+
+[key_bindings]
+"1" = "set_mode_subs"
+"2" = "set_mode_latest_videos"
+"j" = "on_down"
+"down" = "on_down"
+"k" = "on_up"
+"up" = "on_up"
+"h" = "on_left"
+"left" = "on_left"
+"l" = "on_right"
+"right" = "on_right"
+"g" = "select_first"
+"G" = "select_last"
+"L" = "next_tab"
+"H" = "previous_tab"
+"c" = "jump_to_channel"
+"t" = "toggle_hide"
+"i" = "subscribe"
+"d" = "unsubscribe"
+"D" = "delete_video"
+"/" = "search_forward"
+"?" = "search_backward"
+"n" = "repeat_last_search"
+"N" = "repeat_last_search_opposite"
+"s" = "switch_api"
+"r" = "refresh_channel"
+"R" = "refresh_channels"
+"J" = "load_more_videos"
+"ctrl-j" = "load_all_videos"
+"F" = "refresh_failed_channels"
+"y" = "copy_youtube_link"
+"Y" = "copy_invidious_link"
+"o" = "open_in_youtube"
+"O" = "open_in_invidious"
+"p" = "play_from_formats"
+"P" = "play_using_ytdlp"
+"f" = "select_formats"
+"m" = "toggle_watched"
+"ctrl-h" = "toggle_help"
+"T" = "toggle_tag"
+"q" = "quit"
+"ctrl-c" = "quit"
+
+[key_bindings.help]
+"ctrl-y" = "scroll_up"
+"ctrl-e" = "scroll_down"
+"g" = "go_to_top"
+"G" = "go_to_bottom"
+"escape" = "abort"
+
+[key_bindings.import]
+"space" = "toggle_selection"
+"a" = "select_all"
+"z" = "deselect_all"
+"enter" = "import"
+
+[key_bindings.tag]
+"i" = "create_tag"
+"d" = "delete_tag"
+"r" = "rename_tag"
+"s" = "select_channels"
+"space" = "toggle_selection"
+"a" = "select_all"
+"z" = "deselect_all"
+"escape" = "abort"
+
+[key_bindings.channel_selection]
+"enter" = "confirm"
+"escape" = "abort"
+"space" = "toggle_selection"
+"a" = "select_all"
+"z" = "deselect_all"
+
+[key_bindings.format_selection]
+"enter" = "play_video"
+"escape" = "abort"
+"space" = "select"
+"l" = "next_tab"
+"right" = "next_tab"
+"h" = "previous_tab"
+"left" = "previous_tab"
+"s" = "switch_format_type"
