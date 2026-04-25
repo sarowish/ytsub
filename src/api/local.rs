@@ -1,6 +1,6 @@
 use super::{Api, ApiBackend, ChannelFeed, ChannelTab, Chapters, Format, VideoInfo};
-use crate::channel::ListItem;
 use crate::config::EnabledTabs;
+use crate::list::ListItem;
 use crate::stream_formats::Formats;
 use crate::{CONFIG, channel::Video, utils};
 use anyhow::{Result, bail};

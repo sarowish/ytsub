@@ -11,6 +11,7 @@ mod emulator;
 mod help;
 mod import;
 mod input;
+mod list;
 mod message;
 mod player;
 mod protobuf;

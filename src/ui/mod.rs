@@ -1,8 +1,9 @@
-use crate::app::{App, Mode, Selected, StatefulList};
+use crate::app::{App, Mode, Selected};
 use crate::channel::{HideVideos, tabs_to_be_loaded};
 use crate::config::VideoInfoPosition;
 use crate::help::HelpWindowState;
 use crate::input::InputMode;
+use crate::list::StatefulList;
 use crate::message::MessageType;
 use crate::search::SearchDirection;
 use crate::stream_formats::Formats;

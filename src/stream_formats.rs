@@ -1,9 +1,8 @@
 use crate::CONFIG;
 use crate::api::Chapters;
-use crate::channel::ListItem;
 use crate::{
     api::{Format, VideoInfo},
-    app::SelectionList,
+    list::{ListItem, SelectionList},
 };
 use std::fmt::Display;
 

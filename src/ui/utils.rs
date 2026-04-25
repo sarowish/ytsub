@@ -1,7 +1,8 @@
 use crate::{
     THEME,
-    app::{State, StatefulList, Tab},
+    app::Tab,
     channel::ChannelTab,
+    list::{State, StatefulList},
 };
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},

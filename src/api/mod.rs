@@ -3,7 +3,8 @@ pub mod local;
 
 use crate::{
     CONFIG,
-    channel::{ChannelTab, ListItem, Video},
+    channel::{ChannelTab, Video},
+    list::ListItem,
     protobuf::decode_protobuf,
     stream_formats::Formats,
     utils,

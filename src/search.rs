@@ -1,4 +1,4 @@
-use crate::app::{State, StatefulList};
+use crate::list::{State, StatefulList};
 use std::fmt::Display;
 
 #[derive(Default)]

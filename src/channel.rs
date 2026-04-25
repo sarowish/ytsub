@@ -1,4 +1,4 @@
-use crate::{CONFIG, THEME, config::EnabledTabs};
+use crate::{CONFIG, THEME, config::EnabledTabs, list::ListItem};
 use bitflags::bitflags;
 use chrono::DateTime;
 use ratatui::text::{Line, Span};
@@ -69,10 +69,6 @@ impl Display for RefreshState {
             }
         )
     }
-}
-
-pub trait ListItem {
-    fn id(&self) -> &str;
 }
 
 pub struct Channel {

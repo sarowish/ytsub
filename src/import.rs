@@ -1,4 +1,7 @@
-use crate::channel::{Channel, ListItem, RefreshState};
+use crate::{
+    channel::{Channel, RefreshState},
+    list::ListItem,
+};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::{
