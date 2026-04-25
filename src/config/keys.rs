@@ -101,6 +101,10 @@ impl Default for KeyBindings {
         insert_binding!(general, "right", Command::OnRight);
         insert_binding!(general, "g", Command::SelectFirst);
         insert_binding!(general, "G", Command::SelectLast);
+        insert_binding!(general, "ctrl-b", Command::PageUp);
+        insert_binding!(general, "ctrl-f", Command::PageDown);
+        insert_binding!(general, "ctrl-u", Command::HalfPageUp);
+        insert_binding!(general, "ctrl-d", Command::HalfPageDown);
         insert_binding!(general, "L", Command::NextTab);
         insert_binding!(general, "H", Command::PreviousTab);
         insert_binding!(general, "c", Command::JumpToChannel);

@@ -7,6 +7,8 @@ use crate::{
         TagCommand,
     },
     help::HelpWindowState,
+    list::Scrollable as _,
+    list::Selectable as _,
 };
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 
@@ -50,12 +52,16 @@ fn handle_key_normal_mode(key: KeyEvent, app: &mut App) -> bool {
         match command {
             Command::SetModeSubs => app.set_mode_subs(),
             Command::SetModeLatestVideos => app.set_mode_latest_videos(),
-            Command::OnDown => app.on_down(),
-            Command::OnUp => app.on_up(),
+            Command::OnDown => app.apply_to_focused_list(|l| l.next()),
+            Command::OnUp => app.apply_to_focused_list(|l| l.previous()),
             Command::OnLeft => app.on_left(),
             Command::OnRight => app.on_right(),
             Command::SelectFirst => app.select_first(),
-            Command::SelectLast => app.select_last(),
+            Command::SelectLast => app.apply_to_focused_list(|l| l.select_last()),
+            Command::PageUp => app.apply_to_focused_list(|l| l.page_up()),
+            Command::PageDown => app.apply_to_focused_list(|l| l.page_down()),
+            Command::HalfPageUp => app.apply_to_focused_list(|l| l.half_page_up()),
+            Command::HalfPageDown => app.apply_to_focused_list(|l| l.half_page_down()),
             Command::NextTab => {
                 app.tabs.next();
                 app.on_change_video();
@@ -99,18 +105,22 @@ fn handle_key_normal_mode(key: KeyEvent, app: &mut App) -> bool {
 fn handle_key_help_mode(key: KeyEvent, help_window_state: &mut HelpWindowState) -> bool {
     if let Some(command) = KEY_BINDINGS.help.get(&key) {
         match command {
-            HelpCommand::ScrollUp => help_window_state.scroll_up(),
-            HelpCommand::ScrollDown => help_window_state.scroll_down(),
+            HelpCommand::ScrollUp => help_window_state.scroll_up(1),
+            HelpCommand::ScrollDown => help_window_state.scroll_down(1),
             HelpCommand::GoToTop => help_window_state.scroll_top(),
             HelpCommand::GoToBottom => help_window_state.scroll_bottom(),
             HelpCommand::Abort => help_window_state.toggle(),
         }
     } else if let Some(command) = KEY_BINDINGS.get(&key) {
         match command {
-            Command::OnDown => help_window_state.scroll_down(),
-            Command::OnUp => help_window_state.scroll_up(),
+            Command::OnDown => help_window_state.scroll_down(1),
+            Command::OnUp => help_window_state.scroll_up(1),
             Command::SelectFirst => help_window_state.scroll_top(),
             Command::SelectLast => help_window_state.scroll_bottom(),
+            Command::PageUp => help_window_state.scroll_up_full(),
+            Command::PageDown => help_window_state.scroll_down_full(),
+            Command::HalfPageUp => help_window_state.scroll_up_half(),
+            Command::HalfPageDown => help_window_state.scroll_down_half(),
             Command::ToggleHelp => help_window_state.toggle(),
             Command::Quit => return true,
             _ => (),
@@ -142,6 +152,10 @@ fn handle_key_import_mode(key: KeyEvent, app: &mut App) -> bool {
             Command::OnUp => app.import_state.previous(),
             Command::SelectFirst => app.import_state.select_first(),
             Command::SelectLast => app.import_state.select_last(),
+            Command::PageUp => app.import_state.page_up(),
+            Command::PageDown => app.import_state.page_down(),
+            Command::HalfPageUp => app.import_state.half_page_up(),
+            Command::HalfPageDown => app.import_state.half_page_down(),
             Command::SearchForward => app.search_forward(),
             Command::SearchBackward => app.search_backward(),
             Command::RepeatLastSearch => app.repeat_last_search(),
@@ -189,6 +203,10 @@ fn handle_key_tag_mode(key: KeyEvent, app: &mut App) -> bool {
             Command::OnUp => app.tags.previous(),
             Command::SelectFirst => app.tags.select_first(),
             Command::SelectLast => app.tags.select_last(),
+            Command::PageUp => app.tags.page_up(),
+            Command::PageDown => app.tags.page_down(),
+            Command::HalfPageUp => app.tags.half_page_up(),
+            Command::HalfPageDown => app.tags.half_page_down(),
             Command::SearchForward => app.search_forward(),
             Command::SearchBackward => app.search_backward(),
             Command::RepeatLastSearch => app.repeat_last_search(),
@@ -217,6 +235,10 @@ fn handle_key_channel_selection_mode(key: KeyEvent, app: &mut App) -> bool {
             Command::OnUp => app.channel_selection.previous(),
             Command::SelectFirst => app.channel_selection.select_first(),
             Command::SelectLast => app.channel_selection.select_last(),
+            Command::PageUp => app.channel_selection.page_up(),
+            Command::PageDown => app.channel_selection.page_down(),
+            Command::HalfPageUp => app.channel_selection.half_page_up(),
+            Command::HalfPageDown => app.channel_selection.half_page_down(),
             Command::SearchForward => app.search_forward(),
             Command::SearchBackward => app.search_backward(),
             Command::RepeatLastSearch => app.repeat_last_search(),
@@ -256,6 +278,10 @@ fn handle_key_format_selection_mode(key: KeyEvent, app: &mut App) -> bool {
             Command::OnUp => app.stream_formats.get_mut_selected_tab().previous(),
             Command::SelectFirst => app.stream_formats.get_mut_selected_tab().select_first(),
             Command::SelectLast => app.stream_formats.get_mut_selected_tab().select_last(),
+            Command::PageUp => app.stream_formats.get_mut_selected_tab().page_up(),
+            Command::PageDown => app.stream_formats.get_mut_selected_tab().page_down(),
+            Command::HalfPageUp => app.stream_formats.get_mut_selected_tab().half_page_up(),
+            Command::HalfPageDown => app.stream_formats.get_mut_selected_tab().half_page_down(),
             Command::SearchForward => app.search_forward(),
             Command::SearchBackward => app.search_backward(),
             Command::RepeatLastSearch => app.repeat_last_search(),

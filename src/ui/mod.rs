@@ -3,13 +3,13 @@ use crate::channel::{HideVideos, tabs_to_be_loaded};
 use crate::config::VideoInfoPosition;
 use crate::help::HelpWindowState;
 use crate::input::InputMode;
-use crate::list::StatefulList;
+use crate::list::{Scrollable, StatefulList};
 use crate::message::MessageType;
 use crate::search::SearchDirection;
 use crate::stream_formats::Formats;
 use crate::{CONFIG, HELP, THEME};
 use ratatui::Frame;
-use ratatui::layout::{Alignment, Constraint, Direction, Layout, Rect};
+use ratatui::layout::{Alignment, Constraint, Direction, Layout, Margin, Rect};
 use ratatui::style::{Color, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{
@@ -118,6 +118,9 @@ fn draw_channels(f: &mut Frame, app: &mut App, area: Rect) {
             Selected::Channels => THEME.focused,
             Selected::Videos => THEME.selected,
         });
+
+    app.channels.visible_lines = area.height.saturating_sub(2);
+
     f.render_stateful_widget(channels, area, &mut app.channels.state);
 }
 
@@ -272,6 +275,8 @@ fn draw_videos(f: &mut Frame, app: &mut App, area: Rect) {
             }
             style
         });
+
+    tab.videos.visible_lines = video_area.height.saturating_sub(2);
 
     f.render_stateful_widget(videos, video_area, &mut tab.videos.state);
 
@@ -429,25 +434,23 @@ fn draw_help(f: &mut Frame, help_window_state: &mut HelpWindowState) -> Rect {
     let window = popup_window_from_percentage(80, 70, f.area());
     f.render_widget(Clear, window);
 
-    let width = std::cmp::max(window.width.saturating_sub(2), 1);
+    help_window_state.area = window.inner(Margin::new(1, 1));
+
+    let max_scroll = help_window_state
+        .len()
+        .saturating_sub(help_window_state.visible_lines());
+
+    if max_scroll < help_window_state.offset() {
+        *help_window_state.offset_mut() = max_scroll;
+    }
 
     let help_entries = HELP
         .iter()
         .map(|(key, desc)| Line::from(vec![Span::styled(key, THEME.help), Span::raw(*desc)]))
         .collect::<Vec<Line>>();
 
-    help_window_state.max_scroll = help_entries
-        .iter()
-        .map(|entry| 1 + entry.width().saturating_sub(1) as u16 / width)
-        .sum::<u16>()
-        .saturating_sub(window.height - 2);
-
-    if help_window_state.max_scroll < help_window_state.scroll {
-        help_window_state.scroll = help_window_state.max_scroll;
-    }
-
     let mut help_text = Paragraph::new(help_entries)
-        .scroll((help_window_state.scroll, 0))
+        .scroll((help_window_state.scroll as u16, 0))
         .block(
             Block::default()
                 .borders(Borders::ALL)
@@ -602,6 +605,8 @@ fn draw_list_with_help_tabs<T: Display>(
     let w = List::new(list_items)
         .highlight_symbol(CONFIG.highlight_symbol.as_str())
         .highlight_style(THEME.focused);
+
+    list.visible_lines = entry_area.height;
 
     f.render_stateful_widget(w, entry_area, &mut list.state);
     f.render_widget(help_widget, help_area);

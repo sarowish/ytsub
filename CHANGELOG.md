@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add Unicode half-blocks image rendering as fallback.
 - Add a command for copying links to clipboard.
 - Add chafa as fallback for image rendering.
+- Add full-page and half-page navigation commands.
 
 ### Changed
 - Use Inline Images Protocol for mlterm.

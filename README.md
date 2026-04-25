@@ -137,12 +137,16 @@ Window-specific bindings are shown as inline help in popup windows.
 | ----------------------------- | ------------------------------------------------------------------- | ---------------|
 | `set_mode_subs`               | Switch to subscriptions mode                                        | `1`            |
 | `set_mode_latest_videos`      | Switch to latest videos mode                                        | `2`            |
-| `on_down`                     | Go one line downward                                                | `j`, `down`    |
-| `on_up`                       | Go one line upward                                                  | `k`, `up`      |
+| `on_down`                     | Move one line downward                                              | `j`, `down`    |
+| `on_up`                       | Move one line upward                                                | `k`, `up`      |
 | `on_left`                     | Switch to channels block                                            | `h`, `left`    |
 | `on_right`                    | Switch to videos block                                              | `l`, `right`   |
 | `select_first`                | Jump to the first line                                              | `g`            |
 | `select_last`                 | Jump to the last line                                               | `G`            |
+| `page_up`                     | Move up one page                                                    | `ctrl-b`       |
+| `page_down`                   | Move down one page                                                  | `ctrl-f`       |
+| `half_page_up`                | Move up half a page                                                 | `ctrl-u`       |
+| `half_page_down`              | Move down half a page                                               | `ctrl-d`       |
 | `next_tab`                    | Select next tab                                                     | `L`            |
 | `previous_tab`                | Select previous tab                                                 | `H`            |
 | `jump_to_channel`             | Jump to the channel of the selected video from latest videos mode   | `c`            |

@@ -4,7 +4,7 @@ use crate::emulator::Emulator;
 use crate::help::HelpWindowState;
 use crate::import::{self, ImportItem};
 use crate::input::InputMode;
-use crate::list::{ListItem, SelectionItem, SelectionList, StatefulList};
+use crate::list::{ListItem, Selectable, SelectionItem, SelectionList, StatefulList};
 use crate::message::Message;
 use crate::search::{Search, SearchDirection, SearchState};
 use crate::stream_formats::Formats;
@@ -327,7 +327,7 @@ impl App {
             self.mode = Mode::LatestVideos;
             self.selected = Selected::Videos;
             self.load_videos(false);
-            self.select_first();
+            self.on_change_video();
         }
     }
 
@@ -618,34 +618,31 @@ impl App {
         }
     }
 
-    pub fn on_down(&mut self) {
+    pub fn apply_to_focused_list(&mut self, f: impl FnOnce(&mut dyn Selectable)) {
         match self.selected {
             Selected::Channels => {
-                self.channels.next();
-                self.on_change_channel();
+                let prev = self.channels.state.selected();
+                f(&mut self.channels);
+
+                if prev != self.channels.state.selected() {
+                    self.on_change_channel();
+                }
             }
             Selected::Videos => {
                 if let Some(videos) = self.tabs.get_videos_mut() {
-                    videos.next();
-                    self.on_change_video();
+                    let prev = videos.state.selected();
+                    f(videos);
+
+                    if prev != videos.state.selected() {
+                        self.on_change_video();
+                    }
                 }
             }
         }
     }
 
-    pub fn on_up(&mut self) {
-        match self.selected {
-            Selected::Channels => {
-                self.channels.previous();
-                self.on_change_channel();
-            }
-            Selected::Videos => {
-                if let Some(videos) = self.tabs.get_videos_mut() {
-                    videos.previous();
-                    self.on_change_video();
-                }
-            }
-        }
+    pub fn select_first(&mut self) {
+        self.apply_to_focused_list(|list| list.select_first());
     }
 
     pub fn on_left(&mut self) {
@@ -657,43 +654,6 @@ impl App {
     pub fn on_right(&mut self) {
         if matches!(self.mode, Mode::Subscriptions) {
             self.selected = Selected::Videos;
-        }
-    }
-
-    pub fn select_first(&mut self) {
-        match self.selected {
-            Selected::Channels => {
-                if let Some(0) = self.channels.state.selected() {
-                    return;
-                }
-                self.channels.select_first();
-                self.on_change_channel();
-            }
-            Selected::Videos => {
-                if let Some(videos) = self.tabs.get_videos_mut() {
-                    videos.select_first();
-                    self.on_change_video();
-                }
-            }
-        }
-    }
-
-    pub fn select_last(&mut self) {
-        match self.selected {
-            Selected::Channels => {
-                let length = self.channels.items.len();
-                if matches!(self.channels.state.selected(), Some(index) if index + 1 == length) {
-                    return;
-                }
-                self.channels.select_last();
-                self.on_change_channel();
-            }
-            Selected::Videos => {
-                if let Some(videos) = self.tabs.get_videos_mut() {
-                    videos.select_last();
-                    self.on_change_video();
-                }
-            }
         }
     }
 

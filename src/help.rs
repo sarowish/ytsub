@@ -1,17 +1,23 @@
-use crate::KEY_BINDINGS;
+use crate::{HELP, KEY_BINDINGS, list::Scrollable};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use ratatui::layout::Rect;
 use std::ops::{Deref, DerefMut};
+use unicode_width::UnicodeWidthStr;
 
-const DESCRIPTIONS_LEN: usize = 36;
+const DESCRIPTIONS_LEN: usize = 40;
 const DESCRIPTIONS: [&str; DESCRIPTIONS_LEN] = [
     "Switch to subscriptions mode",
     "Switch to latest videos mode",
-    "Go one line downward",
-    "Go one line upward",
+    "Move one line downward",
+    "Move one line upward",
     "Switch to channels block",
     "Switch to videos block",
     "Jump to the first line",
     "Jump to the last line",
+    "Move up one page",
+    "Move down one page",
+    "Move up half a page",
+    "Move down half a page",
     "Select next tab",
     "Select previous tab",
     "Jump to the channel of the selected video from latest videos mode",
@@ -83,8 +89,8 @@ const FORMAT_SELECTION_DESCRIPTIONS: [&str; FORMAT_SELECTION_DESCRIPTIONS_LEN] =
 
 pub struct HelpWindowState {
     pub show: bool,
-    pub scroll: u16,
-    pub max_scroll: u16,
+    pub scroll: usize,
+    pub area: Rect,
 }
 
 impl HelpWindowState {
@@ -92,28 +98,36 @@ impl HelpWindowState {
         Self {
             show: false,
             scroll: 0,
-            max_scroll: 0,
+            area: Rect::default(),
         }
     }
 
     pub fn toggle(&mut self) {
         self.show = !self.show;
     }
+}
 
-    pub fn scroll_up(&mut self) {
-        self.scroll = self.scroll.saturating_sub(1);
+impl Scrollable for HelpWindowState {
+    fn len(&self) -> usize {
+        let width = std::cmp::max(self.area.width, 1);
+
+        HELP.iter()
+            .map(|(entry, desc)| {
+                1 + (entry.width() + desc.width()).saturating_sub(1) / width as usize
+            })
+            .sum::<usize>()
     }
 
-    pub fn scroll_down(&mut self) {
-        self.scroll = std::cmp::min(self.scroll + 1, self.max_scroll);
+    fn offset(&self) -> usize {
+        self.scroll
     }
 
-    pub fn scroll_top(&mut self) {
-        self.scroll = 0;
+    fn offset_mut(&mut self) -> &mut usize {
+        &mut self.scroll
     }
 
-    pub fn scroll_bottom(&mut self) {
-        self.scroll = self.max_scroll;
+    fn visible_lines(&self) -> usize {
+        self.area.height.into()
     }
 }
 

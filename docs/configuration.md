@@ -151,12 +151,16 @@ Valid key codes are:
 | ----------------------------- | ------------------------------------------------------------------- |
 | `set_mode_subs`               | Switch to subscriptions mode                                        |
 | `set_mode_latest_videos`      | Switch to latest videos mode                                        |
-| `on_down`                     | Go one line downward                                                |
-| `on_up`                       | Go one line upward                                                  |
+| `on_down`                     | Move one line downward                                              |
+| `on_up`                       | Move one line upward                                                |
 | `on_left`                     | Switch to channels block                                            |
 | `on_right`                    | Switch to videos block                                              |
 | `select_first`                | Jump to the first line                                              |
 | `select_last`                 | Jump to the last line                                               |
+| `page_up`                     | Move up one page                                                    |
+| `page_down`                   | Move down one page                                                  |
+| `half_page_up`                | Move up half a page                                                 |
+| `half_page_down`              | Move down half a page                                               |
 | `next_tab`                    | Select next tab                                                     |
 | `previous_tab`                | Select previous tab                                                 |
 | `jump_to_channel`             | Jump to the channel of the selected video from latest videos mode   |
