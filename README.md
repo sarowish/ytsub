@@ -52,6 +52,52 @@ paru -S ytsub-bin
 paru -S ytsub-git
 ```
 
+### Nix Flake
+
+You can install the latest development version from GitHub using the flake:
+
+```nix
+{
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    ytsub.url = "github:sarowish/ytsub";
+  };
+
+  outputs = { nixpkgs, ytsub, ... }: {
+    nixosConfigurations.nixos = nixpkgs.lib.nixosSystem {
+      system = "x86_64-linux";
+      modules = [
+        ({ pkgs, ... }: {
+          environment.systemPackages = [
+            ytsub.packages.${pkgs.system}.default
+          ];
+        })
+      ];
+    };
+  };
+}
+```
+
+If you want a specific release instead, pin the flake to a tag or commit.
+
+##### Cache
+
+The flake build workflow publishes builds to
+[`ytsub.cachix.org`](https://ytsub.cachix.org).
+Adding that cache to `nix.settings` lets Nix reuse pre-built binaries instead
+of compiling `ytsub` itself:
+
+```nix
+{
+  nix.settings = {
+    extra-substituters = [ "https://ytsub.cachix.org" ];
+    extra-trusted-public-keys = [
+      "ytsub.cachix.org-1:+//b4AUWp/46hIbTHVLhCU+DIP7TowiUWzM6Hsn8Ryg="
+    ];
+  };
+}
+```
+
 ## Usage
 
 ```
