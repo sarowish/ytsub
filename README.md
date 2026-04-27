@@ -28,10 +28,10 @@ cargo build --features bundled_sqlite
 ### Cargo
 
 ```bash
-cargo install ytsub
+cargo install ytsub --locked
 
 # or
-cargo install ytsub --features bundled_sqlite
+cargo install ytsub --features bundled_sqlite --locked
 ```
 
 ### Arch Linux
