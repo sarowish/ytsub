@@ -50,40 +50,40 @@ const DESCRIPTIONS: [&str; DESCRIPTIONS_LEN] = [
 
 const IMPORT_DESCRIPTIONS_LEN: usize = 4;
 const IMPORT_DESCRIPTIONS: [&str; IMPORT_DESCRIPTIONS_LEN] = [
-    " - Import, ",
-    " - Toggle, ",
-    " - Select all, ",
+    " - Import,",
+    " - Toggle,",
+    " - Select all,",
     " - Deselect all",
 ];
 
 const TAG_DESCRIPTIONS_LEN: usize = 8;
 const TAG_DESCRIPTIONS: [&str; TAG_DESCRIPTIONS_LEN] = [
-    " - Create tag, ",
-    " - Delete tag, ",
-    " - Rename tag, ",
-    " - Pick channels, ",
-    " - Toggle, ",
-    " - Select all, ",
-    " - Deselect all, ",
+    " - Create tag,",
+    " - Delete tag,",
+    " - Rename tag,",
+    " - Pick channels,",
+    " - Toggle,",
+    " - Select all,",
+    " - Deselect all,",
     " - Abort",
 ];
 
 const CHANNEL_SELECTION_DESCRIPTIONS_LEN: usize = 5;
 const CHANNEL_SELECTION_DESCRIPTIONS: [&str; CHANNEL_SELECTION_DESCRIPTIONS_LEN] = [
-    " - Confirm, ",
-    " - Abort, ",
-    " - Toggle, ",
-    " - Select all, ",
+    " - Confirm,",
+    " - Abort,",
+    " - Toggle,",
+    " - Select all,",
     " - Deselect all",
 ];
 
 const FORMAT_SELECTION_DESCRIPTIONS_LEN: usize = 6;
 const FORMAT_SELECTION_DESCRIPTIONS: [&str; FORMAT_SELECTION_DESCRIPTIONS_LEN] = [
-    " - Previous tab, ",
-    " - Next tab, ",
-    " - Switch format, ",
-    " - Select, ",
-    " - Play video, ",
+    " - Previous tab,",
+    " - Next tab,",
+    " - Switch format,",
+    " - Select,",
+    " - Play video,",
     " - Abort",
 ];
 
@@ -162,9 +162,12 @@ impl Help<'_> {
                 for (key, command) in &$bindings {
                     let idx = *command as usize;
 
-                    if !$entries[idx].0.is_empty() {
-                        $entries[idx].0.push_str(", ");
-                    }
+                    $entries[idx].0.push_str(if $entries[idx].0.is_empty() {
+                        " "
+                    } else {
+                        ", "
+                    });
+
                     $entries[idx].0.push_str(&key_event_to_string(key));
                 }
 
