@@ -98,6 +98,14 @@ of compiling `ytsub` itself:
 }
 ```
 
+### Prebuilt Binaries
+
+Prebuilt binaries for tagged releases are available on the
+[GitHub releases](https://github.com/sarowish/ytsub/releases) page.
+
+Download the archive for your platform, extract it, and place the
+binary somewhere in your `PATH`.
+
 ## Usage
 
 ```
