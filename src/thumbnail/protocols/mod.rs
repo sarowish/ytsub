@@ -32,27 +32,21 @@ pub enum ImageData {
 impl GraphicsProtocol {
     pub fn display_image(self, image: DynamicImage, path: PathBuf) -> Result<ImageData> {
         let s = match self {
-            GraphicsProtocol::Kgp => {
+            Self::Kgp => {
                 kitty::display_image(image)?;
                 ImageData::Kgp
             }
-            GraphicsProtocol::Iip => ImageData::Iip(iip::display_image(&image)?),
-            GraphicsProtocol::Sixel => ImageData::Sixel(sixel::display_image(image)?),
-            GraphicsProtocol::Ueberzug => ImageData::Ueberzug(path),
-            GraphicsProtocol::Chafa => ImageData::Chafa(path),
-            GraphicsProtocol::HalfBlocks => ImageData::HalfBlocks(path),
+            Self::Iip => ImageData::Iip(iip::display_image(&image)?),
+            Self::Sixel => ImageData::Sixel(sixel::display_image(image)?),
+            Self::Ueberzug => ImageData::Ueberzug(path),
+            Self::Chafa => ImageData::Chafa(path),
+            Self::HalfBlocks => ImageData::HalfBlocks(path),
         };
 
         Ok(s)
     }
 
-    pub fn uses_skipped_cells(self) -> bool {
-        matches!(
-            self,
-            GraphicsProtocol::Kgp
-                | GraphicsProtocol::Iip
-                | GraphicsProtocol::Sixel
-                | GraphicsProtocol::Chafa
-        )
+    pub const fn uses_skipped_cells(self) -> bool {
+        matches!(self, Self::Kgp | Self::Iip | Self::Sixel | Self::Chafa)
     }
 }

@@ -22,7 +22,7 @@ pub struct TitleBuilder<'a, T, S: State> {
 }
 
 impl<'a, T, S: State> TitleBuilder<'a, T, S> {
-    pub fn new(available_width: usize) -> Self {
+    pub const fn new(available_width: usize) -> Self {
         Self {
             title: String::new(),
             hide_flag: false,
@@ -38,17 +38,17 @@ impl<'a, T, S: State> TitleBuilder<'a, T, S> {
         self
     }
 
-    pub fn hide_flag(mut self, hide: bool) -> Self {
+    pub const fn hide_flag(mut self, hide: bool) -> Self {
         self.hide_flag = hide;
         self
     }
 
-    pub fn list(mut self, list: &'a StatefulList<T, S>) -> Self {
+    pub const fn list(mut self, list: &'a StatefulList<T, S>) -> Self {
         self.list = Some(list);
         self
     }
 
-    pub fn tabs(mut self, tabs: &'a StatefulList<Tab, ListState>) -> Self {
+    pub const fn tabs(mut self, tabs: &'a StatefulList<Tab, ListState>) -> Self {
         self.tabs = Some(tabs);
         self
     }
@@ -109,7 +109,7 @@ impl<'a, T, S: State> TitleBuilder<'a, T, S> {
                 *last = Span::raw(border_symbols.bottom_left);
             }
 
-            let tabs_width = sections.iter().map(|s| s.width()).sum();
+            let tabs_width = sections.iter().map(Span::width).sum();
             self.available_width = self.available_width.saturating_sub(tabs_width);
 
             title_sections.extend(sections);
@@ -119,22 +119,19 @@ impl<'a, T, S: State> TitleBuilder<'a, T, S> {
             self.available_width = self.available_width.saturating_sub(4);
         }
 
-        let position = if let Some(list) = self.list {
-            Span::styled(
-                format!(
-                    "{}/{}",
-                    if let Some(index) = list.state.selected() {
-                        index + 1
-                    } else {
-                        0
-                    },
-                    list.items.len()
-                ),
-                THEME.title,
-            )
-        } else {
-            Span::raw("")
-        };
+        let position = self.list.map_or_else(
+            || Span::raw(""),
+            |list| {
+                Span::styled(
+                    format!(
+                        "{}/{}",
+                        list.state.selected().map_or(0, |index| index + 1),
+                        list.items.len()
+                    ),
+                    THEME.title,
+                )
+            },
+        );
 
         let required_width_for_position = if self.list.is_some() {
             position.width() + MIN_GAP
@@ -159,7 +156,7 @@ impl<'a, T, S: State> TitleBuilder<'a, T, S> {
                     break;
                 }
 
-                shown_tags.push(tag.to_string());
+                shown_tags.push(tag.clone());
                 available_width = available_width.saturating_sub(tag.width() + 2);
             }
 
@@ -188,7 +185,7 @@ impl<'a, T, S: State> TitleBuilder<'a, T, S> {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct Column<'a> {
     pub header: &'a str,
     pub constraint: Constraint,
@@ -196,7 +193,7 @@ pub struct Column<'a> {
 }
 
 impl<'a> Column<'a> {
-    pub fn new(text: &'a str, constraint: Constraint, min_width: u16) -> Self {
+    pub const fn new(text: &'a str, constraint: Constraint, min_width: u16) -> Self {
         Self {
             header: text,
             constraint,

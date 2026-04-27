@@ -5,7 +5,7 @@ use std::{
     process::{Command, Stdio},
 };
 
-pub fn show_image(path: &Path, area: &Rect) -> Result<Vec<u8>> {
+pub fn show_image(path: &Path, area: Rect) -> Result<Vec<u8>> {
     let child = Command::new("chafa")
         .arg("-f")
         .arg("symbols")

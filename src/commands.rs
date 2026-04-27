@@ -87,7 +87,7 @@ impl TryFrom<&str> for Command {
             "toggle_help" => Command::ToggleHelp,
             "toggle_tag" => Command::ToggleTag,
             "quit" => Command::Quit,
-            _ => anyhow::bail!("\"{}\" is an invalid command", command),
+            _ => anyhow::bail!("\"{command}\" is an invalid command"),
         };
 
         Ok(command)
@@ -111,7 +111,7 @@ impl TryFrom<&str> for ImportCommand {
             "select_all" => ImportCommand::SelectAll,
             "deselect_all" => ImportCommand::DeselectAll,
             "import" => ImportCommand::Import,
-            _ => anyhow::bail!("\"{}\" is an invalid command", command),
+            _ => anyhow::bail!("\"{command}\" is an invalid command"),
         };
 
         Ok(command)
@@ -143,7 +143,7 @@ impl TryFrom<&str> for TagCommand {
             "delete_tag" => TagCommand::DeleteTag,
             "rename_tag" => TagCommand::RenameTag,
             "abort" => TagCommand::Abort,
-            _ => anyhow::bail!("\"{}\" is an invalid command", command),
+            _ => anyhow::bail!("\"{command}\" is an invalid command"),
         };
 
         Ok(command)
@@ -169,7 +169,7 @@ impl TryFrom<&str> for ChannelSelectionCommand {
             "toggle_selection" => ChannelSelectionCommand::ToggleSelection,
             "select_all" => ChannelSelectionCommand::SelectAll,
             "deselect_all" => ChannelSelectionCommand::DeselectAll,
-            _ => anyhow::bail!("\"{}\" is an invalid command", command),
+            _ => anyhow::bail!("\"{command}\" is an invalid command"),
         };
 
         Ok(command)
@@ -197,7 +197,7 @@ impl TryFrom<&str> for FormatSelectionCommand {
             "select" => FormatSelectionCommand::Select,
             "play_video" => FormatSelectionCommand::PlayVideo,
             "abort" => FormatSelectionCommand::Abort,
-            _ => anyhow::bail!("\"{}\" is an invalid command", command),
+            _ => anyhow::bail!("\"{command}\" is an invalid command"),
         };
 
         Ok(command)
@@ -223,7 +223,7 @@ impl TryFrom<&str> for HelpCommand {
             "go_to_top" => HelpCommand::GoToTop,
             "go_to_bottom" => HelpCommand::GoToBottom,
             "abort" => HelpCommand::Abort,
-            _ => anyhow::bail!("\"{}\" is an invalid command", command),
+            _ => anyhow::bail!("\"{command}\" is an invalid command"),
         };
 
         Ok(command)

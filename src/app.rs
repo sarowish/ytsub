@@ -99,16 +99,16 @@ impl App {
         match CONFIG.mode {
             Mode::Subscriptions => {
                 app.set_mode_subs();
-                app.on_change_channel()
+                app.on_change_channel();
             }
             Mode::LatestVideos => {
                 app.set_mode_latest_videos();
-                app.on_change_video()
+                app.on_change_video();
             }
         }
 
         if CONFIG.refresh_on_launch {
-            app.refresh_channels()
+            app.refresh_channels();
         }
 
         app.tags = SelectionList::new(database::get_tags(&app.conn)?);
@@ -206,7 +206,7 @@ impl App {
                 self.move_channel_to_top(channel_id);
                 self.reload_videos();
             } else {
-                self.channels_with_new_videos.insert(channel_id.to_string());
+                self.channels_with_new_videos.insert(channel_id.clone());
             }
         } else if !videos.is_empty() {
             self.load_videos(true);
@@ -331,7 +331,7 @@ impl App {
         }
     }
 
-    fn find_channel_by_name(&mut self, channel_name: &str) -> Option<usize> {
+    fn find_channel_by_name(&self, channel_name: &str) -> Option<usize> {
         self.channels
             .items
             .iter()
@@ -605,7 +605,7 @@ impl App {
             channel.refresh_state = refresh_state;
         }
 
-        if let RefreshState::Completed = refresh_state {
+        if matches!(refresh_state, RefreshState::Completed) {
             let now = crate::utils::now().ok();
 
             if let Some(channel) = channel {
@@ -645,20 +645,20 @@ impl App {
         self.apply_to_focused_list(|list| list.select_first());
     }
 
-    pub fn on_left(&mut self) {
+    pub const fn on_left(&mut self) {
         if matches!(self.mode, Mode::Subscriptions) {
             self.selected = Selected::Channels;
         }
     }
 
-    pub fn on_right(&mut self) {
+    pub const fn on_right(&mut self) {
         if matches!(self.mode, Mode::Subscriptions) {
             self.selected = Selected::Videos;
         }
     }
 
     pub fn jump_to_channel(&mut self) {
-        if let Mode::LatestVideos = self.mode
+        if self.mode == Mode::LatestVideos
             && let Some(tab) = self.tabs.get_selected()
             && let Some(video) = tab.videos.get_selected()
             && let Some(channel_name) = &video.channel_name
@@ -694,7 +694,7 @@ impl App {
         ) || !self.message.is_empty()
     }
 
-    pub fn toggle_help(&mut self) {
+    pub const fn toggle_help(&mut self) {
         self.help_window_state.toggle();
     }
 
@@ -712,7 +712,7 @@ impl App {
         self.subscribe_to_channel(input);
     }
 
-    pub fn prompt_for_unsubscribing(&mut self) {
+    pub const fn prompt_for_unsubscribing(&mut self) {
         if matches!(self.mode, Mode::Subscriptions) && self.channels.state.selected().is_some() {
             self.input_mode = InputMode::Confirmation;
         }
@@ -746,7 +746,7 @@ impl App {
         self.search.direction = SearchDirection::Backward;
     }
 
-    pub fn search_direction(&self) -> &SearchDirection {
+    pub const fn search_direction(&self) -> &SearchDirection {
         &self.search.direction
     }
 
@@ -825,11 +825,11 @@ impl App {
             self.input.push(c);
         } else {
             self.input.insert(self.input_idx, c);
-            if let InputMode::Search = self.input_mode {
+            if matches!(self.input_mode, InputMode::Search) {
                 self.search.state = SearchState::PoppedKey;
             }
         }
-        if let InputMode::Search = self.input_mode {
+        if matches!(self.input_mode, InputMode::Search) {
             self.search_in_selected();
             self.search.state = SearchState::PushedKey;
         }
@@ -846,7 +846,7 @@ impl App {
             self.cursor_position -= ch.width() as u16;
             self.input.drain(idx..self.input_idx);
             self.input_idx = idx;
-            if let InputMode::Search = self.input_mode {
+            if matches!(self.input_mode, InputMode::Search) {
                 self.update_search_on_delete();
             }
         }
@@ -893,7 +893,7 @@ impl App {
         self.cursor_position += self.input[old_idx..self.input_idx].width() as u16;
     }
 
-    pub fn move_cursor_to_beginning_of_line(&mut self) {
+    pub const fn move_cursor_to_beginning_of_line(&mut self) {
         self.input_idx = 0;
         self.cursor_position = 0;
     }
@@ -907,7 +907,7 @@ impl App {
         let old_idx = self.input_idx;
         self.move_cursor_one_word_left();
         self.input.drain(self.input_idx..old_idx);
-        if let InputMode::Search = self.input_mode {
+        if matches!(self.input_mode, InputMode::Search) {
             self.update_search_on_delete();
         }
     }
@@ -916,19 +916,19 @@ impl App {
         self.input.clear();
         self.input_idx = 0;
         self.cursor_position = 0;
-        if let InputMode::Search = self.input_mode {
+        if matches!(self.input_mode, InputMode::Search) {
             self.update_search_on_delete();
         }
     }
 
     pub fn clear_to_right(&mut self) {
         self.input.drain(self.input_idx..);
-        if let InputMode::Search = self.input_mode {
+        if matches!(self.input_mode, InputMode::Search) {
             self.update_search_on_delete();
         }
     }
 
-    pub fn no_search_pattern_match(&self) -> bool {
+    pub const fn no_search_pattern_match(&self) -> bool {
         !self.search.pattern.is_empty() && !self.search.any_matches()
     }
 
@@ -986,7 +986,7 @@ impl App {
         .with_context(|| "Failed to import")?;
 
         import_state = import_state
-            .drain(..)
+            .into_iter()
             .filter(|entry| self.channels.find_by_id(&entry.channel_id).is_none())
             .collect::<Vec<ImportItem>>();
 
@@ -1019,7 +1019,7 @@ impl App {
         self.import_channels();
     }
 
-    pub fn export_subscriptions(&mut self, path: &Path, format: import::Format) -> Result<()> {
+    pub fn export_subscriptions(&self, path: &Path, format: import::Format) -> Result<()> {
         match format {
             import::Format::YoutubeCsv => import::YoutubeCsv::export(&self.channels.items, path),
             import::Format::NewPipe => import::NewPipe::export(&self.channels.items, path),
@@ -1134,8 +1134,8 @@ impl App {
         ));
     }
 
-    pub fn toggle_tag_selection(&mut self) {
-        if let InputMode::Tag = self.input_mode {
+    pub const fn toggle_tag_selection(&mut self) {
+        if matches!(self.input_mode, InputMode::Tag) {
             self.input_mode = InputMode::Normal;
         } else {
             self.input_mode = InputMode::Tag;

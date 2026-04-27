@@ -6,7 +6,7 @@ use serde::{Deserialize, de};
 use serde_json::Value;
 use std::fmt::Display;
 
-#[derive(Deserialize, PartialEq, Debug, Clone, Copy)]
+#[derive(Deserialize, PartialEq, Eq, Debug, Clone, Copy)]
 #[serde(rename_all(deserialize = "lowercase"))]
 pub enum ChannelTab {
     Videos,
@@ -17,9 +17,9 @@ pub enum ChannelTab {
 impl From<u8> for ChannelTab {
     fn from(value: u8) -> Self {
         match value {
-            0b001 => ChannelTab::Videos,
-            0b010 => ChannelTab::Shorts,
-            0b100 => ChannelTab::Streams,
+            0b001 => Self::Videos,
+            0b010 => Self::Shorts,
+            0b100 => Self::Streams,
             _ => unreachable!("The function should only be used for `EnabledTabs` names."),
         }
     }
@@ -31,9 +31,9 @@ impl Display for ChannelTab {
             f,
             "{}",
             match self {
-                ChannelTab::Videos => "videos",
-                ChannelTab::Shorts => "shorts",
-                ChannelTab::Streams => "streams",
+                Self::Videos => "videos",
+                Self::Shorts => "shorts",
+                Self::Streams => "streams",
             }
         )
     }
@@ -62,10 +62,10 @@ impl Display for RefreshState {
             f,
             "{}",
             match self {
-                RefreshState::ToBeRefreshed => "□ ",
-                RefreshState::Refreshing => "■ ",
-                RefreshState::Completed => "",
-                RefreshState::Failed => "✗ ",
+                Self::ToBeRefreshed => "□ ",
+                Self::Refreshing => "■ ",
+                Self::Completed => "",
+                Self::Failed => "✗ ",
             }
         )
     }
@@ -80,7 +80,11 @@ pub struct Channel {
 }
 
 impl Channel {
-    pub fn new(channel_id: String, channel_name: String, last_refreshed: Option<u64>) -> Self {
+    pub const fn new(
+        channel_id: String,
+        channel_name: String,
+        last_refreshed: Option<u64>,
+    ) -> Self {
         Self {
             channel_id,
             channel_name,
@@ -90,7 +94,7 @@ impl Channel {
         }
     }
 
-    pub fn set_to_be_refreshed(&mut self) {
+    pub const fn set_to_be_refreshed(&mut self) {
         self.refresh_state = RefreshState::ToBeRefreshed;
     }
 }
@@ -126,7 +130,7 @@ where
     let date_str: &str = de::Deserialize::deserialize(deserializer)?;
     let date = DateTime::parse_from_rfc3339(date_str).unwrap();
 
-    Ok(date.timestamp() as u64)
+    Ok(date.timestamp().cast_unsigned())
 }
 
 bitflags! {
@@ -157,7 +161,7 @@ pub struct Video {
 }
 
 impl Video {
-    pub fn needs_update(&self, other: &Video) -> bool {
+    pub fn needs_update(&self, other: &Self) -> bool {
         self.length != other.length || self.members_only != other.members_only
     }
 }
@@ -187,7 +191,7 @@ impl From<&Value> for Video {
             length = 60;
         }
 
-        Video {
+        Self {
             channel_name: None,
             video_id: video_json["videoId"].as_str().unwrap().to_string(),
             title: video_json["title"].as_str().unwrap().to_string(),

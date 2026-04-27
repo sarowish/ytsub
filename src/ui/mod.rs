@@ -189,7 +189,7 @@ fn draw_videos(f: &mut Frame, app: &mut App, area: Rect) {
     let mut title = TitleBuilder::new(video_area.width.into())
         .hide_flag(app.hide_videos.contains(HideVideos::WATCHED));
 
-    if let Mode::LatestVideos = app.mode {
+    if app.mode == Mode::LatestVideos {
         let selected_tags = app.tags.get_selected_items();
         title = title.title("Latest Videos".into()).tags(selected_tags);
     } else if let Some(channel) = app.get_current_channel() {
@@ -236,11 +236,11 @@ fn draw_videos(f: &mut Frame, app: &mut App, area: Rect) {
                         THEME.new_video_indicator,
                     ),
                 ])),
-                Cell::from(Span::raw(if let Some(length) = video.length {
-                    crate::utils::length_as_hhmmss(length)
-                } else {
-                    String::new()
-                })),
+                Cell::from(Span::raw(
+                    video
+                        .length
+                        .map_or_else(String::new, crate::utils::length_as_hhmmss),
+                )),
                 Cell::from(Span::raw(&video.published_text)),
             ]);
 
@@ -319,19 +319,17 @@ fn draw_video_info(f: &mut Frame, app: &mut App, area: Rect) {
         inner_area
     };
 
-    let length = if let Some(length) = current_video.length {
-        crate::utils::length_as_hhmmss(length)
-    } else {
-        String::new()
-    };
+    let length = current_video
+        .length
+        .map_or_else(String::new, crate::utils::length_as_hhmmss);
 
     let video_info = Paragraph::new(vec![
         to_info_line(
             "channel",
-            match &current_video.channel_name {
-                Some(channel_name) => channel_name,
-                None => &app.get_current_channel().unwrap().channel_name,
-            },
+            current_video
+                .channel_name
+                .as_ref()
+                .unwrap_or_else(|| &app.get_current_channel().unwrap().channel_name),
         ),
         to_info_line("title", &current_video.title),
         to_info_line("length", &length),
@@ -350,7 +348,7 @@ fn to_info_line<'a>(field: &'a str, value: &'a str) -> Line<'a> {
     ])
 }
 
-fn draw_footer(f: &mut Frame, app: &mut App, area: Rect) {
+fn draw_footer(f: &mut Frame, app: &App, area: Rect) {
     let text = match app.input_mode {
         InputMode::Search => Paragraph::new(Line::from(vec![
             Span::raw(match app.search_direction() {

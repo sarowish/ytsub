@@ -102,7 +102,7 @@ impl HelpWindowState {
         }
     }
 
-    pub fn toggle(&mut self) {
+    pub const fn toggle(&mut self) {
         self.show = !self.show;
     }
 }

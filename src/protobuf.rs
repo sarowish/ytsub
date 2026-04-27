@@ -23,12 +23,12 @@ impl TryFrom<u64> for WireType {
 
     fn try_from(value: u64) -> Result<Self, Self::Error> {
         let id = match value {
-            0 => WireType::Varint,
-            1 => WireType::I64,
-            2 => WireType::Len,
-            3 => WireType::SGroup,
-            4 => WireType::EGroup,
-            5 => WireType::I32,
+            0 => Self::Varint,
+            1 => Self::I64,
+            2 => Self::Len,
+            3 => Self::SGroup,
+            4 => Self::EGroup,
+            5 => Self::I32,
             _ => return Err(anyhow::anyhow!("invalid wire type id")),
         };
 
@@ -103,7 +103,7 @@ fn parse_message<T: Iterator<Item = u8>>(message: &mut T) -> Option<Value> {
                 res[index] = f32::from_le_bytes(bytes.try_into().ok()?).into();
             }
             _ => return None,
-        };
+        }
     }
 
     Some(res)

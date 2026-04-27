@@ -173,7 +173,7 @@ async fn read_responses() -> Result<Vec<ParserResponse>> {
             break;
         }
 
-        for ch in buf.iter() {
+        for ch in &buf {
             let mut v = parser.process(char::from(*ch));
 
             if !v.is_empty() {
@@ -350,7 +350,7 @@ fn xtgettcap_query(names: &[&str]) -> String {
         }
 
         for b in name.as_bytes() {
-            write!(&mut s, "{:02x}", b).unwrap();
+            write!(&mut s, "{b:02x}").unwrap();
         }
     }
 

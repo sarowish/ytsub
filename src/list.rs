@@ -134,31 +134,17 @@ pub trait Selectable: Scrollable {
     }
 
     fn next(&mut self) {
-        let i = match self.selected() {
-            Some(i) => {
-                if i >= self.len() - 1 {
-                    0
-                } else {
-                    i + 1
-                }
-            }
-            None => 0,
-        };
+        let i = self
+            .selected()
+            .map_or(0, |i| if i >= self.len() - 1 { 0 } else { i + 1 });
 
         self.select_with_index(i);
     }
 
     fn previous(&mut self) {
-        let i = match self.selected() {
-            Some(i) => {
-                if i == 0 {
-                    self.len() - 1
-                } else {
-                    i - 1
-                }
-            }
-            None => 0,
-        };
+        let i = self
+            .selected()
+            .map_or(0, |i| if i == 0 { self.len() - 1 } else { i - 1 });
 
         self.select_with_index(i);
     }
@@ -231,8 +217,8 @@ impl<T, S: State + Default> Default for StatefulList<T, S> {
 }
 
 impl<T, S: State + Default> StatefulList<T, S> {
-    pub fn with_items(items: Vec<T>) -> StatefulList<T, S> {
-        let mut stateful_list = StatefulList {
+    pub fn with_items(items: Vec<T>) -> Self {
+        let mut stateful_list = Self {
             items,
             ..Default::default()
         };
@@ -310,7 +296,7 @@ impl<T: ListItem, S: State> StatefulList<T, S> {
 
 impl<T, S: State + Default> From<Vec<T>> for StatefulList<T, S> {
     fn from(v: Vec<T>) -> Self {
-        StatefulList::with_items(v)
+        Self::with_items(v)
     }
 }
 
@@ -320,14 +306,14 @@ pub struct SelectionItem<T> {
 }
 
 impl<T> SelectionItem<T> {
-    pub fn new(item: T) -> Self {
+    pub const fn new(item: T) -> Self {
         Self {
             selected: false,
             item,
         }
     }
 
-    pub fn toggle(&mut self) {
+    pub const fn toggle(&mut self) {
         self.selected = !self.selected;
     }
 }

@@ -17,10 +17,10 @@ pub enum SearchDirection {
 }
 
 impl SearchDirection {
-    fn reverse(&self) -> SearchDirection {
+    const fn reverse(&self) -> Self {
         match self {
-            SearchDirection::Forward => SearchDirection::Backward,
-            SearchDirection::Backward => SearchDirection::Forward,
+            Self::Forward => Self::Backward,
+            Self::Backward => Self::Forward,
         }
     }
 }
@@ -47,7 +47,7 @@ impl Search {
         self.pattern = pattern.to_lowercase();
         match self.state {
             SearchState::NotSearching | SearchState::PoppedKey => {
-                if let SearchState::NotSearching = self.state {
+                if matches!(self.state, SearchState::NotSearching) {
                     self.recovery_index = list.state.selected();
                 }
                 self.matches = list
@@ -80,7 +80,7 @@ impl Search {
         self.matches.iter().map(|m| m.0).collect()
     }
 
-    pub fn any_matches(&self) -> bool {
+    pub const fn any_matches(&self) -> bool {
         !self.matches.is_empty()
     }
 
@@ -96,49 +96,53 @@ impl Search {
         }
     }
 
-    pub fn recover_item<T, S: State>(&mut self, list: &mut StatefulList<T, S>) {
+    pub fn recover_item<T, S: State>(&self, list: &mut StatefulList<T, S>) {
         if self.recovery_index.is_some() {
             list.state.select(self.recovery_index);
         }
     }
 
-    fn jump_to_match<T, S: State>(
-        &self,
-        list: &mut StatefulList<T, S>,
-        match_index: Option<usize>,
-    ) {
+    fn jump_to_match<T, S: State>(list: &mut StatefulList<T, S>, match_index: Option<usize>) {
         if match_index.is_some() {
             list.state.select(match_index);
         }
     }
 
-    pub fn next_match<T, S: State>(&mut self, list: &mut StatefulList<T, S>) {
+    pub fn next_match<T, S: State>(&self, list: &mut StatefulList<T, S>) {
         let indices = self.indices();
-        let match_index = if let Some(recovery_index) = self.recovery_index {
-            indices
-                .iter()
-                .find(|index| **index > recovery_index)
-                .or_else(|| indices.first())
-        } else {
-            indices.first()
-        }
-        .copied();
-        self.jump_to_match(list, match_index);
+        let match_index = self
+            .recovery_index
+            .map_or_else(
+                || indices.first(),
+                |recovery_index| {
+                    indices
+                        .iter()
+                        .find(|index| **index > recovery_index)
+                        .or_else(|| indices.first())
+                },
+            )
+            .copied();
+
+        Self::jump_to_match(list, match_index);
     }
 
-    pub fn prev_match<T, S: State>(&mut self, list: &mut StatefulList<T, S>) {
+    pub fn prev_match<T, S: State>(&self, list: &mut StatefulList<T, S>) {
         let indices = self.indices();
-        let match_index = if let Some(recovery_index) = self.recovery_index {
-            indices
-                .iter()
-                .rev()
-                .find(|index| **index < recovery_index)
-                .or_else(|| indices.last())
-        } else {
-            indices.last()
-        }
-        .copied();
-        self.jump_to_match(list, match_index);
+        let match_index = self
+            .recovery_index
+            .map_or_else(
+                || indices.last(),
+                |recovery_index| {
+                    indices
+                        .iter()
+                        .rev()
+                        .find(|index| **index < recovery_index)
+                        .or_else(|| indices.last())
+                },
+            )
+            .copied();
+
+        Self::jump_to_match(list, match_index);
     }
 
     pub fn repeat_last<T: Display, S: State>(

@@ -29,8 +29,7 @@ pub struct Instance {
 impl Instance {
     pub fn new(invidious_instances: &[String]) -> Self {
         let mut rng = rand::rng();
-        let domain =
-            invidious_instances[rng.random_range(0..invidious_instances.len())].to_string();
+        let domain = invidious_instances[rng.random_range(0..invidious_instances.len())].clone();
         let client = Client::builder()
             .timeout(Duration::from_secs(CONFIG.request_timeout))
             .build()

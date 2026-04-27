@@ -20,8 +20,8 @@ pub enum Format {
 impl From<&str> for Format {
     fn from(format: &str) -> Self {
         match format {
-            "newpipe" => Format::NewPipe,
-            _ => Format::YoutubeCsv,
+            "newpipe" => Self::NewPipe,
+            _ => Self::YoutubeCsv,
         }
     }
 }
@@ -44,7 +44,7 @@ pub struct YoutubeCsv {
 impl YoutubeCsv {
     pub fn import(path: &Path) -> Result<Vec<ImportItem>> {
         let file = File::open(path)?;
-        YoutubeCsv::read_subscriptions(file)
+        Self::read_subscriptions(file)
     }
 
     fn read_subscriptions<R: io::Read>(reader: R) -> Result<Vec<ImportItem>> {
@@ -59,7 +59,7 @@ impl YoutubeCsv {
         records.next();
 
         for record in records {
-            let sub: YoutubeCsv = record?.deserialize(None)?;
+            let sub: Self = record?.deserialize(None)?;
             subscriptions.push(sub);
         }
 
@@ -71,7 +71,7 @@ impl YoutubeCsv {
         let mut wtr = csv::Writer::from_writer(file);
 
         for channel in channels {
-            wtr.serialize(YoutubeCsv {
+            wtr.serialize(Self {
                 channel_id: channel.channel_id.clone(),
                 channel_url: format!("http://www.youtube.com/channel/{}", channel.channel_id),
                 channel_title: channel.channel_name.clone(),
@@ -117,19 +117,19 @@ pub struct NewPipe {
 }
 
 impl NewPipe {
-    fn new(subscriptions: Vec<NewPipeInner>) -> Self {
+    const fn new(subscriptions: Vec<NewPipeInner>) -> Self {
         Self { subscriptions }
     }
 
     pub fn import(path: &Path) -> Result<Vec<ImportItem>> {
         let file = File::open(path)?;
-        NewPipe::read_subscriptions(file)
+        Self::read_subscriptions(file)
     }
 
     fn read_subscriptions<R: io::Read>(rdr: R) -> Result<Vec<ImportItem>> {
         let rdr = BufReader::new(rdr);
 
-        let newpipe: NewPipe = serde_json::from_reader(rdr)?;
+        let newpipe: Self = serde_json::from_reader(rdr)?;
 
         Ok(newpipe
             .subscriptions
@@ -143,7 +143,7 @@ impl NewPipe {
 
         let subs = channels.iter().map(NewPipeInner::new).collect();
 
-        let newpipe = NewPipe::new(subs);
+        let newpipe = Self::new(subs);
 
         Ok(serde_json::to_writer(file, &newpipe)?)
     }

@@ -55,7 +55,7 @@ impl ChannelFeed {
         }
     }
 
-    pub fn get_mut_videos(&mut self, tab: ChannelTab) -> &mut Vec<Video> {
+    pub const fn get_mut_videos(&mut self, tab: ChannelTab) -> &mut Vec<Video> {
         match tab {
             ChannelTab::Videos => &mut self.videos,
             ChannelTab::Shorts => &mut self.shorts,
@@ -153,7 +153,7 @@ impl Format {
             ApiBackend::Invidious => &format_json["type"],
         };
 
-        Format::Video {
+        Self::Video {
             url: format_json["url"].as_str().unwrap().to_string(),
             quality: format_json["qualityLabel"].as_str().unwrap().to_string(),
             fps: format_json["fps"].as_u64().unwrap(),
@@ -178,7 +178,7 @@ impl Format {
                             .prefer_original_audio
                             .then(|| extract_track_type(format_json).map(|s| s == "original"))
                             .flatten()
-                            .or(audio_track["audioIsDefault"].as_bool())
+                            .or_else(|| audio_track["audioIsDefault"].as_bool())
                             .unwrap_or_default(),
                     )
                 });
@@ -202,13 +202,13 @@ impl Format {
                             "lang" => lang = Some(value.to_owned()),
                             _ => {}
                         });
-                };
+                }
 
                 language = lang.zip(default);
             }
         }
 
-        Format::Audio {
+        Self::Audio {
             url,
             bitrate,
             r#type: mime_type.as_str().unwrap().to_string(),
@@ -225,7 +225,7 @@ impl Format {
             ApiBackend::Invidious => (&format_json["type"], None),
         };
 
-        Format::Stream {
+        Self::Stream {
             url: format_json["url"].as_str().unwrap().to_string(),
             quality: format_json["qualityLabel"].as_str().unwrap().to_string(),
             fps: format_json["fps"].as_u64().unwrap(),
@@ -236,7 +236,7 @@ impl Format {
 
     pub fn from_caption(format_json: &Value, api_backend: ApiBackend) -> Option<Self> {
         let caption = match api_backend {
-            ApiBackend::Local => Format::Caption {
+            ApiBackend::Local => Self::Caption {
                 url: format_json["baseUrl"].as_str().unwrap().to_string(),
                 label: format_json["name"]["runs"][0]["text"]
                     .as_str()
@@ -244,14 +244,14 @@ impl Format {
                     .to_string(),
                 language_code: format_json["languageCode"].as_str().unwrap().to_string(),
             },
-            ApiBackend::Invidious => Format::Caption {
+            ApiBackend::Invidious => Self::Caption {
                 url: format_json["url"].as_str().unwrap().to_string(),
                 label: format_json["label"].as_str().unwrap().to_string(),
                 language_code: format_json["language_code"].as_str().unwrap().to_string(),
             },
         };
 
-        if matches!(&caption, Format::Caption { label, .. } if label.contains("auto-generated")) {
+        if matches!(&caption, Self::Caption { label, .. } if label.contains("auto-generated")) {
             return None;
         }
 
@@ -260,15 +260,15 @@ impl Format {
 
     pub fn get_url(&self) -> &str {
         match self {
-            Format::Video { url, .. }
-            | Format::Audio { url, .. }
-            | Format::Stream { url, .. }
-            | Format::Caption { url, .. } => url,
+            Self::Video { url, .. }
+            | Self::Audio { url, .. }
+            | Self::Stream { url, .. }
+            | Self::Caption { url, .. } => url,
         }
     }
 
     pub fn get_quality(&self) -> u16 {
-        if let Format::Video { quality, .. } = self {
+        if let Self::Video { quality, .. } = self {
             quality
                 .split_once('p')
                 .and_then(|(quality, _)| quality.parse().ok())
@@ -282,9 +282,8 @@ impl Format {
         static RE: LazyLock<Regex> =
             LazyLock::new(|| Regex::new(r"(video|audio)\/(?<codec>webm|mp4);").unwrap());
 
-        let (Format::Video { r#type, .. }
-        | Format::Audio { r#type, .. }
-        | Format::Stream { r#type, .. }) = self
+        let (Self::Video { r#type, .. } | Self::Audio { r#type, .. } | Self::Stream { r#type, .. }) =
+            self
         else {
             unreachable!()
         };
@@ -314,8 +313,8 @@ impl Display for VideoFormat {
             f,
             "{}",
             match self {
-                VideoFormat::Mp4 => "mp4",
-                VideoFormat::WebM => "webm",
+                Self::Mp4 => "mp4",
+                Self::WebM => "webm",
             }
         )
     }
@@ -324,10 +323,8 @@ impl Display for VideoFormat {
 impl ListItem for Format {
     fn id(&self) -> &str {
         match self {
-            Format::Video { url, .. } | Format::Audio { url, .. } | Format::Stream { url, .. } => {
-                url
-            }
-            Format::Caption { language_code, .. } => language_code,
+            Self::Video { url, .. } | Self::Audio { url, .. } | Self::Stream { url, .. } => url,
+            Self::Caption { language_code, .. } => language_code,
         }
     }
 }
@@ -346,7 +343,7 @@ impl Chapters {
 
         let path = dir_path.join(format!("{video_id}.ffmetadata"));
 
-        if let Ok(true) = path.try_exists() {
+        if matches!(path.try_exists(), Ok(true)) {
             return Ok(path);
         }
 
@@ -391,7 +388,7 @@ impl TryFrom<Option<&str>> for Chapters {
             }
         }
 
-        Ok(Chapters { inner: chapters })
+        Ok(Self { inner: chapters })
     }
 }
 
@@ -419,7 +416,7 @@ impl TryFrom<&str> for Chapter {
 
             let timestamp = hours * 3600 + minutes * 60 + seconds;
 
-            Ok(Chapter {
+            Ok(Self {
                 title: captures["title"].to_owned(),
                 start: timestamp,
                 end: timestamp,
@@ -443,8 +440,8 @@ impl Display for ApiBackend {
             f,
             "{}",
             match self {
-                ApiBackend::Invidious => "Invidious",
-                ApiBackend::Local => "Local",
+                Self::Invidious => "Invidious",
+                Self::Local => "Local",
             }
         )
     }

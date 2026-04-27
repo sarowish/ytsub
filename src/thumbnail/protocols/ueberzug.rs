@@ -41,12 +41,12 @@ pub fn start() {
     DAEMON.init(Some(tx));
 }
 
-pub fn display_image(path: &Path, area: &Rect) -> Result<()> {
+pub fn display_image(path: &Path, area: Rect) -> Result<()> {
     let Some(tx) = &*DAEMON else {
         bail!("ueberzugpp not initialized");
     };
 
-    tx.send(Some((path.to_owned(), *area)))?;
+    tx.send(Some((path.to_owned(), area)))?;
 
     Ok(())
 }

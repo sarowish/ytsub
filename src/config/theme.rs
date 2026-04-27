@@ -87,11 +87,10 @@ fn str_to_color(color: &str) -> Result<Color> {
             )
         })?,
         _ => anyhow::bail!(
-            "\"{}\" is not a valid color name. \
+            "\"{color}\" is not a valid color name. \
             Valid color names are Black, Red, Green, Yellow, Blue, Magenta \
             Cyan, Gray, DarkGray, LightRed, LightGreen, LightGreen, \
             LightYellow, LightBlue, LightMagenta, LightCyan, White and Reset.",
-            color
         ),
     };
 
@@ -113,10 +112,9 @@ fn parse_modifiers(modifiers: &str) -> Result<Modifier> {
             "hidden" => Modifier::HIDDEN,
             "crossed_out" => Modifier::CROSSED_OUT,
             _ => anyhow::bail!(
-                "\"{}\" is not a valid modifier. \
+                "\"{modifier}\" is not a valid modifier. \
                 Valid modifiers are bold, dim, italic, underlined, \
                 slow_blink, rapid_blink, reversed, hidden and crossed_out.",
-                modifier
             ),
         });
     }
@@ -164,7 +162,7 @@ pub struct Theme {
 
 impl Default for Theme {
     fn default() -> Self {
-        Theme {
+        Self {
             title: Style::default()
                 .fg(Color::Cyan)
                 .add_modifier(Modifier::BOLD),
@@ -199,7 +197,7 @@ impl TryFrom<UserTheme> for Theme {
     type Error = anyhow::Error;
 
     fn try_from(user_theme: UserTheme) -> Result<Self, Self::Error> {
-        let mut theme = Theme::default();
+        let mut theme = Self::default();
 
         macro_rules! set_theme_field {
             ($name: ident) => {

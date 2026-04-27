@@ -24,7 +24,7 @@ enum InnertubeClient {
 impl InnertubeClient {
     fn get(self) -> Value {
         match self {
-            InnertubeClient::Web => serde_json::json!({
+            Self::Web => serde_json::json!({
                 "context": {
                     "client": {
                         "clientName": "WEB",
@@ -32,7 +32,7 @@ impl InnertubeClient {
                     }
                 }
             }),
-            InnertubeClient::AndroidVR => serde_json::json!({
+            Self::AndroidVR => serde_json::json!({
                 "context": {
                     "client": {
                         "clientName": "ANDROID_VR",
@@ -215,11 +215,7 @@ fn extract_streams_tab(value: &[Value]) -> Result<Vec<Video>> {
         let video_id = video["videoId"].as_str().unwrap().to_string();
 
         let published = if let Some(t) = video.get("publishedTimeText") {
-            let published_text = t["simpleText"]
-                .as_str()
-                .unwrap()
-                .splitn(2, ' ')
-                .collect::<Vec<&str>>()[1];
+            let published_text = t["simpleText"].as_str().unwrap().split_once(' ').unwrap().1;
             utils::published(published_text)?
         } else if let Some(time) = video["upcomingEventData"]["startTime"].as_str() {
             time.parse::<u64>().unwrap()
@@ -227,12 +223,10 @@ fn extract_streams_tab(value: &[Value]) -> Result<Vec<Video>> {
             utils::now()?
         };
 
-        let length = if let Some(t) = video.get("lengthText") {
+        let length = video.get("lengthText").map_or(0, |t| {
             let length_text = t["simpleText"].as_str().unwrap().to_string();
             utils::length_as_seconds(&length_text)
-        } else {
-            0
-        };
+        });
 
         videos.push(Video {
             channel_name: None,
@@ -297,25 +291,24 @@ impl Local {
         static RE: LazyLock<Regex> =
             LazyLock::new(|| Regex::new(r#""VISITOR_DATA":"(\S*?)""#).unwrap());
 
-        match VISITOR_DATA.get() {
-            Some(data) => Ok(data.to_owned()),
-            None => {
-                let webpage = self
-                    .client
-                    .get("https://www.youtube.com")
-                    .send()
-                    .await?
-                    .text()
-                    .await?;
+        if let Some(data) = VISITOR_DATA.get() {
+            Ok(data.to_owned())
+        } else {
+            let webpage = self
+                .client
+                .get("https://www.youtube.com")
+                .send()
+                .await?
+                .text()
+                .await?;
 
-                let Some(visitor_data) = RE.captures(&webpage).and_then(|c| c.get(1)) else {
-                    return Err(anyhow::anyhow!("Couldn't extract visitor data"));
-                };
+            let Some(visitor_data) = RE.captures(&webpage).and_then(|c| c.get(1)) else {
+                return Err(anyhow::anyhow!("Couldn't extract visitor data"));
+            };
 
-                let _ = VISITOR_DATA.set(visitor_data.as_str().to_owned());
+            let _ = VISITOR_DATA.set(visitor_data.as_str().to_owned());
 
-                Ok(VISITOR_DATA.get().unwrap().clone())
-            }
+            Ok(VISITOR_DATA.get().unwrap().clone())
         }
     }
 
@@ -388,12 +381,10 @@ impl Local {
         if let Some(alerts) = response["alerts"].as_array() {
             for alert in alerts.iter().filter_map(|alert| alert.get("alertRenderer")) {
                 if alert["type"].as_str().is_some_and(|s| s == "ERROR") {
-                    bail!(
-                        alert["text"]["simpleText"]
-                            .as_str()
-                            .map(ToString::to_string)
-                            .unwrap_or_else(|| "Error when getting videos tab".to_string())
-                    );
+                    bail!(alert["text"]["simpleText"].as_str().map_or_else(
+                        || "Error when getting videos tab".to_string(),
+                        ToString::to_string
+                    ));
                 }
             }
         }
@@ -507,7 +498,7 @@ impl Local {
 
         let path = dir_path.join(format!("{video_id}_{language_code}.srt"));
 
-        if let Ok(true) = path.try_exists() {
+        if matches!(path.try_exists(), Ok(true)) {
             return Ok(path);
         }
 
@@ -571,7 +562,7 @@ impl Api for Local {
         let continuation = self.continuation.take();
 
         if !CONFIG.tabs.contains(EnabledTabs::VIDEOS) {
-            videos.drain(..);
+            videos.clear();
         }
 
         let mut feed = ChannelFeed::new(channel_id)

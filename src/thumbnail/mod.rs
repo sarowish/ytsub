@@ -18,7 +18,7 @@ pub struct Thumbnail {
 }
 
 impl Thumbnail {
-    pub fn new(data: ImageData, width: u16, height: u16) -> Self {
+    pub const fn new(data: ImageData, width: u16, height: u16) -> Self {
         Self {
             data,
             width,
@@ -46,15 +46,15 @@ impl Thumbnail {
                 erase.push_str(data);
                 render_by_first_cell(buf, area, &erase);
             }
-            ImageData::Ueberzug(path) => ueberzug::display_image(path, &area)?,
+            ImageData::Ueberzug(path) => ueberzug::display_image(path, area)?,
             ImageData::Chafa(path) => {
-                let output = chafa::show_image(path, &area)?;
+                let output = chafa::show_image(path, area)?;
                 erase.push_str(&String::from_utf8_lossy(&output));
 
                 render_linewise_by_first_cells(buf, area, erase.split('\n'));
             }
             ImageData::HalfBlocks(path) => {
-                let data = halfblocks::display_image(path, &area)?;
+                let data = halfblocks::display_image(path, area)?;
                 let mut blocks = data.iter();
 
                 for y in area.top()..(area.bottom()) {
@@ -62,7 +62,7 @@ impl Thumbnail {
                         if let Some(block) = blocks.next()
                             && let Some(cell) = buf.cell_mut((x, y))
                         {
-                            block.set_cell(cell)
+                            block.set_cell(cell);
                         }
                     }
                 }

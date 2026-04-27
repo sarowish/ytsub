@@ -21,7 +21,7 @@ pub struct Formats {
 
 impl Formats {
     pub fn new(title: String, id: String, video_info: VideoInfo) -> Self {
-        let mut formats = Formats {
+        let mut formats = Self {
             title,
             id,
             video_formats: SelectionList::new(video_info.video_formats),
@@ -115,7 +115,7 @@ impl Formats {
         }
     }
 
-    pub fn switch_format_type(&mut self) {
+    pub const fn switch_format_type(&mut self) {
         self.use_adaptive_streams = !self.use_adaptive_streams;
         self.selected_tab = 0;
     }
@@ -162,13 +162,13 @@ impl Formats {
 impl Display for Format {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Format::Video {
+            Self::Video {
                 quality,
                 fps,
                 r#type,
                 ..
             } => write!(f, "{quality} @ {fps} fps, {type}"),
-            Format::Audio {
+            Self::Audio {
                 language,
                 bitrate,
                 r#type,
@@ -182,7 +182,7 @@ impl Display for Format {
                 bitrate,
                 r#type
             ),
-            Format::Stream {
+            Self::Stream {
                 quality,
                 fps,
                 bitrate,
@@ -196,7 +196,7 @@ impl Display for Format {
                 bitrate.clone().unwrap_or_default(),
                 r#type
             ),
-            Format::Caption { label, .. } => write!(f, "{label}"),
+            Self::Caption { label, .. } => write!(f, "{label}"),
         }
     }
 }

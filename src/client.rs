@@ -94,7 +94,7 @@ impl Client {
             selected_api: CONFIG.api,
         };
 
-        if let ApiBackend::Invidious = client.selected_api {
+        if matches!(client.selected_api, ApiBackend::Invidious) {
             client.set_instance().await?;
         }
 
@@ -157,7 +157,7 @@ impl Client {
                     tokio::spawn(async move { play_using_ytdlp(&video_id).await });
                 }
                 IoEvent::CopyLink(url_component, api) => {
-                    copy_link(self, &url_component, api).await?
+                    copy_link(self, &url_component, api).await?;
                 }
                 IoEvent::OpenInBrowser(url_component, api) => match api {
                     ApiBackend::Local => open_in_youtube(&url_component),
@@ -266,7 +266,6 @@ async fn import_channels(instance: Box<dyn Api>, channel_ids: Vec<String>) -> Re
     emit_msg!(perm, format!("Subscribing to channels: {count}/{total}"));
 
     let streams = futures_util::stream::iter(channel_ids).map(|id| {
-        let id = id.clone();
         let mut instance = dyn_clone::clone_box(&*instance);
 
         TX.send(ClientRequest::SetImportState(
@@ -325,7 +324,6 @@ async fn refresh_channels(instance: Box<dyn Api>, channel_ids: Vec<String>) -> R
     }
 
     let streams = futures_util::stream::iter(channel_ids).map(|id| {
-        let id = id.clone();
         let mut instance = dyn_clone::clone_box(&*instance);
 
         TX.send(ClientRequest::SetRefreshState(

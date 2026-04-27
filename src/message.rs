@@ -15,7 +15,7 @@ pub struct Message {
 
 impl Message {
     pub fn new() -> Self {
-        Message {
+        Self {
             message: String::new(),
             message_type: MessageType::Normal,
             token: CancellationToken::new(),

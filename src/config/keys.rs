@@ -42,10 +42,10 @@ fn parse_binding(binding: &str) -> Result<KeyEvent> {
             "insert" => KeyCode::Insert,
             "esc" | "escape" => KeyCode::Esc,
             token if token.len() == 1 => KeyCode::Char(token.chars().next().unwrap()),
-            _ => anyhow::bail!("\"{}\" is not a valid key", token),
+            _ => anyhow::bail!("\"{token}\" is not a valid key"),
         }
     } else {
-        anyhow::bail!("\"{}\" is not a valid binding", binding)
+        anyhow::bail!("\"{binding}\" is not a valid binding")
     };
 
     let mut modifiers = KeyModifiers::NONE;
@@ -55,7 +55,7 @@ fn parse_binding(binding: &str) -> Result<KeyEvent> {
             "ctrl" => modifiers.insert(KeyModifiers::CONTROL),
             "shift" => modifiers.insert(KeyModifiers::SHIFT),
             "alt" => modifiers.insert(KeyModifiers::ALT),
-            _ => anyhow::bail!("\"{}\" is not a valid modifier", token),
+            _ => anyhow::bail!("\"{token}\" is not a valid modifier"),
         }
     }
 
@@ -213,7 +213,7 @@ impl TryFrom<UserKeyBindings> for KeyBindings {
     type Error = anyhow::Error;
 
     fn try_from(user_key_bindings: UserKeyBindings) -> Result<Self, Self::Error> {
-        let mut key_bindings = KeyBindings::default();
+        let mut key_bindings = Self::default();
 
         set_bindings(&mut key_bindings, &user_key_bindings.general)?;
         set_bindings(&mut key_bindings.help, &user_key_bindings.help)?;

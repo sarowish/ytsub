@@ -131,6 +131,10 @@ async fn main() -> Result<()> {
 }
 
 fn render(app: &mut App, terminal: &mut DefaultTerminal) -> Result<()> {
+    const SEARCH_MODE_CURSOR_OFFSET: u16 = 1;
+    const SUBSCRIBE_MODE_CURSOR_OFFSET: u16 = 25;
+    const TAG_CREATION_MODE_CURSOR_OFFSET: u16 = 10;
+
     let prev_covered_area = app.thumbnail.as_ref().and_then(|t| t.covered_area);
 
     terminal.draw(|f| draw(f, app))?;
@@ -142,10 +146,6 @@ fn render(app: &mut App, terminal: &mut DefaultTerminal) -> Result<()> {
         terminal.swap_buffers();
         terminal.draw(|f| draw(f, app))?;
     }
-
-    const SEARCH_MODE_CURSOR_OFFSET: u16 = 1;
-    const SUBSCRIBE_MODE_CURSOR_OFFSET: u16 = 25;
-    const TAG_CREATION_MODE_CURSOR_OFFSET: u16 = 10;
 
     let cursor_position = app.cursor_position;
     match &app.input_mode {
@@ -246,7 +246,7 @@ fn handle_event(event: ClientRequest, app: &mut App) {
             let idx = app.import_state.find_by_id(&id).unwrap();
             app.import_state.items[idx].sub_state = state;
 
-            if let RefreshState::Completed = state {
+            if matches!(state, RefreshState::Completed) {
                 app.import_state.items.remove(idx);
             }
         }
