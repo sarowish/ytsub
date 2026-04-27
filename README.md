@@ -75,6 +75,7 @@ Options:
 ### Managing subscriptions
 
 #### Subscribing
+
 Pressing `i` prompts the user to enter a channel id or url.
 
 ##### Example inputs
@@ -133,48 +134,48 @@ The table below lists the default general key bindings.
 Press `ctrl-h` in the app to open the binding help window.
 Window-specific bindings are shown as inline help in popup windows.
 
-| Command                       | Description                                                         | Default keys   |
-| ----------------------------- | ------------------------------------------------------------------- | ---------------|
-| `set_mode_subs`               | Switch to subscriptions mode                                        | `1`            |
-| `set_mode_latest_videos`      | Switch to latest videos mode                                        | `2`            |
-| `on_down`                     | Move one line downward                                              | `j`, `down`    |
-| `on_up`                       | Move one line upward                                                | `k`, `up`      |
-| `on_left`                     | Switch to channels block                                            | `h`, `left`    |
-| `on_right`                    | Switch to videos block                                              | `l`, `right`   |
-| `select_first`                | Jump to the first line                                              | `g`            |
-| `select_last`                 | Jump to the last line                                               | `G`            |
-| `page_up`                     | Move up one page                                                    | `ctrl-b`       |
-| `page_down`                   | Move down one page                                                  | `ctrl-f`       |
-| `half_page_up`                | Move up half a page                                                 | `ctrl-u`       |
-| `half_page_down`              | Move down half a page                                               | `ctrl-d`       |
-| `next_tab`                    | Select next tab                                                     | `L`            |
-| `previous_tab`                | Select previous tab                                                 | `H`            |
-| `jump_to_channel`             | Jump to the channel of the selected video from latest videos mode   | `c`            |
-| `toggle_hide`                 | Hide/unhide watched videos                                          | `t`            |
-| `subscribe`                   | Subscribe                                                           | `i`            |
-| `unsubscribe`                 | Unsubscribe                                                         | `d`            |
-| `delete_video`                | Delete the selected video from database                             | `D`            |
-| `search_forward`              | Search Forward                                                      | `/`            |
-| `search_backward`             | Search backward                                                     | `?`            |
-| `repeat_last_search`          | Repeat last search                                                  | `n`            |
-| `repeat_last_search_opposite` | Repeat last search in the opposite direction                        | `N`            |
-| `switch_api`                  | Switch API                                                          | `s`            |
-| `refresh_channel`             | Refresh videos of the selected channel                              | `r`            |
-| `refresh_channels`            | Refresh videos of every channel                                     | `R`            |
-| `refresh_failed_channels`     | Refresh videos of channels which their latest refresh was a failure | `F`            |
-| `load_more_videos`            | Load more videos                                                    | `J`            |
-| `load_all_videos`             | Load all videos                                                     | `ctrl-j`       |
-| `copy_youtube_link`           | Copy channel or video Youtube link to clipboard                     | `y`            |
-| `copy_invidious_link`         | Copy channel or video Invidious link to clipboard                   | `Y`            |
-| `open_in_youtube`             | Open channel or video Youtube page in browser                       | `o`            |
-| `open_in_invidious`           | Open channel or video Invidious page in browser                     | `O`            |
-| `play_from_formats`           | Play video in video player using stream formats                     | `p`            |
-| `play_using_ytdlp`            | Play video in mpv using yt-dlp                                      | `P`            |
-| `select_formats`              | Toggle format selection window                                      | `f`            |
-| `toggle_watched`              | Mark/unmark video as watched                                        | `m`            |
-| `toggle_help`                 | Toggle help window                                                  | `ctrl-h`       |
-| `toggle_tag`                  | Toggle tag selection window                                         | `T`            |
-| `quit`                        | Quit application                                                    | `q`, `ctrl-c`  |
+| Command                       | Description                                                         | Default keys  |
+| ----------------------------- | ------------------------------------------------------------------- | ------------- |
+| `set_mode_subs`               | Switch to subscriptions mode                                        | `1`           |
+| `set_mode_latest_videos`      | Switch to latest videos mode                                        | `2`           |
+| `on_down`                     | Move one line downward                                              | `j`, `down`   |
+| `on_up`                       | Move one line upward                                                | `k`, `up`     |
+| `on_left`                     | Switch to channels block                                            | `h`, `left`   |
+| `on_right`                    | Switch to videos block                                              | `l`, `right`  |
+| `select_first`                | Jump to the first line                                              | `g`           |
+| `select_last`                 | Jump to the last line                                               | `G`           |
+| `page_up`                     | Move up one page                                                    | `ctrl-b`      |
+| `page_down`                   | Move down one page                                                  | `ctrl-f`      |
+| `half_page_up`                | Move up half a page                                                 | `ctrl-u`      |
+| `half_page_down`              | Move down half a page                                               | `ctrl-d`      |
+| `next_tab`                    | Select next tab                                                     | `L`           |
+| `previous_tab`                | Select previous tab                                                 | `H`           |
+| `jump_to_channel`             | Jump to the channel of the selected video from latest videos mode   | `c`           |
+| `toggle_hide`                 | Hide/unhide watched videos                                          | `t`           |
+| `subscribe`                   | Subscribe                                                           | `i`           |
+| `unsubscribe`                 | Unsubscribe                                                         | `d`           |
+| `delete_video`                | Delete the selected video from database                             | `D`           |
+| `search_forward`              | Search Forward                                                      | `/`           |
+| `search_backward`             | Search backward                                                     | `?`           |
+| `repeat_last_search`          | Repeat last search                                                  | `n`           |
+| `repeat_last_search_opposite` | Repeat last search in the opposite direction                        | `N`           |
+| `switch_api`                  | Switch API                                                          | `s`           |
+| `refresh_channel`             | Refresh videos of the selected channel                              | `r`           |
+| `refresh_channels`            | Refresh videos of every channel                                     | `R`           |
+| `refresh_failed_channels`     | Refresh videos of channels which their latest refresh was a failure | `F`           |
+| `load_more_videos`            | Load more videos                                                    | `J`           |
+| `load_all_videos`             | Load all videos                                                     | `ctrl-j`      |
+| `copy_youtube_link`           | Copy channel or video Youtube link to clipboard                     | `y`           |
+| `copy_invidious_link`         | Copy channel or video Invidious link to clipboard                   | `Y`           |
+| `open_in_youtube`             | Open channel or video Youtube page in browser                       | `o`           |
+| `open_in_invidious`           | Open channel or video Invidious page in browser                     | `O`           |
+| `play_from_formats`           | Play video in video player using stream formats                     | `p`           |
+| `play_using_ytdlp`            | Play video in mpv using yt-dlp                                      | `P`           |
+| `select_formats`              | Toggle format selection window                                      | `f`           |
+| `toggle_watched`              | Mark/unmark video as watched                                        | `m`           |
+| `toggle_help`                 | Toggle help window                                                  | `ctrl-h`      |
+| `toggle_tag`                  | Toggle tag selection window                                         | `T`           |
+| `quit`                        | Quit application                                                    | `q`, `ctrl-c` |
 
 To configure the key bindings, see the
 [key bindings section in the configuration documentation](docs/configuration.md#key-bindings).
@@ -205,23 +206,23 @@ Downloaded thumbnails are cached under the ytsub cache directory in
 ### Tested Terminal Emulators
 
 | Terminal         | Protocol                  | Works | Notes                                                             |
-|------------------|---------------------------|:-----:|-------------------------------------------------------------------|
-| kitty            | `Kitty Graphics Protocol` | ✔️    | -                                                                 |
-| Ghostty          | `Kitty Graphics Protocol` | ✔️    | -                                                                 |
-| foot             | `Sixel`                   | ✔️    | -                                                                 |
-| Contour          | `Sixel`                   | ✔️    | -                                                                 |
-| xterm            | `Sixel`                   | ✔️    | Launch with `-ti 340` to make sure sixel support is enabled.      |
-| BlackBox         | `Sixel`                   | ✔️    | Requires `Sixel support` at compilation and in preferences.       |
-| Windows Terminal | `Sixel`                   | ✔️    | -                                                                 |
-| WezTerm          | `Inline Images Protocol`  | ✔️    | Also supports `Sixel`, but images seem to be misplaced sometimes. |
-| Rio              | `Inline Images Protocol`  | ✔️    | Also supports `Sixel`.                                            |
-| Warp             | `Inline Images Protocol`  | ✔️    | -                                                                 |
-| mlterm           | `Inline Images Protocol`  | ✔️    | Also supports `Sixel`.                                            |
-| Tabby            | `Inline Images Protocol`  | ✔️    | Also supports `Sixel`.                                            |
-| Bobcat           | `Inline Images Protocol`  | ✔️    | Also supports `Sixel`. `Inline Images` option should be enabled.  |
-| Konsole          | `Sixel`                   | ❌    | Also supports `iip`. Images aren't cleared properly.              |
-| VSCode           | `Sixel`                   | ❌    | Also supports `iip`. Images aren't cleared properly.              |
-| ctx              | `Sixel`                   | ❌    | -                                                                 |
+| ---------------- | ------------------------- | :---: | ----------------------------------------------------------------- |
+| kitty            | `Kitty Graphics Protocol` |  ✔️   | -                                                                 |
+| Ghostty          | `Kitty Graphics Protocol` |  ✔️   | -                                                                 |
+| foot             | `Sixel`                   |  ✔️   | -                                                                 |
+| Contour          | `Sixel`                   |  ✔️   | -                                                                 |
+| xterm            | `Sixel`                   |  ✔️   | Launch with `-ti 340` to make sure sixel support is enabled.      |
+| BlackBox         | `Sixel`                   |  ✔️   | Requires `Sixel support` at compilation and in preferences.       |
+| Windows Terminal | `Sixel`                   |  ✔️   | -                                                                 |
+| WezTerm          | `Inline Images Protocol`  |  ✔️   | Also supports `Sixel`, but images seem to be misplaced sometimes. |
+| Rio              | `Inline Images Protocol`  |  ✔️   | Also supports `Sixel`.                                            |
+| Warp             | `Inline Images Protocol`  |  ✔️   | -                                                                 |
+| mlterm           | `Inline Images Protocol`  |  ✔️   | Also supports `Sixel`.                                            |
+| Tabby            | `Inline Images Protocol`  |  ✔️   | Also supports `Sixel`.                                            |
+| Bobcat           | `Inline Images Protocol`  |  ✔️   | Also supports `Sixel`. `Inline Images` option should be enabled.  |
+| Konsole          | `Sixel`                   |  ❌   | Also supports `iip`. Images aren't cleared properly.              |
+| VSCode           | `Sixel`                   |  ❌   | Also supports `iip`. Images aren't cleared properly.              |
+| ctx              | `Sixel`                   |  ❌   | -                                                                 |
 
 ### tmux
 
@@ -239,7 +240,6 @@ Then restart `tmux`:
 ```bash
 tmux kill-server && tmux || tmux
 ```
-
 
 ## Clipboard
 
@@ -277,4 +277,3 @@ file path with the `-s` flag.
 If no `config.toml` is found, `ytsub` starts with built-in defaults.
 
 See the [configuration documentation](docs/configuration.md) for details.
-
