@@ -431,7 +431,18 @@ fn draw_confirmation_window(f: &mut Frame, app: &App) -> Rect {
 }
 
 fn draw_help(f: &mut Frame, help_window_state: &mut HelpWindowState) -> Rect {
-    let window = popup_window_from_percentage(80, 70, f.area());
+    let help_entries = HELP
+        .iter()
+        .map(|(key, desc)| Line::from(vec![Span::styled(key, THEME.help), Span::raw(*desc)]))
+        .collect::<Vec<Line>>();
+
+    let max_width = help_entries.iter().map(|entry| entry.width() as u16).max();
+
+    let window = popup_window(
+        f.area(),
+        Constraint::Length(max_width.unwrap_or_default() + 20),
+        Constraint::Percentage(74),
+    );
     f.render_widget(Clear, window);
 
     help_window_state.area = window.inner(Margin::new(1, 1));
@@ -443,11 +454,6 @@ fn draw_help(f: &mut Frame, help_window_state: &mut HelpWindowState) -> Rect {
     if max_scroll < help_window_state.offset() {
         *help_window_state.offset_mut() = max_scroll;
     }
-
-    let help_entries = HELP
-        .iter()
-        .map(|(key, desc)| Line::from(vec![Span::styled(key, THEME.help), Span::raw(*desc)]))
-        .collect::<Vec<Line>>();
 
     let mut help_text = Paragraph::new(help_entries)
         .scroll((help_window_state.scroll as u16, 0))
@@ -538,7 +544,10 @@ fn draw_list_with_help_tabs<T: Display>(
     let help_text = Line::from(spans);
 
     let help_text_width = help_text.width();
-    let help_text_height = 1 + help_text_width as u16 / f.area().width;
+    let help_text_height = 1
+        + (help_text_width as u16 + 1)
+            .checked_div(f.area().inner(Margin::new(2, 1)).width)
+            .unwrap_or_default();
 
     let max_width = item_texts
         .iter()
@@ -615,45 +624,18 @@ fn draw_list_with_help_tabs<T: Display>(
 }
 
 fn popup_window_from_dimensions(height: u16, width: u16, r: Rect) -> Rect {
-    let hor = [
-        Constraint::Length(r.width.saturating_sub(width) / 2),
-        Constraint::Length(width),
-        Constraint::Min(1),
-    ];
-
-    let ver = [
-        Constraint::Length(r.height.saturating_sub(height) / 2),
-        Constraint::Length(height),
-        Constraint::Min(1),
-    ];
-
-    popup_window(&hor, &ver, r)
+    popup_window(r, Constraint::Length(width), Constraint::Length(height))
 }
 
 fn popup_window_from_percentage(hor_percent: u16, ver_percent: u16, r: Rect) -> Rect {
-    let ver = [
-        Constraint::Percentage((100 - ver_percent) / 2),
-        Constraint::Percentage(ver_percent),
-        Constraint::Percentage((100 - ver_percent) / 2),
-    ];
-
-    let hor = [
-        Constraint::Percentage((100 - hor_percent) / 2),
+    popup_window(
+        r,
         Constraint::Percentage(hor_percent),
-        Constraint::Percentage((100 - hor_percent) / 2),
-    ];
-
-    popup_window(&hor, &ver, r)
+        Constraint::Percentage(ver_percent),
+    )
 }
 
-fn popup_window(hor_constraints: &[Constraint], ver_constraints: &[Constraint], r: Rect) -> Rect {
-    let popup_layout = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints(ver_constraints)
-        .split(r);
-
-    Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints(hor_constraints)
-        .split(popup_layout[1])[1]
+fn popup_window(r: Rect, hor_constraint: Constraint, ver_constraint: Constraint) -> Rect {
+    r.inner(Margin::new(2, 1))
+        .centered(hor_constraint, ver_constraint)
 }

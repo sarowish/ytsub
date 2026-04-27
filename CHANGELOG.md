@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Use Inline Images Protocol for mlterm.
 - Display error indicator while importing.
 - Add left padding to help popup key labels.
+- Adjust popup window sizes
 
 ### Fixed
 - Handle cell sizes with floating point numbers.
