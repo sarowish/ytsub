@@ -37,13 +37,13 @@ jobs:
           targets: ${{ matrix.target }}
 
       - name: Build
-        run: cargo build --profile release-lto --target ${{ matrix.target }}
+        run: cargo build --release --target ${{ matrix.target }}
 
       - name: Prepare assets
         shell: bash
         run: |
           mkdir ytsub-${{ env.RELEASE_VERSION }}
-          cp LICENSE README.md target/${{ matrix.target }}/release-lto/ytsub \
+          cp LICENSE README.md target/${{ matrix.target }}/release/ytsub \
             ytsub-${{ env.RELEASE_VERSION }}
 
       - name: Package assets
