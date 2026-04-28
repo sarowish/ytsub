@@ -5,31 +5,53 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [0.9.0] - 2026-04-28
 ### Added
 - Add Überzug++ as fallback for image rendering.
+[`c246d1`](https://github.com/sarowish/ytsub/commit/c246d1)
 - Add Unicode half-blocks image rendering as fallback.
+[`ab7bda`](https://github.com/sarowish/ytsub/commit/ab7bda)
 - Add a command for copying links to clipboard.
+[`00ff08`](https://github.com/sarowish/ytsub/commit/00ff08)
 - Add chafa as fallback for image rendering.
+[`794934`](https://github.com/sarowish/ytsub/commit/794934)
 - Add full-page and half-page navigation commands.
+[`7674b6`](https://github.com/sarowish/ytsub/commit/7674b6)
 
 ### Changed
 - Use Inline Images Protocol for mlterm.
+[`a4ebfa`](https://github.com/sarowish/ytsub/commit/a4ebfa)
 - Display error indicator while importing.
+[`04a23e`](https://github.com/sarowish/ytsub/commit/04a23e)
 - Add left padding to help popup key labels.
+[`1b8487`](https://github.com/sarowish/ytsub/commit/1b8487)
 - Adjust popup window sizes
+[`73130e`](https://github.com/sarowish/ytsub/commit/73130e)
 
 ### Fixed
-- Handle cell sizes with floating point numbers.
-- Don't divide by zero for fallback cell size detection.
-- Handle csv files with localized header names when importing subscriptions.
-- Fix imports for PipePipe.
-- Correctly set Invidious instance upon fetching.
-- Don't hang on terminal capability detection if the terminal doesn't respond.
-- Handle channels that don't exist or were removed while subscribing.
-- Don't render thumbnails on top of popup windows with kitty graphics protocol.
-- Correctly rerender images after they've been covered by popup windows.
-- Add missing help window key configuration.
 - **Breaking:** Exit if there are errors in the config file instead of silently falling back to the default config.
+[`ea6b83`](https://github.com/sarowish/ytsub/commit/ea6b83)
+- Handle cell sizes with floating point numbers.
+[`3a9dc4`](https://github.com/sarowish/ytsub/commit/3a9dc4)
+- Don't divide by zero for fallback cell size detection.
+[`648fb4`](https://github.com/sarowish/ytsub/commit/648fb4)
+- Handle csv files with localized header names when importing subscriptions.
+[`74f436`](https://github.com/sarowish/ytsub/commit/74f436)
+- Fix imports for PipePipe.
+[`39ff24`](https://github.com/sarowish/ytsub/commit/39ff24)
+- Correctly set Invidious instance upon fetching.
+[`7b2562`](https://github.com/sarowish/ytsub/commit/7b2562)
+- Don't hang on terminal capability detection if the terminal doesn't respond.
+[`da7c96`](https://github.com/sarowish/ytsub/commit/da7c96)
+- Handle channels that don't exist or were removed while subscribing.
+[`b3c0e9`](https://github.com/sarowish/ytsub/commit/b3c0e9)
+- Don't render thumbnails on top of popup windows with kitty graphics protocol.
+[`704d17`](https://github.com/sarowish/ytsub/commit/704d17)
+- Correctly rerender images after they've been covered by popup windows.
+[`cbc41f`](https://github.com/sarowish/ytsub/commit/cbc41f)
+- Add missing help window key configuration.
+[`bcd8d1`](https://github.com/sarowish/ytsub/commit/bcd8d1)
 
 ## [0.8.0] - 2026-03-16
 ### Added
