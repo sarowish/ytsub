@@ -213,6 +213,10 @@ impl ListItem for Video {
 
 impl Display for Video {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.title)
+        if let Some(channel_name) = &self.channel_name {
+            write!(f, "{} {}", channel_name, self.title)
+        } else {
+            write!(f, "{}", self.title)
+        }
     }
 }
