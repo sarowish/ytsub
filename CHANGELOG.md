@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Include channel name while searching in latest videos mode.
 
-###
+### Fixed
 - Detect members only status shorts and streams when using Local API.
 
 ## [0.9.0] - 2026-04-28
