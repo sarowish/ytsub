@@ -378,12 +378,25 @@ async fn get_more_videos(
     present: HashSet<String>,
     get_all: bool,
 ) -> Result<()> {
-    match instance.get_more_videos(id, tab, present, get_all).await {
+    let start = Instant::now();
+
+    match instance.get_more_videos(id, tab, &present, get_all).await {
         Ok(feed) => {
             if feed.get_videos(tab).is_empty() {
                 emit_msg!(warning, "There are no videos to load");
             } else {
-                emit_msg!();
+                let elapsed = start.elapsed().as_secs_f64();
+                let new_count = feed
+                    .get_videos(tab)
+                    .iter()
+                    .filter(|v| !present.contains(&v.video_id))
+                    .count();
+
+                let video_label = if new_count == 1 { "video" } else { "videos" };
+                emit_msg!(format!(
+                    "Loaded {new_count} more {video_label} in {elapsed:.2}s"
+                ));
+
                 TX.send(ClientRequest::UpdateChannel(feed))?;
             }
         }

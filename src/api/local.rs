@@ -1,5 +1,8 @@
 use super::{Api, ApiBackend, ChannelFeed, ChannelTab, Chapters, Format, VideoInfo};
+use crate::TX;
+use crate::api::load_more_progress_msg;
 use crate::config::EnabledTabs;
+use crate::emit_msg;
 use crate::list::ListItem;
 use crate::stream_formats::Formats;
 use crate::{CONFIG, channel::Video, utils};
@@ -611,10 +614,11 @@ impl Api for Local {
         &mut self,
         channel_id: &str,
         tab: ChannelTab,
-        present_videos: HashSet<String>,
+        present_videos: &HashSet<String>,
         get_all: bool,
     ) -> Result<ChannelFeed> {
         let mut feed = ChannelFeed::new(channel_id);
+        emit_msg!(perm, load_more_progress_msg(get_all, 1));
 
         match tab {
             ChannelTab::Videos => feed.videos = self.get_videos_tab(channel_id, &mut None).await?,
@@ -629,8 +633,13 @@ impl Api for Local {
         };
 
         let mut new = new_video_present(feed.get_videos(tab));
+        let mut page = 2;
 
-        while let Ok(videos) = self.get_continuation(tab).await {
+        while let Ok(videos) = {
+            emit_msg!(perm, load_more_progress_msg(get_all, page));
+            self.get_continuation(tab).await
+        } {
+            page += 1;
             new = new || new_video_present(&videos);
             feed.extend_videos(videos, tab);
 

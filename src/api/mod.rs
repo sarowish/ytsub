@@ -447,6 +447,11 @@ impl Display for ApiBackend {
     }
 }
 
+fn load_more_progress_msg(get_all: bool, page: usize) -> String {
+    let load_modifier = if get_all { "all" } else { "more" };
+    format!("Loading {load_modifier} videos: page {page}")
+}
+
 #[async_trait]
 pub trait Api: Sync + Send + DynClone {
     async fn resolve_channel_id(&self, input: &str) -> Result<String> {
@@ -471,7 +476,7 @@ pub trait Api: Sync + Send + DynClone {
         &mut self,
         channel_id: &str,
         tab: ChannelTab,
-        present_videos: HashSet<String>,
+        present_videos: &HashSet<String>,
         get_all: bool,
     ) -> Result<ChannelFeed>;
     async fn get_video_formats(&self, video_id: &str) -> Result<VideoInfo>;

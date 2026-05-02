@@ -217,8 +217,6 @@ impl App {
         if let Some(current_channel) = self.channels.get_selected()
             && let Some(tab) = self.tabs.get_selected()
         {
-            self.message.set_message("Fetching videos");
-
             let channel_id = current_channel.channel_id.clone();
             let present_videos = if self.hide_videos.is_empty() {
                 tab.videos
