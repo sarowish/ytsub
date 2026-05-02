@@ -1100,9 +1100,9 @@ impl App {
 
         if ids.is_empty() {
             self.set_warning_message("There are no channels to retry refreshing");
+        } else {
+            self.dispatch(IoEvent::RefreshChannels(ids));
         }
-
-        self.dispatch(IoEvent::RefreshChannels(ids));
     }
 
     pub fn set_message(&mut self, message: &str) {

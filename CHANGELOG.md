@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Detect members only status shorts and streams when using Local API.
+- Don't overwrite the "There are no channels to retry refreshing" warning with a refresh failure message.
 
 ## [0.9.0] - 2026-04-28
 ### Added
