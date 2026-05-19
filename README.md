@@ -27,6 +27,8 @@ cargo build --features bundled_sqlite
 
 ### Cargo
 
+**ytsub** can be installed from [crates.io](https://crates.io/crates/ytsub).
+
 ```bash
 cargo install ytsub --locked
 
