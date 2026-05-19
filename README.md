@@ -54,7 +54,22 @@ paru -S ytsub-bin
 paru -S ytsub-git
 ```
 
-### Nix Flake
+### Nix
+
+#### Nixpkgs
+
+[Nixpkgs ytsub package](https://search.nixos.org/packages?channel=unstable&query=ytsub)
+is available on the unstable channel.
+
+Add the following to your NixOS configuration to install:
+
+```nix
+environment.systemPackages = [
+  pkgs.ytsub
+];
+```
+
+#### Nix Flake
 
 You can install the latest development version from GitHub using the flake:
 
