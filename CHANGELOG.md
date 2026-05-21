@@ -5,20 +5,33 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [0.10.0] - 2026-05-27
 ### Added
 - Show progress and completion messages when loading more videos.
+[`18bc47`](https://github.com/sarowish/ytsub/commit/18bc47)
 
 ### Changed
 - Include channel name while searching in latest videos mode.
+[`787a43`](https://github.com/sarowish/ytsub/commit/787a43)
 
 ### Fixed
 - Detect members only status shorts and streams when using Local API.
+[`f5fd56`](https://github.com/sarowish/ytsub/commit/f5fd56)
 - Don't overwrite the "There are no channels to retry refreshing" warning with a refresh failure message.
+[`0819e3`](https://github.com/sarowish/ytsub/commit/0819e3)
+- Handle view counts with omitted "views" text in Local API responses.
+[`f22350`](https://github.com/sarowish/ytsub/commit/f22350)
 - Handle new video response for upcoming videos in the Local API.
+[`d0f855`](https://github.com/sarowish/ytsub/commit/d0f855)
 - Handle new streams tab response in the Local API.
+[`0c68cf`](https://github.com/sarowish/ytsub/commit/0c68cf)
 - Try to avoid SABR-only player responses when using Local API.
+[`cdd9ee`](https://github.com/sarowish/ytsub/commit/cdd9ee)
 - Handle the case where YouTube returns stream formats without URLs.
+[`f35c77`](https://github.com/sarowish/ytsub/commit/f35c77)
 - Retain the Invidious error reason when stream formats are unavailable.
+[`70babc`](https://github.com/sarowish/ytsub/commit/70babc)
 
 ## [0.9.0] - 2026-04-28
 ### Added
