@@ -158,8 +158,8 @@ pub fn published(published_text: &str) -> Result<u64> {
     let (num, time_frame) = {
         let v: Vec<&str> = published_text.splitn(2, ' ').collect();
 
-        match v[0].parse::<u64>() {
-            Ok(num) => (num, v[1]),
+        match (v[0].parse::<u64>(), v.get(1)) {
+            (Ok(num), Some(rest)) => (num, *rest),
             _ => (
                 v[0].trim_end_matches(char::is_alphabetic).parse()?,
                 v[0].trim_start_matches(char::is_numeric),
@@ -272,5 +272,15 @@ mod tests {
 
         assert_eq!(published(TEXT).unwrap(), time);
         assert_eq!(published_text(time).unwrap(), "Shared ".to_owned() + TEXT);
+    }
+
+    #[test]
+    fn published_handles_malformed_input_without_panic() {
+        // Inputs lacking a space previously panicked with index-out-of-bounds
+        // when `splitn(2, ' ')` returned a single element and the numeric
+        // branch unconditionally indexed `v[1]`. They must now return Err.
+        assert!(published("").is_err());
+        assert!(published("5").is_err());
+        assert!(published("123").is_err());
     }
 }
