@@ -147,22 +147,24 @@ pub enum Format {
 }
 
 impl Format {
-    pub fn from_video(format_json: &Value, api_backend: ApiBackend) -> Self {
+    pub fn from_video(format_json: &Value, api_backend: ApiBackend) -> Option<Self> {
         let mime_type = match api_backend {
             ApiBackend::Local => &format_json["mimeType"],
             ApiBackend::Invidious => &format_json["type"],
         };
 
-        Self::Video {
-            url: format_json["url"].as_str().unwrap().to_string(),
-            quality: format_json["qualityLabel"].as_str().unwrap().to_string(),
-            fps: format_json["fps"].as_u64().unwrap(),
-            r#type: mime_type.as_str().unwrap().to_string(),
-        }
+        let video = Self::Video {
+            url: format_json["url"].as_str()?.to_string(),
+            quality: format_json["qualityLabel"].as_str()?.to_string(),
+            fps: format_json["fps"].as_u64()?,
+            r#type: mime_type.as_str()?.to_string(),
+        };
+
+        Some(video)
     }
 
-    pub fn from_audio(format_json: &Value, api_backend: ApiBackend) -> Self {
-        let url = format_json["url"].as_str().unwrap().to_string();
+    pub fn from_audio(format_json: &Value, api_backend: ApiBackend) -> Option<Self> {
+        let url = format_json["url"].as_str()?.to_string();
         let mime_type;
         let bitrate;
         let language;
@@ -170,22 +172,22 @@ impl Format {
         match api_backend {
             ApiBackend::Local => {
                 mime_type = &format_json["mimeType"];
-                bitrate = format_json["bitrate"].as_u64().unwrap().to_string();
-                language = format_json.get("audioTrack").map(|audio_track| {
-                    (
-                        audio_track["displayName"].as_str().unwrap().to_string(),
+                bitrate = format_json["bitrate"].as_u64()?.to_string();
+                language = format_json.get("audioTrack").and_then(|audio_track| {
+                    Some((
+                        audio_track["displayName"].as_str()?.to_string(),
                         CONFIG
                             .prefer_original_audio
                             .then(|| extract_track_type(format_json).map(|s| s == "original"))
                             .flatten()
                             .or_else(|| audio_track["audioIsDefault"].as_bool())
                             .unwrap_or_default(),
-                    )
+                    ))
                 });
             }
             ApiBackend::Invidious => {
                 mime_type = &format_json["type"];
-                bitrate = format_json["bitrate"].as_str().unwrap().to_string();
+                bitrate = format_json["bitrate"].as_str()?.to_string();
                 let mut default = None;
                 let mut lang = None;
 
@@ -208,46 +210,47 @@ impl Format {
             }
         }
 
-        Self::Audio {
+        let audio = Self::Audio {
             url,
             bitrate,
-            r#type: mime_type.as_str().unwrap().to_string(),
+            r#type: mime_type.as_str()?.to_string(),
             language,
-        }
+        };
+
+        Some(audio)
     }
 
-    pub fn from_stream(format_json: &Value, api_backend: ApiBackend) -> Self {
+    pub fn from_stream(format_json: &Value, api_backend: ApiBackend) -> Option<Self> {
         let (mime_type, bitrate) = match api_backend {
             ApiBackend::Local => (
                 &format_json["mimeType"],
-                Some(format_json["audioSampleRate"].as_str().unwrap().to_string()),
+                Some(format_json["audioSampleRate"].as_str()?.to_string()),
             ),
             ApiBackend::Invidious => (&format_json["type"], None),
         };
 
-        Self::Stream {
-            url: format_json["url"].as_str().unwrap().to_string(),
-            quality: format_json["qualityLabel"].as_str().unwrap().to_string(),
-            fps: format_json["fps"].as_u64().unwrap(),
+        let stream = Self::Stream {
+            url: format_json["url"].as_str()?.to_string(),
+            quality: format_json["qualityLabel"].as_str()?.to_string(),
+            fps: format_json["fps"].as_u64()?,
             bitrate,
-            r#type: mime_type.as_str().unwrap().to_string(),
-        }
+            r#type: mime_type.as_str()?.to_string(),
+        };
+
+        Some(stream)
     }
 
     pub fn from_caption(format_json: &Value, api_backend: ApiBackend) -> Option<Self> {
         let caption = match api_backend {
             ApiBackend::Local => Self::Caption {
-                url: format_json["baseUrl"].as_str().unwrap().to_string(),
-                label: format_json["name"]["runs"][0]["text"]
-                    .as_str()
-                    .unwrap()
-                    .to_string(),
-                language_code: format_json["languageCode"].as_str().unwrap().to_string(),
+                url: format_json["baseUrl"].as_str()?.to_string(),
+                label: format_json["name"]["runs"][0]["text"].as_str()?.to_string(),
+                language_code: format_json["languageCode"].as_str()?.to_string(),
             },
             ApiBackend::Invidious => Self::Caption {
-                url: format_json["url"].as_str().unwrap().to_string(),
-                label: format_json["label"].as_str().unwrap().to_string(),
-                language_code: format_json["language_code"].as_str().unwrap().to_string(),
+                url: format_json["url"].as_str()?.to_string(),
+                label: format_json["label"].as_str()?.to_string(),
+                language_code: format_json["language_code"].as_str()?.to_string(),
             },
         };
 

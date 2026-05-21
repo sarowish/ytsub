@@ -717,9 +717,10 @@ impl Api for Local {
 
         let formats = response["streamingData"]
             .get("formats")
-            .map_or(&Vec::new(), |formats| formats.as_array().unwrap())
-            .iter()
-            .map(|format| Format::from_stream(format, API_BACKEND))
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .filter_map(|format| Format::from_stream(format, API_BACKEND))
             .rev()
             .collect();
 
@@ -734,10 +735,14 @@ impl Api for Local {
         let mut audio_formats = Vec::new();
 
         for format in adaptive_formats {
-            if format.get("qualityLabel").is_some() {
-                video_formats.push(Format::from_video(format, API_BACKEND));
-            } else if format.get("audioQuality").is_some() {
-                audio_formats.push(Format::from_audio(format, API_BACKEND));
+            if format.get("qualityLabel").is_some()
+                && let Some(format) = Format::from_video(format, API_BACKEND)
+            {
+                video_formats.push(format);
+            } else if format.get("audioQuality").is_some()
+                && let Some(format) = Format::from_audio(format, API_BACKEND)
+            {
+                audio_formats.push(format);
             }
         }
 

@@ -38,19 +38,16 @@ pub async fn run_detached(mut command: Command) -> Result<()> {
 }
 
 pub async fn play_from_formats(instance: Box<dyn Api>, formats: Formats) -> Result<()> {
-    let (video_url, audio_url) = if formats.use_adaptive_streams {
-        (
-            formats.video_formats.get_selected_item().get_url(),
-            Some(formats.audio_formats.get_selected_item().get_url()),
-        )
-    } else {
-        (formats.formats.get_selected_item().get_url(), None)
+    let Some((video_url, audio_url)) = formats.get_selected_video_url() else {
+        emit_msg!(error, "No playable stream available");
+        return Ok(());
     };
 
     let captions = instance.get_caption_paths(&formats).await;
 
     let chapters = formats
         .chapters
+        .as_ref()
         .and_then(|chapters| chapters.write_to_file(&formats.id).ok());
 
     let player_command = gen_video_player_command(

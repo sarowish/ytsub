@@ -195,7 +195,7 @@ impl Api for Instance {
             .as_array()
             .unwrap()
             .iter()
-            .map(|format| Format::from_stream(format, API_BACKEND))
+            .filter_map(|format| Format::from_stream(format, API_BACKEND))
             .collect();
 
         let adaptive_formats = value["adaptiveFormats"].as_array().unwrap();
@@ -204,10 +204,14 @@ impl Api for Instance {
         let mut audio_formats = Vec::new();
 
         for format in adaptive_formats {
-            if format.get("qualityLabel").is_some() {
-                video_formats.push(Format::from_video(format, API_BACKEND));
-            } else if format.get("audioQuality").is_some() {
-                audio_formats.push(Format::from_audio(format, API_BACKEND));
+            if format.get("qualityLabel").is_some()
+                && let Some(format) = Format::from_video(format, API_BACKEND)
+            {
+                video_formats.push(format);
+            } else if format.get("audioQuality").is_some()
+                && let Some(format) = Format::from_audio(format, API_BACKEND)
+            {
+                audio_formats.push(format);
             }
         }
 

@@ -60,7 +60,13 @@ impl Formats {
             }
         }
 
-        self.video_formats.items[video_idx.unwrap_or_default()].selected = true;
+        if let Some(item) = self
+            .video_formats
+            .items
+            .get_mut(video_idx.unwrap_or_default())
+        {
+            item.selected = true;
+        }
 
         let mut audio_idx = None;
 
@@ -87,7 +93,13 @@ impl Formats {
             }
         }
 
-        self.audio_formats.items[audio_idx.unwrap_or_default()].selected = true;
+        if let Some(item) = self
+            .audio_formats
+            .items
+            .get_mut(audio_idx.unwrap_or_default())
+        {
+            item.selected = true;
+        }
 
         if let Some(item) = self.formats.items.first_mut() {
             item.selected = true;
@@ -131,31 +143,42 @@ impl Formats {
     }
 
     pub fn next_tab(&mut self) {
-        self.selected_tab = (self.selected_tab + 1) % 3;
+        for _ in 0..3 {
+            self.selected_tab = (self.selected_tab + 1) % 3;
 
-        if !self.use_adaptive_streams && self.selected_tab == 1 {
-            self.next_tab();
-        }
-
-        if self.get_mut_selected_tab().items.is_empty() {
-            self.next_tab();
+            if (self.selected_tab != 2 || !self.get_mut_selected_tab().items.is_empty())
+                && (self.use_adaptive_streams || self.selected_tab != 1)
+            {
+                break;
+            }
         }
     }
 
     pub fn previous_tab(&mut self) {
-        self.selected_tab = if self.selected_tab == 0 {
-            2
+        for _ in 0..3 {
+            self.selected_tab = if self.selected_tab == 0 {
+                2
+            } else {
+                self.selected_tab - 1
+            };
+
+            if (self.selected_tab != 2 || !self.get_mut_selected_tab().items.is_empty())
+                && (self.use_adaptive_streams || self.selected_tab != 1)
+            {
+                break;
+            }
+        }
+    }
+
+    pub fn get_selected_video_url(&self) -> Option<(&str, Option<&str>)> {
+        Some(if self.use_adaptive_streams {
+            (
+                self.video_formats.get_selected_item()?.get_url(),
+                Some(self.audio_formats.get_selected_item()?.get_url()),
+            )
         } else {
-            self.selected_tab - 1
-        };
-
-        if !self.use_adaptive_streams && self.selected_tab == 1 {
-            self.previous_tab();
-        }
-
-        if self.get_mut_selected_tab().items.is_empty() {
-            self.previous_tab();
-        }
+            (self.formats.get_selected_item()?.get_url(), None)
+        })
     }
 }
 

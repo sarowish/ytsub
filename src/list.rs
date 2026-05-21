@@ -388,8 +388,11 @@ impl<T: ListItem> SelectionList<T> {
             .collect()
     }
 
-    pub fn get_selected_item(&self) -> &T {
-        self.items.iter().find(|item| item.selected).unwrap()
+    pub fn get_selected_item(&self) -> Option<&T> {
+        self.items
+            .iter()
+            .find(|item| item.selected)
+            .map(|v| &v.item)
     }
 }
 
