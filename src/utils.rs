@@ -1,9 +1,12 @@
 use anyhow::{Result, bail};
+use chrono::NaiveDateTime;
+use regex_lite::Regex;
 use serde_json::Value;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Write};
 use std::path::PathBuf;
+use std::sync::LazyLock;
 use std::time::{SystemTime, UNIX_EPOCH};
 use url::Url;
 
@@ -116,15 +119,47 @@ pub fn get_default_database_file() -> Result<PathBuf> {
     Ok(get_data_dir()?.join(DATABASE_FILE))
 }
 
-pub fn length_as_seconds(length: &str) -> u32 {
+pub fn length_as_seconds(length: &str) -> Option<u32> {
     let mut total = 0;
 
     for t in length.split(':') {
         total *= 60;
-        total += t.parse::<u32>().unwrap();
+        total += t.parse::<u32>().ok()?;
     }
 
-    total
+    Some(total)
+}
+
+pub fn length_from_accessibility_label(label: &str) -> Option<u32> {
+    static RE: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(
+            r"((?<days>\d+) days?(, )?)?((?<hours>\d+) hours?(, )?)?((?<minutes>\d+) minutes?(, )?)?((?<seconds>\d+) seconds?)?$",
+        )
+        .unwrap()
+    });
+
+    let captures = RE.captures(label)?;
+
+    let days = captures
+        .name("days")
+        .and_then(|m| m.as_str().parse::<u32>().ok())
+        .unwrap_or(0);
+    let hours = captures
+        .name("hours")
+        .and_then(|m| m.as_str().parse::<u32>().ok())
+        .unwrap_or(0);
+    let minutes = captures
+        .name("minutes")
+        .and_then(|m| m.as_str().parse::<u32>().ok())
+        .unwrap_or(0);
+    let seconds = captures
+        .name("seconds")
+        .and_then(|m| m.as_str().parse::<u32>().ok())
+        .unwrap_or(0);
+
+    let length = days * 86400 + hours * 3600 + minutes * 60 + seconds;
+
+    Some(length).filter(|length| *length != 0)
 }
 
 pub fn params_from_url(url: &str) -> Result<HashMap<String, String>> {
@@ -154,7 +189,7 @@ const WEEK: u64 = 604800;
 const MONTH: u64 = 2592000;
 const YEAR: u64 = 31536000;
 
-pub fn published(published_text: &str) -> Result<u64> {
+pub fn published_text_as_timestamp(published_text: &str) -> Result<u64> {
     let (num, time_frame) = {
         let v: Vec<&str> = published_text.splitn(2, ' ').collect();
 
@@ -166,6 +201,10 @@ pub fn published(published_text: &str) -> Result<u64> {
             ),
         }
     };
+
+    if time_frame == "waiting" {
+        return Err(anyhow::anyhow!("Not a valid published text"));
+    }
 
     let from_now = if time_frame.starts_with('s') {
         num
@@ -186,6 +225,13 @@ pub fn published(published_text: &str) -> Result<u64> {
     };
 
     Ok(now()?.saturating_sub(from_now))
+}
+
+pub fn premiere_text_as_timestamp(text: &str) -> Option<u64> {
+    let text = text.strip_prefix("Premieres ")?;
+
+    let date = NaiveDateTime::parse_from_str(text, "%m/%d/%y, %I:%M %p").ok()?;
+    u64::try_from(date.and_utc().timestamp()).ok()
 }
 
 pub fn published_text(published: u64) -> Result<String> {
@@ -234,9 +280,9 @@ pub fn env_var_is_set(name: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-
     use super::{
-        length_as_hhmmss, length_as_seconds, now, params_from_url, published, published_text,
+        length_as_hhmmss, length_as_seconds, length_from_accessibility_label, now, params_from_url,
+        premiere_text_as_timestamp, published_text, published_text_as_timestamp,
     };
 
     #[test]
@@ -262,7 +308,7 @@ mod tests {
         const TEXT: &str = "1:30:09";
 
         assert_eq!(length_as_hhmmss(SECONDS), TEXT);
-        assert_eq!(length_as_seconds(TEXT), SECONDS);
+        assert_eq!(length_as_seconds(TEXT), Some(SECONDS));
     }
 
     #[test]
@@ -270,8 +316,17 @@ mod tests {
         const TEXT: &str = "5 days ago";
         let time = now().unwrap().saturating_sub(432000);
 
-        assert_eq!(published(TEXT).unwrap(), time);
+        assert_eq!(published_text_as_timestamp(TEXT).unwrap(), time);
         assert_eq!(published_text(time).unwrap(), "Shared ".to_owned() + TEXT);
+    }
+
+    #[test]
+    fn premiere_conversion() {
+        let mut text = "Premieres 5/27/26, 4:00 PM";
+        assert_eq!(premiere_text_as_timestamp(text), Some(1779897600));
+
+        text = "5 days ago";
+        assert_eq!(premiere_text_as_timestamp(text), None);
     }
 
     #[test]
@@ -279,8 +334,46 @@ mod tests {
         // Inputs lacking a space previously panicked with index-out-of-bounds
         // when `splitn(2, ' ')` returned a single element and the numeric
         // branch unconditionally indexed `v[1]`. They must now return Err.
-        assert!(published("").is_err());
-        assert!(published("5").is_err());
-        assert!(published("123").is_err());
+        assert!(published_text_as_timestamp("").is_err());
+        assert!(published_text_as_timestamp("5").is_err());
+        assert!(published_text_as_timestamp("123").is_err());
+    }
+
+    #[test]
+    fn published_text_rejects_waiting() {
+        let text = "1 waiting";
+        assert!(published_text_as_timestamp(text).is_err());
+    }
+
+    #[test]
+    fn accessibility_label_length_conversion() {
+        assert_eq!(
+            length_from_accessibility_label(
+                "Share Your #NASAMoonCrew and Get Excited for Artemis II 53 seconds",
+            ),
+            Some(53)
+        );
+        assert_eq!(
+            length_from_accessibility_label(
+                "Artemis II Moon Mission Complete! 3 minutes, 33 seconds",
+            ),
+            Some(213)
+        );
+        assert_eq!(
+            length_from_accessibility_label(
+                "Rhythmicity and Coordination - Russell Foster 1 hour, 10 minutes",
+            ),
+            Some(4200)
+        );
+        assert_eq!(
+            length_from_accessibility_label(
+                "240 Hour Countdown Timer - Longest Timer on YouTube 10 days",
+            ),
+            Some(864000)
+        );
+        assert_eq!(
+            length_from_accessibility_label("No length in the accessibilty label"),
+            None
+        );
     }
 }

@@ -31,7 +31,9 @@ impl InnertubeClient {
                 "context": {
                     "client": {
                         "clientName": "WEB",
-                        "clientVersion": "2.20260114.08.00"
+                        "clientVersion": "2.20260114.08.00",
+                        "timeZone": "UTC",
+                        "utcOffsetMinutes": 0
                     }
                 }
             }),
@@ -83,11 +85,9 @@ fn extract_videos_tab(value: &[Value]) -> Result<Vec<Video>> {
 
             video_id = video["videoId"].as_str().unwrap().to_owned();
 
-            let length_str = video["lengthText"]["simpleText"]
+            length = video["lengthText"]["simpleText"]
                 .as_str()
-                .unwrap()
-                .to_owned();
-            length = utils::length_as_seconds(&length_str);
+                .and_then(utils::length_as_seconds);
 
             published_text = video
                 .get("publishedTimeText")
@@ -96,7 +96,7 @@ fn extract_videos_tab(value: &[Value]) -> Result<Vec<Video>> {
                 .map(ToOwned::to_owned);
 
             published = if let Some(t) = &published_text {
-                utils::published(t)?
+                utils::published_text_as_timestamp(t)?
             } else if let Some(time) = video["upcomingEventData"]["startTime"].as_str() {
                 time.parse::<u64>()?
             } else {
@@ -122,12 +122,15 @@ fn extract_videos_tab(value: &[Value]) -> Result<Vec<Video>> {
 
             video_id = video["contentId"].as_str().unwrap().to_owned();
 
-            let length_str = video["contentImage"]["thumbnailViewModel"]["overlays"][0]
+            length = video["contentImage"]["thumbnailViewModel"]["overlays"][0]
                 ["thumbnailBottomOverlayViewModel"]["badges"][0]["thumbnailBadgeViewModel"]["text"]
                 .as_str()
-                .unwrap()
-                .to_owned();
-            length = utils::length_as_seconds(&length_str);
+                .and_then(utils::length_as_seconds)
+                .or_else(|| {
+                    video["rendererContext"]["accessibilityContext"]["label"]
+                        .as_str()
+                        .and_then(utils::length_from_accessibility_label)
+                });
 
             let metadata_rows = &video["metadata"]["lockupMetadataViewModel"]["metadata"]["contentMetadataViewModel"]
                 ["metadataRows"];
@@ -138,7 +141,9 @@ fn extract_videos_tab(value: &[Value]) -> Result<Vec<Video>> {
                         .iter()
                         .filter_map(|value| value["text"]["content"].as_str())
                     {
-                        if let Ok(unix_time) = utils::published(content) {
+                        if let Some(unix_time) = utils::premiere_text_as_timestamp(content)
+                            .or_else(|| utils::published_text_as_timestamp(content).ok())
+                        {
                             published = unix_time;
                             published_text = Some(content.to_owned());
                             break;
@@ -160,7 +165,7 @@ fn extract_videos_tab(value: &[Value]) -> Result<Vec<Video>> {
             title,
             published,
             published_text: published_text.unwrap_or_default(),
-            length: Some(length),
+            length,
             watched: false,
             members_only,
             new: true,
@@ -224,17 +229,17 @@ fn extract_streams_tab(value: &[Value]) -> Result<Vec<Video>> {
 
         let published = if let Some(t) = video.get("publishedTimeText") {
             let published_text = t["simpleText"].as_str().unwrap().split_once(' ').unwrap().1;
-            utils::published(published_text)?
+            utils::published_text_as_timestamp(published_text)?
         } else if let Some(time) = video["upcomingEventData"]["startTime"].as_str() {
             time.parse::<u64>().unwrap()
         } else {
             utils::now()?
         };
 
-        let length = video.get("lengthText").map_or(0, |t| {
-            let length_text = t["simpleText"].as_str().unwrap().to_string();
-            utils::length_as_seconds(&length_text)
-        });
+        let length = video
+            .get("lengthText")
+            .and_then(|v| v["simpleText"].as_str())
+            .and_then(utils::length_as_seconds);
 
         let badges = video["badges"].as_array();
 
@@ -252,7 +257,7 @@ fn extract_streams_tab(value: &[Value]) -> Result<Vec<Video>> {
             title,
             published,
             published_text: String::new(),
-            length: Some(length),
+            length,
             watched: false,
             members_only,
             new: true,

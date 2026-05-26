@@ -76,7 +76,7 @@ impl ChannelFeed {
             .iter_mut()
             .filter(|video| video.published_text == published_of_first)
             .for_each(|video| {
-                if let Ok(published) = utils::published(&video.published_text) {
+                if let Ok(published) = utils::published_text_as_timestamp(&video.published_text) {
                     video.published = published;
                 }
             });
