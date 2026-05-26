@@ -11,6 +11,7 @@ use crate::{
 };
 use anyhow::Result;
 use bitflags::bitflags;
+use chrono::format::StrftimeItems;
 use serde::{Deserialize, de};
 use std::{fs, path::PathBuf};
 
@@ -47,6 +48,8 @@ pub struct Config {
     pub tick_rate: u64,
     pub request_timeout: u64,
     pub highlight_symbol: String,
+    #[serde(deserialize_with = "deserialize_date_format")]
+    pub datetime_format: String,
     pub video_player_for_stream_formats: VideoPlayer,
     #[serde(alias = "video_player")]
     pub mpv_path: PathBuf,
@@ -135,6 +138,7 @@ impl Default for Config {
             tick_rate: 10,
             request_timeout: 5,
             highlight_symbol: String::new(),
+            datetime_format: String::from("%Y-%m-%d %H:%M"),
             video_player_for_stream_formats: VideoPlayer::Mpv,
             mpv_path: PathBuf::from("mpv"),
             vlc_path: PathBuf::from("vlc"),
@@ -181,6 +185,21 @@ where
     Ok(enabled)
 }
 
+fn deserialize_date_format<'de, D>(deserializer: D) -> Result<String, D::Error>
+where
+    D: de::Deserializer<'de>,
+{
+    use serde::de::Error;
+
+    let date_format: String = de::Deserialize::deserialize(deserializer)?;
+
+    StrftimeItems::new(&date_format)
+        .parse()
+        .map_err(Error::custom)?;
+
+    Ok(date_format)
+}
+
 fn deserialize_video_quality<'de, D>(deserializer: D) -> Result<u16, D::Error>
 where
     D: de::Deserializer<'de>,
@@ -202,4 +221,14 @@ where
     };
 
     Ok(quality)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Config;
+
+    #[test]
+    fn bad_date_format_caught() {
+        assert!(toml::from_str::<Config>(r#"date_format = "%Y-%Q-%d""#).is_err());
+    }
 }

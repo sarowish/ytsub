@@ -215,41 +215,93 @@ fn extract_streams_tab(value: &[Value]) -> Result<Vec<Video>> {
     let mut videos: Vec<Video> = Vec::new();
 
     for video in value {
-        let video = &video["richItemRenderer"]["content"]["videoRenderer"];
+        let title;
+        let video_id;
+        let length;
+        let mut published = utils::now()?;
+        let mut members_only = false;
 
-        if video.is_null() {
+        let video = &video["richItemRenderer"]["content"];
+
+        if let Some(video) = video.get("lockupViewModel") {
+            title = video["metadata"]["lockupMetadataViewModel"]["title"]["content"]
+                .as_str()
+                .unwrap()
+                .to_owned();
+
+            video_id = video["contentId"].as_str().unwrap().to_owned();
+
+            length = video["contentImage"]["thumbnailViewModel"]["overlays"][0]
+                ["thumbnailBottomOverlayViewModel"]["badges"][0]["thumbnailBadgeViewModel"]["text"]
+                .as_str()
+                .and_then(utils::length_as_seconds)
+                .or_else(|| {
+                    video["rendererContext"]["accessibilityContext"]["label"]
+                        .as_str()
+                        .and_then(utils::length_from_accessibility_label)
+                });
+
+            let metadata_rows = &video["metadata"]["lockupMetadataViewModel"]["metadata"]["contentMetadataViewModel"]
+                ["metadataRows"];
+
+            for row in metadata_rows.as_array().unwrap() {
+                if let Some(metadata_parts) = row.get("metadataParts").and_then(Value::as_array) {
+                    for content in metadata_parts
+                        .iter()
+                        .filter_map(|value| value["text"]["content"].as_str())
+                    {
+                        if let Some(unix_time) =
+                            utils::premiere_text_as_timestamp(content).or_else(|| {
+                                content.split_once(' ').map(|(_, s)| s).and_then(|content| {
+                                    utils::published_text_as_timestamp(content).ok()
+                                })
+                            })
+                        {
+                            published = unix_time;
+                            break;
+                        }
+                    }
+                } else if let Some(badges) = row.get("badges").and_then(Value::as_array) {
+                    members_only = badges.iter().any(|value| {
+                        value["badgeViewModel"]["badgeStyle"]
+                            .as_str()
+                            .is_some_and(|s| s == "BADGE_MEMBERS_ONLY")
+                    });
+                }
+            }
+        } else if let Some(video) = video.get("videoRenderer") {
+            title = video["title"]["runs"][0]["text"]
+                .as_str()
+                .unwrap()
+                .to_string();
+            video_id = video["videoId"].as_str().unwrap().to_string();
+
+            published = if let Some(t) = video.get("publishedTimeText") {
+                let published_text = t["simpleText"].as_str().unwrap().split_once(' ').unwrap().1;
+                utils::published_text_as_timestamp(published_text)?
+            } else if let Some(time) = video["upcomingEventData"]["startTime"].as_str() {
+                time.parse::<u64>().unwrap()
+            } else {
+                utils::now()?
+            };
+
+            length = video
+                .get("lengthText")
+                .and_then(|v| v["simpleText"].as_str())
+                .and_then(utils::length_as_seconds);
+
+            let badges = video["badges"].as_array();
+
+            members_only = badges.is_some_and(|badges| {
+                badges.iter().any(|badge| {
+                    badge["metadataBadgeRenderer"]["style"]
+                        .as_str()
+                        .is_some_and(|s| s == "BADGE_STYLE_TYPE_MEMBERS_ONLY")
+                })
+            });
+        } else {
             continue;
         }
-
-        let title = video["title"]["runs"][0]["text"]
-            .as_str()
-            .unwrap()
-            .to_string();
-        let video_id = video["videoId"].as_str().unwrap().to_string();
-
-        let published = if let Some(t) = video.get("publishedTimeText") {
-            let published_text = t["simpleText"].as_str().unwrap().split_once(' ').unwrap().1;
-            utils::published_text_as_timestamp(published_text)?
-        } else if let Some(time) = video["upcomingEventData"]["startTime"].as_str() {
-            time.parse::<u64>().unwrap()
-        } else {
-            utils::now()?
-        };
-
-        let length = video
-            .get("lengthText")
-            .and_then(|v| v["simpleText"].as_str())
-            .and_then(utils::length_as_seconds);
-
-        let badges = video["badges"].as_array();
-
-        let members_only = badges.is_some_and(|badges| {
-            badges.iter().any(|badge| {
-                badge["metadataBadgeRenderer"]["style"]
-                    .as_str()
-                    .is_some_and(|s| s == "BADGE_STYLE_TYPE_MEMBERS_ONLY")
-            })
-        });
 
         videos.push(Video {
             channel_name: None,

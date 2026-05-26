@@ -344,7 +344,8 @@ pub fn get_videos(conn: &Connection, channel_id: &str, tab: ChannelTab) -> Resul
             video_id: row.get(0)?,
             title: row.get(1)?,
             published: row.get(2)?,
-            published_text: utils::published_text(row.get(2)?).unwrap_or_default(),
+            published_text: utils::published_text(row.get(2)?, tab == ChannelTab::Streams)
+                .unwrap_or_default(),
             length: row.get(3)?,
             watched: row.get(5)?,
             members_only: row.get(4).unwrap_or_default(),
@@ -360,8 +361,8 @@ pub fn get_videos(conn: &Connection, channel_id: &str, tab: ChannelTab) -> Resul
 pub fn get_latest_videos(conn: &Connection, tags: &[&str], tab: ChannelTab) -> Result<Vec<Video>> {
     let mut stmt;
     let mut values = Vec::with_capacity(tags.len() + 1);
-    let tab = params![tab as u8];
-    values.extend_from_slice(tab);
+    let tab_param = params![tab as u8];
+    values.extend_from_slice(tab_param);
 
     if tags.is_empty() {
         stmt = conn.prepare(
@@ -393,7 +394,8 @@ pub fn get_latest_videos(conn: &Connection, tags: &[&str], tab: ChannelTab) -> R
             video_id: row.get(0)?,
             title: row.get(1)?,
             published: row.get(2)?,
-            published_text: utils::published_text(row.get(2)?).unwrap_or_default(),
+            published_text: utils::published_text(row.get(2)?, tab == ChannelTab::Streams)
+                .unwrap_or_default(),
             length: row.get(3)?,
             watched: row.get(6)?,
             members_only: row.get(4).unwrap_or_default(),

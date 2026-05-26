@@ -1,5 +1,6 @@
+use crate::CONFIG;
 use anyhow::{Result, bail};
-use chrono::NaiveDateTime;
+use chrono::{DateTime, NaiveDateTime};
 use regex_lite::Regex;
 use serde_json::Value;
 use std::collections::HashMap;
@@ -9,8 +10,6 @@ use std::path::PathBuf;
 use std::sync::LazyLock;
 use std::time::{SystemTime, UNIX_EPOCH};
 use url::Url;
-
-use crate::CONFIG;
 
 const PACKAGE_NAME: &str = env!("CARGO_PKG_NAME");
 const INSTANCES_FILE: &str = "instances";
@@ -228,38 +227,57 @@ pub fn published_text_as_timestamp(published_text: &str) -> Result<u64> {
 }
 
 pub fn premiere_text_as_timestamp(text: &str) -> Option<u64> {
-    let text = text.strip_prefix("Premieres ")?;
+    let text = text
+        .strip_prefix("Premieres ")
+        .or_else(|| text.strip_prefix("Scheduled for"))?;
 
     let date = NaiveDateTime::parse_from_str(text, "%m/%d/%y, %I:%M %p").ok()?;
     u64::try_from(date.and_utc().timestamp()).ok()
 }
 
-pub fn published_text(published: u64) -> Result<String> {
-    let now = now()?;
-    let time_diff = now.abs_diff(published);
-    let (num, mut time_frame) = if time_diff < MINUTE {
-        (time_diff, "second".to_string())
-    } else if time_diff < HOUR {
-        (time_diff / MINUTE, "minute".to_string())
-    } else if time_diff < DAY {
-        (time_diff / HOUR, "hour".to_string())
-    } else if time_diff < WEEK * 2 {
-        (time_diff / DAY, "day".to_string())
-    } else if time_diff < MONTH {
-        (time_diff / WEEK, "week".to_string())
-    } else if time_diff < YEAR {
-        (time_diff / MONTH, "month".to_string())
+pub fn published_text(published: u64, stream: bool) -> Option<String> {
+    let now = now().ok()?;
+
+    let text = if published > now {
+        let formatted_timestamp = DateTime::from_timestamp(published as i64, 0).map(|date| {
+            date.with_timezone(&chrono::Local)
+                .format(&CONFIG.datetime_format)
+                .to_string()
+        })?;
+
+        format!(
+            "{} {formatted_timestamp}",
+            if stream { "Scheduled for" } else { "Premieres" }
+        )
     } else {
-        (time_diff / YEAR, "year".to_string())
+        let time_diff = now.abs_diff(published);
+        let (num, mut time_frame) = if time_diff < MINUTE {
+            (time_diff, "second".to_string())
+        } else if time_diff < HOUR {
+            (time_diff / MINUTE, "minute".to_string())
+        } else if time_diff < DAY {
+            (time_diff / HOUR, "hour".to_string())
+        } else if time_diff < WEEK * 2 {
+            (time_diff / DAY, "day".to_string())
+        } else if time_diff < MONTH {
+            (time_diff / WEEK, "week".to_string())
+        } else if time_diff < YEAR {
+            (time_diff / MONTH, "month".to_string())
+        } else {
+            (time_diff / YEAR, "year".to_string())
+        };
+
+        if num > 1 {
+            time_frame.push('s');
+        }
+
+        format!(
+            "{} {num} {time_frame} ago",
+            if stream { "Streamed" } else { "Shared" },
+        )
     };
-    if num > 1 {
-        time_frame.push('s');
-    }
-    Ok(if published > now {
-        format!("Premieres in {num} {time_frame}")
-    } else {
-        format!("Shared {num} {time_frame} ago")
-    })
+
+    Some(text)
 }
 
 pub fn now() -> Result<u64> {
@@ -317,13 +335,23 @@ mod tests {
         let time = now().unwrap().saturating_sub(432000);
 
         assert_eq!(published_text_as_timestamp(TEXT).unwrap(), time);
-        assert_eq!(published_text(time).unwrap(), "Shared ".to_owned() + TEXT);
+        assert_eq!(
+            published_text(time, false).unwrap(),
+            "Shared ".to_owned() + TEXT
+        );
+        assert_eq!(
+            published_text(time, true).unwrap(),
+            "Streamed ".to_owned() + TEXT
+        );
     }
 
     #[test]
     fn premiere_conversion() {
         let mut text = "Premieres 5/27/26, 4:00 PM";
         assert_eq!(premiere_text_as_timestamp(text), Some(1779897600));
+
+        text = "Scheduled for 5/27/26, 1:45 PM";
+        assert_eq!(premiere_text_as_timestamp(text), Some(1779889500));
 
         text = "5 days ago";
         assert_eq!(premiere_text_as_timestamp(text), None);
