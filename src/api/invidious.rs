@@ -184,12 +184,13 @@ impl Api for Instance {
     async fn get_video_formats(&self, video_id: &str) -> Result<VideoInfo> {
         let url = format!("{}/api/v1/videos/{}", self.domain, video_id);
         let response = self.client.get(&url).send().await?;
-        let value = match response.error_for_status() {
-            Ok(response) => response.json::<Value>().await?,
-            Err(_e) => {
-                anyhow::bail!(format!("Stream formats are not available: ",));
-            }
-        };
+        let status = response.status();
+        let value = response.json::<Value>().await?;
+
+        if !status.is_success() {
+            let reason = value["error"].as_str().unwrap_or_default();
+            anyhow::bail!("Stream formats are not available: {reason}");
+        }
 
         let mut format_streams: Vec<Format> = value["formatStreams"]
             .as_array()

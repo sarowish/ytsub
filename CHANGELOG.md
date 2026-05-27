@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Handle new streams tab response in the Local API.
 - Try to avoid SABR-only player responses when using Local API.
 - Handle the case where YouTube returns stream formats without URLs.
+- Retain the Invidious error reason when stream formats are unavailable.
 
 ## [0.9.0] - 2026-04-28
 ### Added
