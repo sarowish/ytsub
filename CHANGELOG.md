@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Don't overwrite the "There are no channels to retry refreshing" warning with a refresh failure message.
 - Handle new video response for upcoming videos in the Local API.
 - Handle new streams tab response in the Local API.
+- Try to avoid SABR-only player responses when using Local API.
 
 ## [0.9.0] - 2026-04-28
 ### Added
