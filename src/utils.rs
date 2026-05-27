@@ -239,11 +239,12 @@ pub fn published_text(published: u64, stream: bool) -> Option<String> {
     let now = now().ok()?;
 
     let text = if published > now {
-        let formatted_timestamp = DateTime::from_timestamp(published as i64, 0).map(|date| {
-            date.with_timezone(&chrono::Local)
-                .format(&CONFIG.datetime_format)
-                .to_string()
-        })?;
+        let formatted_timestamp =
+            DateTime::from_timestamp(published.cast_signed(), 0).map(|date| {
+                date.with_timezone(&chrono::Local)
+                    .format(&CONFIG.datetime_format)
+                    .to_string()
+            })?;
 
         format!(
             "{} {formatted_timestamp}",
