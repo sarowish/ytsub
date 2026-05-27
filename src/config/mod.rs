@@ -229,6 +229,6 @@ mod tests {
 
     #[test]
     fn bad_date_format_caught() {
-        assert!(toml::from_str::<Config>(r#"date_format = "%Y-%Q-%d""#).is_err());
+        assert!(toml::from_str::<Config>(r#"datetime_format = "%Y-%Q-%d""#).is_err());
     }
 }
