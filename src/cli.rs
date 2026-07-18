@@ -62,6 +62,15 @@ pub fn get_matches() -> ArgMatches {
                 .value_parser(clap::value_parser!(u64)),
         )
         .arg(
+            Arg::new("proxy")
+                .hide(true)
+                .short('p')
+                .long("proxy")
+                .help("SOCKS5 or HTTP proxy URL")
+                .value_name("PROXY")
+                .value_parser(clap::value_parser!(String)),
+        )
+        .arg(
             Arg::new("highlight_symbol")
                 .hide(true)
                 .long("highlight-symbol")

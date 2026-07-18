@@ -34,8 +34,9 @@ It is advisable to add only the parts you want to change instead of checking in 
 | `rss_threshold`                   | Use RSS if the number of channels being refreshed or subscribed to exceeds the threshold.                    | `9999`                                      |
 | `tick_rate`                       | Tick rate in milliseconds. Determines how often the UI is redrawn for refresh status updates.                | `10`                                        |
 | `request_timeout`                 | Network request timeout in seconds.                                                                          | `5`                                         |
+| `proxy`                           | SOCKS5 or HTTP proxy URL.                                                                                    | `""`                                        |
 | `highlight_symbol`                | Symbol used to highlight selected items.                                                                     | `""`                                        |
-| `datetime_format`                 | Format used for scheduled stream and premiere dates. Uses [chrono/strftime format specifiers][strftime]. | `"%Y-%m-%d %H:%M"`                          |
+| `datetime_format`                 | Format used for scheduled stream and premiere dates. Uses [chrono/strftime format specifiers][strftime].     | `"%Y-%m-%d %H:%M"`                          |
 | `hide_watched`                    | Hide watched videos by default.                                                                              | `false`                                     |
 | `hide_members_only`               | Hide members-only videos by default.                                                                         | `false`                                     |
 | `show_thumbnails`                 | Show thumbnails in the video info area.                                                                      | `true`                                      |

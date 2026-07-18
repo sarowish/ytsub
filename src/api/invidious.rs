@@ -6,10 +6,8 @@ use crate::{CONFIG, TX, emit_msg};
 use anyhow::Result;
 use async_trait::async_trait;
 use rand::prelude::*;
-use reqwest::Client;
 use serde_json::Value;
 use std::collections::HashSet;
-use std::time::Duration;
 
 const API_BACKEND: ApiBackend = ApiBackend::Invidious;
 
@@ -22,7 +20,7 @@ fn extract_tab(videos_array: &Value) -> Option<Vec<Video>> {
 #[derive(Clone)]
 pub struct Instance {
     pub domain: String,
-    client: Client,
+    client: reqwest::Client,
     continuation: Option<String>,
 }
 
@@ -30,14 +28,10 @@ impl Instance {
     pub fn new(invidious_instances: &[String]) -> Self {
         let mut rng = rand::rng();
         let domain = invidious_instances[rng.random_range(0..invidious_instances.len())].clone();
-        let client = Client::builder()
-            .timeout(Duration::from_secs(CONFIG.request_timeout))
-            .build()
-            .unwrap();
 
         Self {
+            client: super::client(),
             domain,
-            client,
             continuation: None,
         }
     }

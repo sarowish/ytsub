@@ -9,6 +9,7 @@ refresh_on_launch = true
 rss_threshold = 9999
 tick_rate = 10
 request_timeout = 5
+proxy = ""
 highlight_symbol = ""
 datetime_format = "%Y-%m-%d %H:%M"
 hide_watched = false

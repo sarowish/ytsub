@@ -10,11 +10,9 @@ use anyhow::{Result, bail};
 use async_trait::async_trait;
 use futures_util::future::join_all;
 use regex_lite::Regex;
-use reqwest::Client;
 use serde_json::Value;
 use std::collections::HashSet;
 use std::sync::{LazyLock, OnceLock};
-use std::time::Duration;
 use std::{io::Write, path::PathBuf};
 
 const API_BACKEND: ApiBackend = ApiBackend::Local;
@@ -58,7 +56,7 @@ impl InnertubeClient {
 
 #[derive(Clone)]
 pub struct Local {
-    client: Client,
+    client: reqwest::Client,
     shorts_available: bool,
     streams_available: bool,
     continuation: Option<String>,
@@ -348,13 +346,8 @@ fn extract_videos_from_tab(tab: &Value) -> Option<&[Value]> {
 
 impl Local {
     pub fn new() -> Self {
-        let client = Client::builder()
-            .timeout(Duration::from_secs(CONFIG.request_timeout))
-            .build()
-            .unwrap();
-
         Self {
-            client,
+            client: super::client(),
             shorts_available: false,
             streams_available: false,
             continuation: None,

@@ -47,6 +47,7 @@ pub struct Config {
     pub rss_threshold: usize,
     pub tick_rate: u64,
     pub request_timeout: u64,
+    pub proxy: String,
     pub highlight_symbol: String,
     #[serde(deserialize_with = "deserialize_date_format")]
     pub datetime_format: String,
@@ -117,6 +118,10 @@ impl Config {
             self.request_timeout = *request_timeout;
         }
 
+        if let Some(proxy) = CLAP_ARGS.get_one::<String>("proxy") {
+            proxy.clone_into(&mut self.proxy);
+        }
+
         if let Some(highlight_symbol) = CLAP_ARGS.get_one::<String>("highlight_symbol") {
             highlight_symbol.clone_into(&mut self.highlight_symbol);
         }
@@ -137,6 +142,7 @@ impl Default for Config {
             rss_threshold: 9999,
             tick_rate: 10,
             request_timeout: 5,
+            proxy: String::new(),
             highlight_symbol: String::new(),
             datetime_format: String::from("%Y-%m-%d %H:%M"),
             video_player_for_stream_formats: VideoPlayer::Mpv,
