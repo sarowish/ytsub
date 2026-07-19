@@ -487,62 +487,12 @@ pub trait Api: Sync + Send + DynClone {
     async fn get_thumbnail(&self, video_id: &str) -> Result<Vec<u8>>;
 }
 
-struct ProxyAuth {
-    username: String,
-    password: String,
-}
-
-struct Proxy {
-    auth: Option<ProxyAuth>,
-    host: String,
-    port: u16,
-    scheme: String,
-}
-
-impl Proxy {
-    fn from_url(config: &str) -> Self {
-        let url = <url::Url as std::str::FromStr>::from_str(config).unwrap();
-        Self {
-            auth: if !url.username().is_empty()
-                && let Some(password) = url.password()
-            {
-                Some(ProxyAuth {
-                    username: url.username().into(),
-                    password: password.into(),
-                })
-            } else {
-                None
-            },
-            host: url.host_str().unwrap().into(),
-            port: url.port().unwrap(),
-            scheme: url.scheme().into(),
-        }
-    }
-    fn reqwest_url(&self) -> String {
-        format!(
-            "{}://{}:{}",
-            match self.scheme.as_str() {
-                "socks5" => "socks5h", // delegate dns requests to proxy
-                scheme => scheme,
-            },
-            self.host,
-            self.port,
-        )
-    }
-}
-
 fn client() -> reqwest::Client {
     if CONFIG.proxy.is_empty() {
         reqwest::Client::builder()
     } else {
-        reqwest::Client::builder().proxy({
-            let p = Proxy::from_url(&CONFIG.proxy);
-            let proxy = reqwest::Proxy::all(p.reqwest_url()).unwrap();
-            match p.auth {
-                Some(a) => proxy.basic_auth(&a.username, &a.password),
-                None => proxy,
-            }
-        })
+        reqwest::Client::builder()
+            .proxy(crate::proxy::Config::from_url(&CONFIG.proxy).reqwest_proxy())
     }
     .timeout(std::time::Duration::from_secs(CONFIG.request_timeout))
     .build()

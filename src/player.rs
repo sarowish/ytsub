@@ -112,6 +112,17 @@ fn gen_video_player_command(
         }
         VideoPlayer::Vlc => {
             command = Command::new(&CONFIG.vlc_path);
+
+            if !CONFIG.proxy.is_empty() {
+                let proxy = crate::proxy::Config::from_url(&CONFIG.proxy);
+                command.arg(format!("--socks={}:{}", proxy.host, proxy.port));
+                if let Some(auth) = proxy.basic_auth {
+                    command
+                        .arg(format!("--socks-user={}", auth.username))
+                        .arg(format!("--socks-pwd={}", auth.password));
+                }
+            }
+
             command
                 .arg("--no-video-title-show")
                 .arg(format!("--input-title-format={title}"))
