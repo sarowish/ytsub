@@ -1,12 +1,18 @@
+use std::collections::HashSet;
+
 use crate::{
-    CONFIG, IoEvent,
+    CONFIG,
     api::{Api, ApiBackend, ChannelFeed, invidious::Instance, local::Local},
-    channel::RefreshState,
+    channel::{ChannelTab, RefreshState, VideoMetadata},
     message::MessageType,
-    player::{copy_link, open_in_invidious, open_in_youtube, play_from_formats, play_using_ytdlp},
+    mpv::PlayerHandle,
+    player::{
+        copy_link, open_in_invidious, open_in_youtube, play_from_formats, play_using_ytdlp,
+        youtube_watch_url,
+    },
     ro_cell::RoCell,
     stream_formats::Formats,
-    thumbnail::Thumbnail,
+    thumbnail::{Thumbnail, protocols::GraphicsProtocol},
     utils,
 };
 use anyhow::{Result, bail};
@@ -26,6 +32,32 @@ use tokio_util::sync::CancellationToken;
 
 mod feeds;
 mod media;
+
+pub enum FormatAction {
+    Select,
+    PlayVideo,
+    PlayAudio,
+}
+
+pub enum IoEvent {
+    SubscribeToChannel(String),
+    ImportChannels(Vec<String>),
+    RefreshChannels(Vec<String>),
+    LoadMoreVideos(String, ChannelTab, HashSet<String>, bool),
+    GetVideoTitle(String),
+    GetThumbnail(GraphicsProtocol, String),
+    FetchFormats(VideoMetadata, FormatAction),
+    PlayFromFormats(Box<Formats>),
+    PlayUsingYtdlp(String),
+    PlayAudioUsingYtdlp(VideoMetadata),
+    ToggleAudio,
+    SeekAudio(i32),
+    StopAudio,
+    CopyLink(String, ApiBackend),
+    OpenInBrowser(String, ApiBackend),
+    ClearMessage(CancellationToken, u64),
+    SwitchApi,
+}
 
 pub enum ClientRequest {
     SetRefreshState(String, RefreshState),
@@ -76,6 +108,7 @@ pub static TX: RoCell<UnboundedSender<ClientRequest>> = RoCell::new();
 
 pub struct Client {
     rx: UnboundedReceiver<IoEvent>,
+    audio_player: PlayerHandle,
     pub invidious_instances: Option<Vec<String>>,
     pub invidious_instance: Option<Instance>,
     local_api: Local,
@@ -83,9 +116,10 @@ pub struct Client {
 }
 
 impl Client {
-    pub async fn new(rx: UnboundedReceiver<IoEvent>) -> Result<Self> {
+    pub async fn new(rx: UnboundedReceiver<IoEvent>, audio_player: PlayerHandle) -> Result<Self> {
         let mut client = Self {
             rx,
+            audio_player,
             invidious_instances: utils::read_instances().ok(),
             invidious_instance: None,
             local_api: Local::new(),
@@ -141,10 +175,12 @@ impl Client {
                         .abort_handle(),
                     );
                 }
-                IoEvent::FetchFormats(title, video_id, play_selected) => {
+                IoEvent::FetchFormats(metadata, action) => {
                     let instance = self.instance();
+                    let audio_player = self.audio_player.clone();
+
                     tokio::spawn(async move {
-                        fetch_formats(instance, title, video_id, play_selected).await
+                        fetch_formats(instance, audio_player, metadata, action).await
                     });
                 }
                 IoEvent::PlayFromFormats(formats) => {
@@ -153,6 +189,28 @@ impl Client {
                 }
                 IoEvent::PlayUsingYtdlp(video_id) => {
                     tokio::spawn(async move { play_using_ytdlp(&video_id).await });
+                }
+                IoEvent::PlayAudioUsingYtdlp(metadata) => {
+                    let source = youtube_watch_url(&metadata.video_id);
+
+                    if let Err(error) = self.audio_player.play(metadata, source) {
+                        emit_msg!(error, error.to_string());
+                    }
+                }
+                IoEvent::ToggleAudio => {
+                    if let Err(error) = self.audio_player.toggle() {
+                        emit_msg!(error, error.to_string());
+                    }
+                }
+                IoEvent::SeekAudio(seconds) => {
+                    if let Err(error) = self.audio_player.seek_relative(seconds) {
+                        emit_msg!(error, error.to_string());
+                    }
+                }
+                IoEvent::StopAudio => {
+                    if let Err(error) = self.audio_player.stop() {
+                        emit_msg!(error, error.to_string());
+                    }
                 }
                 IoEvent::CopyLink(url_component, api) => {
                     copy_link(self, &url_component, api).await?;

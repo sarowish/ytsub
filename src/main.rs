@@ -13,6 +13,7 @@ mod import;
 mod input;
 mod list;
 mod message;
+mod mpv;
 mod player;
 mod protobuf;
 mod ro_cell;
@@ -22,14 +23,13 @@ mod thumbnail;
 mod ui;
 mod utils;
 
-use crate::channel::ChannelTab;
+use crate::client::IoEvent;
 use crate::config::Config;
 use crate::config::keys::KeyBindings;
 use crate::config::theme::Theme;
 use crate::emulator::Emulator;
-use crate::thumbnail::protocols::GraphicsProtocol;
+use crate::mpv::PlaybackPhase;
 use anyhow::Result;
-use api::ApiBackend;
 use app::App;
 use channel::RefreshState;
 use clap::ArgMatches;
@@ -47,17 +47,14 @@ use input::InputMode;
 use ratatui::DefaultTerminal;
 use ratatui::Terminal;
 use ratatui::backend::CrosstermBackend;
-use std::collections::HashSet;
 use std::io;
 use std::panic;
 use std::path::PathBuf;
 use std::sync::LazyLock;
 use std::time::Duration;
 use std::time::Instant;
-use stream_formats::Formats;
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::UnboundedReceiver;
-use tokio_util::sync::CancellationToken;
 use ui::draw;
 
 static CLAP_ARGS: LazyLock<ArgMatches> = LazyLock::new(cli::get_matches);
@@ -188,7 +185,8 @@ async fn run_tui(
     let (req_tx, mut req_rx) = mpsc::unbounded_channel();
     TX.init(req_tx);
 
-    let mut client = client::Client::new(rx).await?;
+    let (audio_player, mut playback_state, _player_task) = mpv::PlayerHandle::spawn();
+    let mut client = client::Client::new(rx, audio_player).await?;
     tokio::spawn(async move { client.run().await });
 
     if CONFIG.show_thumbnails {
@@ -199,6 +197,7 @@ async fn run_tui(
     render(&mut app, terminal)?;
 
     let (mut timeout, mut last_render) = (None, Instant::now());
+    let mut playback_state_open = true;
 
     loop {
         tokio::select! {
@@ -224,6 +223,42 @@ async fn run_tui(
                 if timeout.is_none() {
                     render(&mut app, terminal)?;
                     last_render = Instant::now();
+                }
+            }
+            result = playback_state.changed(), if playback_state_open => {
+                match result {
+                    Ok(()) => {
+                        let state = playback_state.borrow_and_update().clone();
+
+                        if let Some(metadata) = &state.metadata {
+                            let started_playing = matches!(state.phase, PlaybackPhase::Playing)
+                                && (!matches!(
+                                    app.playback_state.phase,
+                                    PlaybackPhase::Playing | PlaybackPhase::Paused
+                                ) || app.playback_state.metadata.as_ref().is_none_or(|m| m.video_id != metadata.video_id));
+
+                            if started_playing && !metadata.video_id.is_empty() {
+                                app.set_watched(&metadata.video_id, true);
+                            }
+                        }
+
+                        if let PlaybackPhase::Error(error) = &state.phase {
+                            app.set_error_message(&format!("Audio playback failed: {error}"));
+                        }
+
+                        app.playback_state = state;
+
+                        timeout = None;
+                        render(&mut app, terminal)?;
+                        last_render = Instant::now();
+                    }
+                    Err(_) => {
+                        playback_state_open = false;
+                        app.set_error_message("Audio player stopped unexpectedly");
+                        timeout = None;
+                        render(&mut app, terminal)?;
+                        last_render = Instant::now();
+                    }
                 }
             }
         }
@@ -286,20 +321,4 @@ fn handle_event(event: ClientRequest, app: &mut App) {
         }
         ClientRequest::ClearMessage => app.message.clear_message(),
     }
-}
-
-pub enum IoEvent {
-    SubscribeToChannel(String),
-    ImportChannels(Vec<String>),
-    RefreshChannels(Vec<String>),
-    LoadMoreVideos(String, ChannelTab, HashSet<String>, bool),
-    GetVideoTitle(String),
-    GetThumbnail(GraphicsProtocol, String),
-    FetchFormats(String, String, bool),
-    PlayFromFormats(Box<Formats>),
-    PlayUsingYtdlp(String),
-    CopyLink(String, ApiBackend),
-    OpenInBrowser(String, ApiBackend),
-    ClearMessage(CancellationToken, u64),
-    SwitchApi,
 }

@@ -61,8 +61,12 @@ pub async fn play_from_formats(instance: Box<dyn Api>, formats: Formats) -> Resu
     play_video(player_command, &formats.id).await
 }
 
+pub fn youtube_watch_url(video_id: &str) -> String {
+    format!("https://www.youtube.com/watch?v={video_id}")
+}
+
 pub async fn play_using_ytdlp(video_id: &str) -> Result<()> {
-    let url = format!("{}/watch?v={}", "https://www.youtube.com", video_id);
+    let url = youtube_watch_url(video_id);
 
     let mut player_command = Command::new(&CONFIG.mpv_path);
     player_command.arg(url);

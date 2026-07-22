@@ -128,6 +128,12 @@ impl Default for KeyBindings {
         insert_binding!(general, "O", Command::OpenInInvidious);
         insert_binding!(general, "p", Command::PlayFromFormats);
         insert_binding!(general, "P", Command::PlayUsingYtdlp);
+        insert_binding!(general, "a", Command::PlayAudio);
+        insert_binding!(general, "A", Command::PlayAudioUsingYtdlp);
+        insert_binding!(general, "space", Command::ToggleAudio);
+        insert_binding!(general, "<", Command::SeekAudioBackward);
+        insert_binding!(general, ">", Command::SeekAudioForward);
+        insert_binding!(general, "x", Command::StopAudio);
         insert_binding!(general, "f", Command::SelectFormats);
         insert_binding!(general, "m", Command::ToggleWatched);
         insert_binding!(general, "ctrl-h", Command::ToggleHelp);
