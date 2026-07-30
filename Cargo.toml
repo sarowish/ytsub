@@ -21,44 +21,44 @@ panic = "abort"
 strip = "symbols"
 
 [dependencies]
-anyhow = "1.0.102"
-clap = "4.6.1"
+anyhow = "1.0.104"
+clap = "4.6.4"
 crossterm = { version = "0.29.0", features = ["event-stream"] }
 dirs = "6.0.0"
-futures-util = "0.3.32"
+futures-util = "0.3.33"
 num_cpus = "1.17.0"
-rand = "0.10.1"
-rusqlite = { version = "0.40.0", features = ["fallible_uint"] }
-serde = { version = "1.0.228", features = ["derive"] }
-serde_json = "1.0.150"
-tokio = { version = "1.52.3", features = ["time", "macros", "rt-multi-thread", "process", "io-std", "io-util"] }
-tokio-util = "0.7.18"
+rand = "0.10.2"
+rusqlite = { version = "0.40.1", features = ["fallible_uint"] }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
+tokio = { version = "1.53.1", features = ["time", "macros", "rt-multi-thread", "process", "io-std", "io-util"] }
+tokio-util = "0.7.19"
 unicode-width = "0.2.2"
-unicode-segmentation = "1.13.2"
-toml = "1.1.2"
+unicode-segmentation = "1.13.3"
+toml = "1.1.4"
 csv = "1.4.0"
-quick-xml = { version = "0.40.1", features = ["serialize"] }
-chrono = "0.4.44"
+quick-xml = { version = "0.41.0", features = ["serialize"] }
+chrono = "0.4.45"
 dyn-clone = "1.0.20"
-ratatui = "0.30.0"
+ratatui = "0.30.2"
 regex-lite = "0.1.9"
 reqwest = { version = "0.13.4", features = ["json", "query", "gzip"] }
-async-trait = "0.1.89"
-open = "5.3.5"
-bitflags = "2.11.1"
-base64 = "0.22.1"
-itertools = "0.14.0"
+async-trait = "0.1.91"
+open = "5.4.0"
+bitflags = "2.13.1"
+base64 = "0.23.0"
+itertools = "0.15.0"
 url = "2.5.8"
 quantette = "0.6.0"
 image = { version = "0.25.10", default-features = false, features = ["jpeg"] }
-which = "8.0.2"
+which = "8.0.5"
 
 [target.'cfg(unix)'.dependencies]
-libc = "0.2.186"
+libc = "0.2.189"
 
 [target.'cfg(windows)'.dependencies]
 clipboard-win = "5.4.1"
-rusqlite = { version = "0.40.0", features = ["bundled", "fallible_uint"]}
+rusqlite = { version = "0.40.1", features = ["bundled", "fallible_uint"]}
 
 [features]
 bundled_sqlite = ["rusqlite/bundled"]

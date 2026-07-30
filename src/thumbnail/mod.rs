@@ -6,8 +6,13 @@ use crate::{
 };
 use anyhow::Result;
 use protocols::ImageData;
-use ratatui::{buffer::Buffer, layout::Rect};
-use std::fmt::Write;
+use ratatui::{
+    buffer::{Buffer, CellDiffOption},
+    layout::Rect,
+};
+use std::{fmt::Write, num::NonZeroU16};
+
+const UNIT_WIDTH: CellDiffOption = CellDiffOption::ForcedWidth(NonZeroU16::new(1).unwrap());
 
 pub struct Thumbnail {
     pub data: ImageData,
@@ -113,7 +118,8 @@ fn clear_last_line(area: Rect) -> Result<String> {
 }
 
 fn render_by_first_cell(buf: &mut Buffer, area: Rect, data: &str) {
-    buf.cell_mut(area).map(|cell| cell.set_symbol(data));
+    buf.cell_mut(area)
+        .map(|cell| cell.set_symbol(data).set_diff_option(UNIT_WIDTH));
     let mut skip_first = false;
 
     for y in area.top()..(area.bottom()) {
@@ -122,7 +128,8 @@ fn render_by_first_cell(buf: &mut Buffer, area: Rect, data: &str) {
                 skip_first = true;
                 continue;
             }
-            buf.cell_mut((x, y)).map(|cell| cell.set_skip(true));
+            buf.cell_mut((x, y))
+                .map(|cell| cell.set_diff_option(CellDiffOption::Skip));
         }
     }
 }
@@ -137,10 +144,11 @@ where
         let line = line.as_ref();
 
         buf.cell_mut((area.left(), row))
-            .map(|cell| cell.set_symbol(line));
+            .map(|cell| cell.set_symbol(line).set_diff_option(UNIT_WIDTH));
 
         for x in (area.left() + 1)..area.right() {
-            buf.cell_mut((x, row)).map(|cell| cell.set_skip(true));
+            buf.cell_mut((x, row))
+                .map(|cell| cell.set_diff_option(CellDiffOption::Skip));
         }
     }
 }
