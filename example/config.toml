@@ -42,6 +42,7 @@ new_video_indicator = { fg = "Red", modifiers = "italic" }
 members_only_indicator = { fg = "Green", modifiers = "italic" }
 selected_block = { fg = "Magenta" }
 video_info = { fg = "Green" }
+progress_bar = { fg = "Red" }
 error = { fg = "Red" }
 warning = { fg = "Yellow" }
 help = { fg = "Green" }
@@ -86,6 +87,12 @@ help = { fg = "Green" }
 "O" = "open_in_invidious"
 "p" = "play_from_formats"
 "P" = "play_using_ytdlp"
+"a" = "play_audio"
+"A" = "play_audio_using_ytdlp"
+"space" = "toggle_audio"
+"<" = "seek_audio_backward"
+">" = "seek_audio_forward"
+"x" = "stop_audio"
 "f" = "select_formats"
 "m" = "toggle_watched"
 "ctrl-h" = "toggle_help"

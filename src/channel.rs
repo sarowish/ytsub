@@ -140,6 +140,13 @@ bitflags! {
     }
 }
 
+#[derive(Clone)]
+pub struct VideoMetadata {
+    pub video_id: String,
+    pub title: String,
+    pub channel: String,
+}
+
 #[derive(Deserialize)]
 pub struct Video {
     #[serde(skip_deserializing)]

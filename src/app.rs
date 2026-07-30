@@ -1,11 +1,15 @@
 use crate::api::{ApiBackend, ChannelFeed};
-use crate::channel::{Channel, ChannelTab, HideVideos, RefreshState, Video, tabs_to_be_loaded};
+use crate::channel::{
+    Channel, ChannelTab, HideVideos, RefreshState, Video, VideoMetadata, tabs_to_be_loaded,
+};
+use crate::client::FormatAction;
 use crate::emulator::Emulator;
 use crate::help::HelpWindowState;
 use crate::import::{self, ImportItem};
 use crate::input::InputMode;
 use crate::list::{ListItem, Selectable, SelectionItem, SelectionList, StatefulList};
 use crate::message::Message;
+use crate::mpv::{PlaybackPhase, PlaybackState};
 use crate::search::{Search, SearchDirection, SearchState};
 use crate::stream_formats::Formats;
 use crate::thumbnail::Thumbnail;
@@ -32,6 +36,7 @@ pub struct App {
     pub conn: Connection,
     pub thumbnail: Option<Thumbnail>,
     pub message: Message,
+    pub playback_state: PlaybackState,
     pub input: String,
     pub input_mode: InputMode,
     pub input_idx: usize,
@@ -66,6 +71,7 @@ impl App {
             conn: Connection::open(CONFIG.database.clone())?,
             thumbnail: None,
             message: Message::new(),
+            playback_state: PlaybackState::default(),
             input: String::default(),
             input_mode: InputMode::Normal,
             input_idx: 0,
@@ -378,28 +384,55 @@ impl App {
         }
     }
 
-    pub fn enter_format_selection(&mut self) {
-        let Some(current_video) = self.get_current_video() else {
-            return;
+    pub fn get_current_video_metadata(&self) -> Option<VideoMetadata> {
+        let video = self.get_current_video()?;
+
+        let channel = match video.channel_name.as_deref() {
+            Some(channel) => channel,
+            None => &self.get_current_channel()?.channel_name,
         };
 
-        self.dispatch(IoEvent::FetchFormats(
-            current_video.title.clone(),
-            current_video.video_id.clone(),
-            false,
-        ));
+        Some(VideoMetadata {
+            video_id: video.video_id.clone(),
+            title: video.title.clone(),
+            channel: channel.to_owned(),
+        })
+    }
+
+    pub fn play_audio(&mut self) {
+        if let Some(metadata) = self.get_current_video_metadata() {
+            self.dispatch(IoEvent::FetchFormats(metadata, FormatAction::PlayAudio));
+        }
+    }
+
+    pub fn play_audio_using_ytdlp(&mut self) {
+        if let Some(metadata) = self.get_current_video_metadata() {
+            self.dispatch(IoEvent::PlayAudioUsingYtdlp(metadata));
+        }
+    }
+
+    pub fn toggle_audio(&mut self) {
+        self.dispatch(IoEvent::ToggleAudio);
+    }
+
+    pub fn seek_audio(&mut self, seconds: i32) {
+        self.dispatch(IoEvent::SeekAudio(seconds));
+    }
+
+    pub fn stop_audio(&mut self) {
+        self.dispatch(IoEvent::StopAudio);
+    }
+
+    pub fn enter_format_selection(&mut self) {
+        if let Some(metadata) = self.get_current_video_metadata() {
+            self.dispatch(IoEvent::FetchFormats(metadata, FormatAction::Select));
+        }
     }
 
     pub fn play_from_formats(&mut self) {
-        let Some(current_video) = self.get_current_video() else {
-            return;
-        };
-
-        self.dispatch(IoEvent::FetchFormats(
-            current_video.title.clone(),
-            current_video.video_id.clone(),
-            true,
-        ));
+        if let Some(metadata) = self.get_current_video_metadata() {
+            self.dispatch(IoEvent::FetchFormats(metadata, FormatAction::PlayVideo));
+        }
     }
 
     pub fn confirm_selected_streams(&mut self) {
@@ -690,6 +723,13 @@ impl App {
                 | InputMode::TagCreation
                 | InputMode::TagRenaming
         ) || !self.message.is_empty()
+    }
+
+    pub fn is_player_active(&self) -> bool {
+        matches!(
+            self.playback_state.phase,
+            PlaybackPhase::Loading | PlaybackPhase::Playing | PlaybackPhase::Paused
+        )
     }
 
     pub const fn toggle_help(&mut self) {

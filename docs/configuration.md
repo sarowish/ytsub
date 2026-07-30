@@ -99,6 +99,7 @@ values are patched onto the selected style.
 | `members_only_indicator` | The `[M]` indicator shown for members-only videos.                                    |
 | `selected_block`         | Border of the active pane.                                                            |
 | `video_info`             | Field names in the `Video Info` panel.                                                |
+| `progress_bar`           | Filled portion of the audio playback progress bar.                                    |
 | `error`                  | Error messages.                                                                       |
 | `warning`                | Warning messages.                                                                     |
 | `help`                   | Key names in help popups and inline help.                                             |
@@ -118,6 +119,7 @@ new_video_indicator = { fg = "Red", modifiers = "italic" }
 members_only_indicator = { fg = "Green", modifiers = "italic" }
 selected_block = { fg = "Magenta" }
 video_info = { fg = "Green" }
+progress_bar = { fg = "Red" }
 error = { fg = "Red" }
 warning = { fg = "Yellow" }
 help = { fg = "Green" }
@@ -187,6 +189,12 @@ Valid key codes are:
 | `open_in_invidious`           | Open channel or video Invidious page in browser                     |
 | `play_from_formats`           | Play video in video player using stream formats                     |
 | `play_using_ytdlp`            | Play video in mpv using yt-dlp                                      |
+| `play_audio`                  | Play audio in the TUI using stream formats                          |
+| `play_audio_using_ytdlp`      | Play audio in the TUI using yt-dlp                                  |
+| `toggle_audio`                | Pause/resume audio                                                  |
+| `seek_audio_backward`         | Seek audio backward 10 seconds                                      |
+| `seek_audio_forward`          | Seek audio forward 10 seconds                                       |
+| `stop_audio`                  | Stop audio                                                          |
 | `select_formats`              | Toggle format selection window                                      |
 | `toggle_watched`              | Mark/unmark video as watched                                        |
 | `toggle_help`                 | Toggle help window                                                  |

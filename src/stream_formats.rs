@@ -180,6 +180,13 @@ impl Formats {
             (self.formats.get_selected_item()?.get_url(), None)
         })
     }
+
+    pub fn get_selected_audio_url(&self) -> Option<&str> {
+        self.audio_formats
+            .get_selected_item()
+            .or_else(|| self.formats.get_selected_item())
+            .map(Format::get_url)
+    }
 }
 
 impl Display for Format {

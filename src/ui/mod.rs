@@ -5,15 +5,18 @@ use crate::help::HelpWindowState;
 use crate::input::InputMode;
 use crate::list::{Scrollable, StatefulList};
 use crate::message::MessageType;
+use crate::mpv::PlaybackPhase;
 use crate::search::SearchDirection;
 use crate::stream_formats::Formats;
+use crate::utils::length_as_hhmmss;
 use crate::{CONFIG, HELP, THEME};
 use ratatui::Frame;
 use ratatui::layout::{Alignment, Constraint, Direction, Layout, Margin, Rect};
 use ratatui::style::{Color, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{
-    Block, Borders, Cell, Clear, List, ListItem, ListState, Paragraph, Row, Table, Tabs, Wrap,
+    Block, Borders, Cell, Clear, Gauge, List, ListItem, ListState, Paragraph, Row, Table, Tabs,
+    Wrap,
 };
 use std::fmt::Display;
 use unicode_width::UnicodeWidthStr;
@@ -22,21 +25,39 @@ use utils::{Column, TitleBuilder, filter_columns};
 mod utils;
 
 pub fn draw(f: &mut Frame, app: &mut App) {
-    let (main_layout, footer) = if app.is_footer_active() {
-        let chunks = Layout::default()
-            .constraints([Constraint::Min(1), Constraint::Length(1)])
-            .direction(Direction::Vertical)
-            .split(f.area());
-        (chunks[0], Some(chunks[1]))
-    } else {
-        (f.area(), None)
-    };
+    let show_player = app.is_player_active();
+    let show_footer = app.is_footer_active();
+
+    let mut constraints = vec![Constraint::Min(1)];
+
+    if show_player {
+        constraints.push(Constraint::Length(3));
+    }
+
+    if show_footer {
+        constraints.push(Constraint::Length(1));
+    }
+
+    let chunks = Layout::default()
+        .constraints(constraints)
+        .direction(Direction::Vertical)
+        .split(f.area());
+
+    let main_layout = chunks[0];
+    let mut next_chunk = 1;
+
+    if show_player {
+        draw_player(f, app, chunks[next_chunk]);
+        next_chunk += 1;
+    }
+
+    if show_footer {
+        draw_footer(f, app, chunks[next_chunk]);
+    }
+
     match app.mode {
         Mode::Subscriptions => draw_subscriptions(f, app, main_layout),
         Mode::LatestVideos => draw_videos(f, app, main_layout),
-    }
-    if let Some(footer) = footer {
-        draw_footer(f, app, footer);
     }
 
     let input_mode = if matches!(
@@ -346,6 +367,54 @@ fn to_info_line<'a>(field: &'a str, value: &'a str) -> Line<'a> {
         Span::raw(": "),
         Span::raw(value),
     ])
+}
+
+fn draw_player(f: &mut Frame, app: &App, area: Rect) {
+    let state = &app.playback_state;
+
+    let phase = match &state.phase {
+        PlaybackPhase::Loading => "Loading",
+        PlaybackPhase::Playing => "Playing",
+        PlaybackPhase::Paused => "Paused",
+        _ => unreachable!(),
+    };
+
+    let title = Line::from(vec![
+        Span::styled(format!("[{phase}]"), THEME.title),
+        Span::raw(format!(
+            " {} - {} ",
+            state.metadata.as_ref().map_or("", |m| &m.channel),
+            state.metadata.as_ref().map_or("", |m| &m.title),
+        )),
+    ]);
+
+    let block = Block::default().borders(Borders::ALL).title(title);
+    let inner_area = block.inner(area);
+    f.render_widget(block, area);
+
+    let elapsed = state
+        .elapsed
+        .map(|seconds| length_as_hhmmss(seconds as u32))
+        .unwrap_or_else(|| "0:00".to_owned());
+
+    let duration = state
+        .duration
+        .map(|seconds| length_as_hhmmss(seconds as u32))
+        .unwrap_or_else(|| "--:--".to_owned());
+
+    let ratio = match (state.elapsed, state.duration) {
+        (Some(elapsed), Some(duration)) if duration > 0 => {
+            (elapsed as f64 / duration as f64).clamp(0.0, 1.0)
+        }
+        _ => 0.0,
+    };
+
+    let progress = Gauge::default()
+        .gauge_style(THEME.progress_bar)
+        .ratio(ratio)
+        .label(format!("{elapsed} / {duration}"));
+
+    f.render_widget(progress, inner_area);
 }
 
 fn draw_footer(f: &mut Frame, app: &App, area: Rect) {
