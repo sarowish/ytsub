@@ -13,6 +13,7 @@ use crossterm::{
 use mux::{IS_TMUX, detect_tmux};
 use std::env;
 use std::fmt::Write as _;
+use std::sync::atomic::Ordering;
 use std::time::Duration;
 use tokio::io::AsyncReadExt;
 use tokio::time;
@@ -71,15 +72,13 @@ impl Emulator {
                 ParserResponse::SupportsSixel if graphics_protocol.is_none() => {
                     graphics_protocol = Some(GraphicsProtocol::Sixel);
                 }
-                ParserResponse::SupportsOsc52 => {
-                    OSC52_SUPPORTED.init(true);
-                }
+                ParserResponse::SupportsOsc52 => OSC52_SUPPORTED.store(true, Ordering::Relaxed),
                 ParserResponse::CellSize(h, w) => cell_size = Some((h, w)),
                 _ => {}
             }
         }
 
-        if !*OSC52_SUPPORTED {
+        if !OSC52_SUPPORTED.load(Ordering::Relaxed) {
             execute!(
                 w,
                 Print(xtgettcap_query(&["Ms"])),
@@ -90,7 +89,7 @@ impl Emulator {
                 .await?
                 .contains(&ParserResponse::SupportsOsc52)
             {
-                OSC52_SUPPORTED.init(true);
+                OSC52_SUPPORTED.store(true, Ordering::Relaxed);
             }
         }
 

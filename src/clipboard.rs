@@ -1,5 +1,6 @@
+use std::sync::atomic::{AtomicBool, Ordering};
+
 use crate::emulator::mux::{END, ESCAPE, START};
-use crate::ro_cell::RoCell;
 use anyhow::Result;
 use base64::{Engine, prelude::BASE64_STANDARD};
 use crossterm::execute;
@@ -7,7 +8,7 @@ use crossterm::execute;
 #[cfg(unix)]
 static CLIPBOARD_COMMAND: std::sync::LazyLock<Option<(&'static str, Vec<&'static str>)>> =
     std::sync::LazyLock::new(get_clipboard_provider);
-pub static OSC52_SUPPORTED: RoCell<bool> = RoCell::with_const(false);
+pub static OSC52_SUPPORTED: AtomicBool = AtomicBool::new(false);
 
 pub enum CopyStatus {
     Copied,
@@ -39,7 +40,7 @@ impl crossterm::Command for SetClipboard {
 fn copy_osc52(text: &str) -> Result<CopyStatus> {
     execute!(std::io::stdout(), SetClipboard::new(text))?;
 
-    let status = if *OSC52_SUPPORTED {
+    let status = if OSC52_SUPPORTED.load(Ordering::Relaxed) {
         CopyStatus::Copied
     } else {
         CopyStatus::UnconfirmedOsc52
