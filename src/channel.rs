@@ -58,16 +58,14 @@ pub enum RefreshState {
 
 impl Display for RefreshState {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}",
-            match self {
-                Self::ToBeRefreshed => "□ ",
-                Self::Refreshing => "■ ",
-                Self::Completed => "",
-                Self::Failed => "✗ ",
-            }
-        )
+        let symbol = match self {
+            Self::ToBeRefreshed => &CONFIG.to_be_refreshed_symbol,
+            Self::Refreshing => &CONFIG.refreshing_symbol,
+            Self::Completed => "",
+            Self::Failed => &CONFIG.failed_symbol,
+        };
+
+        write!(f, "{symbol}")
     }
 }
 

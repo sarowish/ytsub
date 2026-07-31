@@ -35,7 +35,11 @@ It is advisable to add only the parts you want to change instead of checking in 
 | `tick_rate`                       | Tick rate in milliseconds. Determines how often the UI is redrawn for refresh status updates.                | `10`                                        |
 | `request_timeout`                 | Network request timeout in seconds.                                                                          | `5`                                         |
 | `highlight_symbol`                | Symbol used to highlight selected items.                                                                     | `""`                                        |
-| `datetime_format`                 | Format used for scheduled stream and premiere dates. Uses [chrono/strftime format specifiers][strftime]. | `"%Y-%m-%d %H:%M"`                          |
+| `to_be_refreshed_symbol`          | Symbol shown for a channel waiting to be refreshed.                                                          | `"□ "`                                      |
+| `refreshing_symbol`               | Symbol shown while a channel is being refreshed.                                                             | `"■ "`                                      |
+| `failed_symbol`                   | Symbol shown when refreshing a channel fails.                                                                | `"✗ "`                                      |
+| `unicode_progress_bar`            | Use Unicode block characters to display playback progress bar.                                               | `true`                                      |
+| `datetime_format`                 | Format used for scheduled stream and premiere dates. Uses [chrono/strftime format specifiers][strftime].     | `"%Y-%m-%d %H:%M"`                          |
 | `hide_watched`                    | Hide watched videos by default.                                                                              | `false`                                     |
 | `hide_members_only`               | Hide members-only videos by default.                                                                         | `false`                                     |
 | `show_thumbnails`                 | Show thumbnails in the video info area.                                                                      | `true`                                      |

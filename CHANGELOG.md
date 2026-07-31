@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 ### Added
 - Add mpv audio playback and controls to the TUI.
+- Make channel refresh symbols and Unicode progress bar configurable.
 
 ### Fixed
 - Don't show delayed thumbnails from previously selected videos.
