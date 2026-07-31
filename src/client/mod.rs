@@ -24,8 +24,8 @@ use tokio::{
     sync::{
         mpsc::{UnboundedReceiver, UnboundedSender},
         oneshot::Sender,
+        watch,
     },
-    task::AbortHandle,
     time::sleep,
 };
 use tokio_util::sync::CancellationToken;
@@ -37,6 +37,22 @@ pub enum FormatAction {
     Select,
     PlayVideo,
     PlayAudio,
+}
+
+struct ThumbnailRequest {
+    instance: Box<dyn Api>,
+    protocol: GraphicsProtocol,
+    video_id: String,
+}
+
+impl Clone for ThumbnailRequest {
+    fn clone(&self) -> Self {
+        Self {
+            instance: dyn_clone::clone_box(self.instance.as_ref()),
+            protocol: self.protocol,
+            video_id: self.video_id.clone(),
+        }
+    }
 }
 
 pub enum IoEvent {
@@ -67,7 +83,7 @@ pub enum ClientRequest {
     FinalizeImport(bool),
     UpdateChannel(ChannelFeed),
     UpdateTitle(String, String),
-    SetThumbnail(Option<Thumbnail>),
+    SetThumbnail(String, Option<Thumbnail>),
     EnterFormatSelection(Box<Formats>),
     SetWatched(String, bool),
     SetMessage(String, MessageType, Option<u64>),
@@ -134,7 +150,9 @@ impl Client {
     }
 
     pub async fn run(&mut self) -> Result<()> {
-        let mut thumbnail_handle: Option<AbortHandle> = None;
+        let (thumbnail_tx, thumbnail_rx) = watch::channel(None);
+
+        tokio::spawn(thumbnail_worker(thumbnail_rx));
 
         while let Some(event) = self.rx.recv().await {
             match event {
@@ -161,19 +179,11 @@ impl Client {
                     tokio::spawn(async move { get_video_title(local, &video_id).await });
                 }
                 IoEvent::GetThumbnail(protocol, video_id) => {
-                    let instance = self.instance();
-
-                    if let Some(handle) = thumbnail_handle {
-                        handle.abort();
-                    }
-
-                    thumbnail_handle = Some(
-                        tokio::spawn(async move {
-                            let data = get_thumbnail(instance, protocol, &video_id).await;
-                            TX.send(ClientRequest::SetThumbnail(data.ok()))
-                        })
-                        .abort_handle(),
-                    );
+                    thumbnail_tx.send_replace(Some(ThumbnailRequest {
+                        instance: self.instance(),
+                        protocol,
+                        video_id,
+                    }));
                 }
                 IoEvent::FetchFormats(metadata, action) => {
                     let instance = self.instance();
@@ -274,6 +284,26 @@ impl Client {
         }
 
         Ok(())
+    }
+}
+
+async fn thumbnail_worker(mut rx: watch::Receiver<Option<ThumbnailRequest>>) {
+    while rx.changed().await.is_ok() {
+        let Some(request) = rx.borrow_and_update().clone() else {
+            continue;
+        };
+
+        let video_id = request.video_id.clone();
+
+        let data = get_thumbnail(request.instance, request.protocol, &video_id).await;
+
+        if !rx.has_changed().unwrap_or(true)
+            && TX
+                .send(ClientRequest::SetThumbnail(video_id, data.ok()))
+                .is_err()
+        {
+            return;
+        }
     }
 }
 

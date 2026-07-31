@@ -304,8 +304,14 @@ fn handle_event(event: ClientRequest, app: &mut App) {
                 app.load_videos(true);
             }
         }
-        ClientRequest::SetThumbnail(data) => {
-            app.thumbnail = data;
+        ClientRequest::SetThumbnail(video_id, data) => {
+            let is_current_video = app
+                .get_current_video()
+                .is_some_and(|video| video.video_id == video_id);
+
+            if is_current_video {
+                app.thumbnail = data;
+            }
         }
         ClientRequest::EnterFormatSelection(formats) => {
             app.input_mode = InputMode::FormatSelection;
