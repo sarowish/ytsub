@@ -410,6 +410,7 @@ fn draw_player(f: &mut Frame, app: &App, area: Rect) {
     };
 
     let progress = Gauge::default()
+        .style(THEME.progress_bar_unfilled)
         .gauge_style(THEME.progress_bar)
         .ratio(ratio)
         .label(format!("{elapsed} / {duration}"))

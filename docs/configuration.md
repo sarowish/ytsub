@@ -104,6 +104,7 @@ values are patched onto the selected style.
 | `selected_block`         | Border of the active pane.                                                            |
 | `video_info`             | Field names in the `Video Info` panel.                                                |
 | `progress_bar`           | Filled portion of the audio playback progress bar.                                    |
+| `progress_bar_unfilled`  | Unfilled portion of the audio playback progress bar.                                  |
 | `error`                  | Error messages.                                                                       |
 | `warning`                | Warning messages.                                                                     |
 | `help`                   | Key names in help popups and inline help.                                             |
@@ -124,6 +125,7 @@ members_only_indicator = { fg = "Green", modifiers = "italic" }
 selected_block = { fg = "Magenta" }
 video_info = { fg = "Green" }
 progress_bar = { fg = "Red" }
+progress_bar_unfilled = {}
 error = { fg = "Red" }
 warning = { fg = "Yellow" }
 help = { fg = "Green" }

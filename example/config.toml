@@ -47,6 +47,7 @@ members_only_indicator = { fg = "Green", modifiers = "italic" }
 selected_block = { fg = "Magenta" }
 video_info = { fg = "Green" }
 progress_bar = { fg = "Red" }
+progress_bar_unfilled = {}
 error = { fg = "Red" }
 warning = { fg = "Yellow" }
 help = { fg = "Green" }
