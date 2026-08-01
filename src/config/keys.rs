@@ -20,44 +20,44 @@ pub struct UserKeyBindings {
     format_selection: HashMap<String, String>,
 }
 
-fn parse_binding(binding: &str) -> Result<KeyEvent> {
-    let mut tokens = binding.rsplit('-');
-
-    let code = if let Some(token) = tokens.next() {
-        match token {
-            "backspace" => KeyCode::Backspace,
-            "space" => KeyCode::Char(' '),
-            "enter" => KeyCode::Enter,
-            "left" => KeyCode::Left,
-            "right" => KeyCode::Right,
-            "up" => KeyCode::Up,
-            "down" => KeyCode::Down,
-            "home" => KeyCode::Home,
-            "end" => KeyCode::End,
-            "pageup" => KeyCode::PageUp,
-            "pagedown" => KeyCode::PageDown,
-            "tab" => KeyCode::Tab,
-            "backtab" => KeyCode::BackTab,
-            "del" | "delete" => KeyCode::Delete,
-            "insert" => KeyCode::Insert,
-            "esc" | "escape" => KeyCode::Esc,
-            token if token.len() == 1 => KeyCode::Char(token.chars().next().unwrap()),
-            _ => anyhow::bail!("\"{token}\" is not a valid key"),
-        }
-    } else {
-        anyhow::bail!("\"{binding}\" is not a valid binding")
-    };
-
+fn parse_binding(mut binding: &str) -> Result<KeyEvent> {
     let mut modifiers = KeyModifiers::NONE;
 
-    for token in tokens {
-        match token {
-            "ctrl" => modifiers.insert(KeyModifiers::CONTROL),
-            "shift" => modifiers.insert(KeyModifiers::SHIFT),
-            "alt" => modifiers.insert(KeyModifiers::ALT),
-            _ => anyhow::bail!("\"{token}\" is not a valid modifier"),
+    loop {
+        if let Some(rest) = binding.strip_prefix("ctrl-") {
+            modifiers.insert(KeyModifiers::CONTROL);
+            binding = rest;
+        } else if let Some(rest) = binding.strip_prefix("shift-") {
+            modifiers.insert(KeyModifiers::SHIFT);
+            binding = rest;
+        } else if let Some(rest) = binding.strip_prefix("alt-") {
+            modifiers.insert(KeyModifiers::ALT);
+            binding = rest;
+        } else {
+            break;
         }
     }
+
+    let code = match binding {
+        "backspace" => KeyCode::Backspace,
+        "space" => KeyCode::Char(' '),
+        "enter" => KeyCode::Enter,
+        "left" => KeyCode::Left,
+        "right" => KeyCode::Right,
+        "up" => KeyCode::Up,
+        "down" => KeyCode::Down,
+        "home" => KeyCode::Home,
+        "end" => KeyCode::End,
+        "pageup" => KeyCode::PageUp,
+        "pagedown" => KeyCode::PageDown,
+        "tab" => KeyCode::Tab,
+        "backtab" => KeyCode::BackTab,
+        "del" | "delete" => KeyCode::Delete,
+        "insert" => KeyCode::Insert,
+        "esc" | "escape" => KeyCode::Esc,
+        token if token.len() == 1 => KeyCode::Char(token.chars().next().unwrap()),
+        _ => anyhow::bail!("\"{binding}\" is not a valid key"),
+    };
 
     Ok(KeyEvent::new(code, modifiers))
 }
@@ -258,7 +258,7 @@ mod tests {
     use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
     #[test]
-    fn valid_bindings() {
+    fn parses_character_and_named_keys() {
         assert_eq!(
             parse_binding("s").unwrap(),
             KeyEvent::new(KeyCode::Char('s'), KeyModifiers::NONE)
@@ -267,6 +267,10 @@ mod tests {
             parse_binding("up").unwrap(),
             KeyEvent::new(KeyCode::Up, KeyModifiers::NONE)
         );
+    }
+
+    #[test]
+    fn parses_keys_with_modifiers() {
         assert_eq!(
             parse_binding("ctrl-s").unwrap(),
             KeyEvent::new(KeyCode::Char('s'), KeyModifiers::CONTROL)
@@ -281,6 +285,14 @@ mod tests {
         assert_eq!(
             parse_binding("shift-alt-left").unwrap(),
             KeyEvent::new(KeyCode::Left, KeyModifiers::SHIFT | KeyModifiers::ALT)
+        );
+    }
+
+    #[test]
+    fn parses_hyphen_key() {
+        assert_eq!(
+            parse_binding("-").unwrap(),
+            KeyEvent::new(KeyCode::Char('-'), KeyModifiers::NONE)
         );
     }
 

@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Don't show delayed thumbnails from previously selected videos.
+- Allow the `-` key to be used in key bindings.
 
 ## [0.10.0] - 2026-05-27
 ### Added
