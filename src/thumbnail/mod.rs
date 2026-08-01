@@ -94,7 +94,7 @@ pub fn clear_area(area: Rect) -> Result<String> {
     let mut erase = String::new();
 
     for _ in 0..area.height {
-        write!(erase, "\x1b[0K\x1b[1B")?;
+        write!(erase, "\x1b[{}X\x1b[1B", area.width)?;
     }
     write!(erase, "\x1b[{}A", area.height)?;
 
@@ -105,7 +105,7 @@ fn clear_last_line(area: Rect) -> Result<String> {
     let mut erase = String::new();
 
     write!(erase, "\x1b[{}B", area.height.saturating_sub(1))?;
-    write!(erase, "\x1b[0K")?;
+    write!(erase, "\x1b[{}X", area.width)?;
 
     write!(erase, "\x1b[{}C", area.width.saturating_sub(1))?;
     for _ in 0..area.height {
