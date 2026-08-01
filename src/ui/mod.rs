@@ -388,7 +388,25 @@ fn draw_player(f: &mut Frame, app: &App, area: Rect) {
         )),
     ]);
 
-    let block = Block::default().borders(Borders::ALL).title(title);
+    let volume_title = state.volume.map(|volume| {
+        let label = if state.muted == Some(true) {
+            "Muted:"
+        } else {
+            "Vol:"
+        };
+
+        Line::from(vec![
+            Span::styled(label, THEME.title),
+            Span::raw(format!(" {volume}%")),
+        ])
+        .right_aligned()
+    });
+
+    let mut block = Block::default().borders(Borders::ALL).title(title);
+    if let Some(volume_title) = volume_title {
+        block = block.title(volume_title);
+    }
+
     let inner_area = block.inner(area);
     f.render_widget(block, area);
 

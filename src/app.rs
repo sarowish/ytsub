@@ -419,6 +419,14 @@ impl App {
         self.dispatch(IoEvent::SeekAudio(seconds));
     }
 
+    pub fn adjust_audio_volume(&mut self, value: i8) {
+        self.dispatch(IoEvent::AdjustVolume(value));
+    }
+
+    pub fn toggle_audio_mute(&mut self) {
+        self.dispatch(IoEvent::ToggleMute);
+    }
+
     pub fn stop_audio(&mut self) {
         self.dispatch(IoEvent::StopAudio);
     }

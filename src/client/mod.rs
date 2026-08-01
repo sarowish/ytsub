@@ -68,6 +68,8 @@ pub enum IoEvent {
     PlayAudioUsingYtdlp(VideoMetadata),
     ToggleAudio,
     SeekAudio(i32),
+    AdjustVolume(i8),
+    ToggleMute,
     StopAudio,
     CopyLink(String, ApiBackend),
     OpenInBrowser(String, ApiBackend),
@@ -214,6 +216,16 @@ impl Client {
                 }
                 IoEvent::SeekAudio(seconds) => {
                     if let Err(error) = self.audio_player.seek_relative(seconds) {
+                        emit_msg!(error, error.to_string());
+                    }
+                }
+                IoEvent::AdjustVolume(value) => {
+                    if let Err(error) = self.audio_player.adjust_volume(value) {
+                        emit_msg!(error, error.to_string());
+                    }
+                }
+                IoEvent::ToggleMute => {
+                    if let Err(error) = self.audio_player.toggle_mute() {
                         emit_msg!(error, error.to_string());
                     }
                 }

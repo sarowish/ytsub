@@ -65,6 +65,8 @@ impl MpvSession {
 
         ipc.observe_property("pause").await?;
         ipc.observe_property("duration").await?;
+        ipc.observe_property("volume").await?;
+        ipc.observe_property("mute").await?;
 
         Ok(Self {
             _child: child,

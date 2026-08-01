@@ -133,6 +133,9 @@ impl Default for KeyBindings {
         insert_binding!(general, "space", Command::ToggleAudio);
         insert_binding!(general, "<", Command::SeekAudioBackward);
         insert_binding!(general, ">", Command::SeekAudioForward);
+        insert_binding!(general, "+", Command::IncreaseAudioVolume);
+        insert_binding!(general, "-", Command::DecreaseAudioVolume);
+        insert_binding!(general, "_", Command::ToggleAudioMute);
         insert_binding!(general, "x", Command::StopAudio);
         insert_binding!(general, "f", Command::SelectFormats);
         insert_binding!(general, "m", Command::ToggleWatched);

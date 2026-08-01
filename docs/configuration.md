@@ -200,6 +200,9 @@ Valid key codes are:
 | `toggle_audio`                | Pause/resume audio                                                  |
 | `seek_audio_backward`         | Seek audio backward 10 seconds                                      |
 | `seek_audio_forward`          | Seek audio forward 10 seconds                                       |
+| `increase_audio_volume`       | Increase audio volume by 2%                                         |
+| `decrease_audio_volume`       | Decrease audio volume by 2%                                         |
+| `toggle_audio_mute`           | Mute/unmute audio                                                   |
 | `stop_audio`                  | Stop audio                                                          |
 | `select_formats`              | Toggle format selection window                                      |
 | `toggle_watched`              | Mark/unmark video as watched                                        |

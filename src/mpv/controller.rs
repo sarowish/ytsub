@@ -16,6 +16,8 @@ enum PlayerCommand {
     },
     Toggle,
     Seek(i32),
+    AdjustVolume(i8),
+    ToggleMute,
     Stop,
 }
 
@@ -25,6 +27,8 @@ pub struct PlaybackState {
     pub phase: PlaybackPhase,
     pub elapsed: Option<u64>,
     pub duration: Option<u64>,
+    pub volume: Option<u64>,
+    pub muted: Option<bool>,
 }
 
 impl PlaybackState {
@@ -34,6 +38,8 @@ impl PlaybackState {
             phase: PlaybackPhase::Idle,
             elapsed: None,
             duration: None,
+            volume: None,
+            muted: None,
         }
     }
 
@@ -149,6 +155,8 @@ impl PlayerController {
     fn disconnect_session(&mut self) {
         self.session = None;
         self.set_idle();
+        self.state.volume = None;
+        self.state.muted = None;
     }
 
     async fn stop_playback(&mut self) -> Result<()> {
@@ -212,6 +220,28 @@ impl PlayerController {
                     Ok(())
                 }
             }
+            PlayerCommand::AdjustVolume(value) => {
+                if let Some(session) = &self.session {
+                    session
+                        .ipc
+                        .call(serde_json::json!(["add", "volume", value]))
+                        .await
+                        .map(|_| ())
+                } else {
+                    Ok(())
+                }
+            }
+            PlayerCommand::ToggleMute => {
+                if let Some(session) = &self.session {
+                    session
+                        .ipc
+                        .call(serde_json::json!(["cycle", "mute"]))
+                        .await
+                        .map(|_| ())
+                } else {
+                    Ok(())
+                }
+            }
             PlayerCommand::Stop => self.stop_playback().await,
         };
 
@@ -238,33 +268,38 @@ impl PlayerController {
 
                     return Ok(());
                 }
-                Some("property-change") if self.notification_is_for_current() => {
-                    match event.get("name").and_then(Value::as_str) {
-                        Some("pause") => {
-                            let Some(paused) = event.get("data").and_then(Value::as_bool) else {
-                                return Ok(());
-                            };
+                Some("property-change") => match event.get("name").and_then(Value::as_str) {
+                    Some("pause") if self.notification_is_for_current() => {
+                        let Some(paused) = event.get("data").and_then(Value::as_bool) else {
+                            return Ok(());
+                        };
 
-                            if matches!(
-                                &self.state.phase,
-                                PlaybackPhase::Playing | PlaybackPhase::Paused
-                            ) {
-                                self.state.phase = if paused {
-                                    PlaybackPhase::Paused
-                                } else {
-                                    PlaybackPhase::Playing
-                                };
-                            }
+                        if matches!(
+                            &self.state.phase,
+                            PlaybackPhase::Playing | PlaybackPhase::Paused
+                        ) {
+                            self.state.phase = if paused {
+                                PlaybackPhase::Paused
+                            } else {
+                                PlaybackPhase::Playing
+                            };
                         }
-                        Some("duration") => {
-                            self.state.duration = event
-                                .get("data")
-                                .and_then(Value::as_f64)
-                                .map(|seconds| seconds.round() as u64);
-                        }
-                        _ => {}
                     }
-                }
+                    Some("duration") if self.notification_is_for_current() => {
+                        self.state.duration = event
+                            .get("data")
+                            .and_then(Value::as_f64)
+                            .map(|seconds| seconds.round() as u64);
+                    }
+                    Some("volume") => {
+                        self.state.volume = event
+                            .get("data")
+                            .and_then(Value::as_f64)
+                            .map(|seconds| seconds.round() as u64);
+                    }
+                    Some("mute") => self.state.muted = event.get("data").and_then(Value::as_bool),
+                    _ => {}
+                },
                 Some("seek") if self.notification_is_for_current() => {
                     let Some(session) = &self.session else {
                         return Ok(());
@@ -361,6 +396,14 @@ impl PlayerHandle {
 
     pub fn seek_relative(&self, seconds: i32) -> Result<()> {
         self.send(PlayerCommand::Seek(seconds))
+    }
+
+    pub fn adjust_volume(&self, value: i8) -> Result<()> {
+        self.send(PlayerCommand::AdjustVolume(value))
+    }
+
+    pub fn toggle_mute(&self) -> Result<()> {
+        self.send(PlayerCommand::ToggleMute)
     }
 
     pub fn stop(&self) -> Result<()> {

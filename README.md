@@ -247,6 +247,9 @@ Window-specific bindings are shown as inline help in popup windows.
 | `toggle_audio`                | Pause/resume audio                                                  | `space`       |
 | `seek_audio_backward`         | Seek audio backward 10 seconds                                      | `<`           |
 | `seek_audio_forward`          | Seek audio forward 10 seconds                                       | `>`           |
+| `increase_audio_volume`       | Increase audio volume by 2%                                         | `+`           |
+| `decrease_audio_volume`       | Decrease audio volume by 2%                                         | `-`           |
+| `toggle_audio_mute`           | Mute/unmute audio                                                   | `_`           |
 | `stop_audio`                  | Stop audio                                                          | `x`           |
 | `select_formats`              | Toggle format selection window                                      | `f`           |
 | `toggle_watched`              | Mark/unmark video as watched                                        | `m`           |
