@@ -23,6 +23,7 @@ use tokio_util::bytes::BytesMut;
 pub enum ClearNeeded {
     Full,
     LastLine,
+    ImageAnchor,
     None,
 }
 
@@ -192,7 +193,7 @@ async fn read_responses() -> Result<Vec<ParserResponse>> {
 
 fn clear_needed(graphics_protocol: GraphicsProtocol, term_program: Option<String>) -> ClearNeeded {
     if term_program.is_some_and(|t| t == "WarpTerminal") {
-        return ClearNeeded::Full;
+        return ClearNeeded::ImageAnchor;
     }
 
     match graphics_protocol {

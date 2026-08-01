@@ -5,6 +5,7 @@ use crate::{
     thumbnail::protocols::{GraphicsProtocol, chafa, halfblocks, kitty::place, ueberzug},
 };
 use anyhow::Result;
+use crossterm::{execute, style::Print};
 use protocols::ImageData;
 use ratatui::{
     buffer::{Buffer, CellDiffOption},
@@ -34,11 +35,15 @@ impl Thumbnail {
     }
 
     pub fn render(&mut self, buf: &mut Buffer, area: Rect, clear: ClearNeeded) -> Result<()> {
-        self.area = Some(area);
+        let previous_area = self.area.replace(area);
 
         let mut erase = match clear {
-            ClearNeeded::Full => clear_area(area)?,
-            ClearNeeded::LastLine => clear_last_line(area)?,
+            ClearNeeded::Full => area_clear_sequence(area)?,
+            ClearNeeded::LastLine => last_line_clear_sequence(area)?,
+            ClearNeeded::ImageAnchor => {
+                clear_previous_image_anchor(previous_area, area)?;
+                image_anchor_clear_sequence(area)?
+            }
             ClearNeeded::None => String::new(),
         };
 
@@ -90,7 +95,7 @@ impl Thumbnail {
     }
 }
 
-pub fn clear_area(area: Rect) -> Result<String> {
+pub fn area_clear_sequence(area: Rect) -> Result<String> {
     let mut erase = String::new();
 
     for _ in 0..area.height {
@@ -101,7 +106,7 @@ pub fn clear_area(area: Rect) -> Result<String> {
     Ok(erase)
 }
 
-fn clear_last_line(area: Rect) -> Result<String> {
+fn last_line_clear_sequence(area: Rect) -> Result<String> {
     let mut erase = String::new();
 
     write!(erase, "\x1b[{}B", area.height.saturating_sub(1))?;
@@ -115,6 +120,29 @@ fn clear_last_line(area: Rect) -> Result<String> {
     write!(erase, "\x1b[{}D", area.width.saturating_sub(1))?;
 
     Ok(erase)
+}
+
+fn image_anchor_clear_sequence(area: Rect) -> Result<String> {
+    let mut erase = String::from(" \x1b[1D");
+    erase.push_str(&last_line_clear_sequence(area)?);
+
+    Ok(erase)
+}
+
+fn clear_previous_image_anchor(previous_area: Option<Rect>, area: Rect) -> Result<()> {
+    if let Some(previous_area) = previous_area
+        && (previous_area.x != area.x || previous_area.y != area.y)
+    {
+        let erase = format!(
+            "\x1b7\x1b[{};{}H \x1b8",
+            u32::from(previous_area.y) + 1,
+            u32::from(previous_area.x) + 1
+        );
+
+        execute!(std::io::stdout(), Print(erase))?;
+    }
+
+    Ok(())
 }
 
 fn render_by_first_cell(buf: &mut Buffer, area: Rect, data: &str) {
