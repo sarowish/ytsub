@@ -34,6 +34,8 @@ It is advisable to add only the parts you want to change instead of checking in 
 | `rss_threshold`                   | Use RSS if the number of channels being refreshed or subscribed to exceeds the threshold.                    | `9999`                                      |
 | `tick_rate`                       | Tick rate in milliseconds. Determines how often the UI is redrawn for refresh status updates.                | `10`                                        |
 | `request_timeout`                 | Network request timeout in seconds.                                                                          | `5`                                         |
+| `proxy`                           | Proxy URL for HTTP requests made directly by ytsub.                                                          | -                                           |
+| `mpv_proxy`                       | Proxy URL passed to mpv and its yt-dlp integration.                                                          | -                                           |
 | `highlight_symbol`                | Symbol used to highlight selected items.                                                                     | `""`                                        |
 | `to_be_refreshed_symbol`          | Symbol shown for a channel waiting to be refreshed.                                                          | `"□ "`                                      |
 | `refreshing_symbol`               | Symbol shown while a channel is being refreshed.                                                             | `"■ "`                                      |
@@ -61,7 +63,16 @@ It is advisable to add only the parts you want to change instead of checking in 
 
 ### Notes
 
-- the options from `subtitle_languages` to `chapters` only apply when playing stream formats (`play_from_formats` command).
+- The options from `subtitle_languages` to `chapters` only apply when playing
+  stream formats (`play_from_formats` command).
+- `proxy` controls requests made by ytsub and supports HTTP, HTTPS, SOCKS4,
+  SOCKS4A, SOCKS5, and SOCKS5H URLs. When unset, it uses `HTTP_PROXY`,
+  `HTTPS_PROXY`, and `ALL_PROXY` environment variables, or their lowercase
+  equivalents. `NO_PROXY` and `no_proxy` environment variables are respected.
+- `mpv_proxy` controls mpv and the yt-dlp instance it invokes. It does not
+  inherit from `proxy`. SOCKS and HTTPS proxy endpoints require mpv's
+  [libcurl network backend](https://github.com/mpv-player/mpv/pull/17879).
+  Proxy configuration for VLC is not supported.
 
 ## Theme
 

@@ -1,4 +1,4 @@
-use crate::CONFIG;
+use crate::{CONFIG, http};
 use anyhow::{Result, bail};
 use chrono::{DateTime, NaiveDateTime};
 use regex_lite::Regex;
@@ -57,7 +57,12 @@ fn hyperlink(text: &str, link: &str) -> String {
 pub async fn fetch_invidious_instances() -> Result<Vec<String>> {
     const REQUEST_URL: &str = "https://api.invidious.io/instances.json";
     const ONION: &str = "onion";
-    let instances: Value = reqwest::get(REQUEST_URL).await?.json().await?;
+    let instances: Value = http::client()?
+        .get(REQUEST_URL)
+        .send()
+        .await?
+        .json()
+        .await?;
     Ok(instances
         .as_array()
         .unwrap()

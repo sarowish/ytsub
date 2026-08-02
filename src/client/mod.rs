@@ -140,7 +140,7 @@ impl Client {
             audio_player,
             invidious_instances: utils::read_instances().ok(),
             invidious_instance: None,
-            local_api: Local::new(),
+            local_api: Local::new()?,
             selected_api: CONFIG.api,
         };
 
@@ -282,7 +282,7 @@ impl Client {
                 bail!("No Invidious instance available.");
             }
 
-            self.invidious_instance = Some(Instance::new(invidious_instances));
+            self.invidious_instance = Some(Instance::new(invidious_instances)?);
         } else {
             emit_msg!(perm, "Fetching instances");
 

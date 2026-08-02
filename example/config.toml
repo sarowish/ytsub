@@ -9,6 +9,9 @@ refresh_on_launch = true
 rss_threshold = 9999
 tick_rate = 10
 request_timeout = 5
+# the commented out options below are `None` by default
+# proxy = "http://127.0.0.1:8080"
+# mpv_proxy = "socks5h://127.0.0.1:1080"
 highlight_symbol = ""
 to_be_refreshed_symbol = "□ "
 refreshing_symbol = "■ "
@@ -29,7 +32,6 @@ prefer_dash_formats = true
 prefer_original_titles = true
 prefer_original_audio = true
 video_quality = "best"
-# the commented out options below are `None` by default
 # preferred_video_codec = "webm"
 # preferred_audio_codec = "webm"
 chapters = true

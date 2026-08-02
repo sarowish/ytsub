@@ -9,6 +9,7 @@ mod config;
 mod database;
 mod emulator;
 mod help;
+mod http;
 mod import;
 mod input;
 mod list;

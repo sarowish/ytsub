@@ -5,7 +5,7 @@ use crate::config::EnabledTabs;
 use crate::emit_msg;
 use crate::list::ListItem;
 use crate::stream_formats::Formats;
-use crate::{CONFIG, channel::Video, utils};
+use crate::{CONFIG, channel::Video, http, utils};
 use anyhow::{Result, bail};
 use async_trait::async_trait;
 use futures_util::future::join_all;
@@ -14,7 +14,6 @@ use reqwest::Client;
 use serde_json::Value;
 use std::collections::HashSet;
 use std::sync::{LazyLock, OnceLock};
-use std::time::Duration;
 use std::{io::Write, path::PathBuf};
 
 const API_BACKEND: ApiBackend = ApiBackend::Local;
@@ -347,18 +346,13 @@ fn extract_videos_from_tab(tab: &Value) -> Option<&[Value]> {
 }
 
 impl Local {
-    pub fn new() -> Self {
-        let client = Client::builder()
-            .timeout(Duration::from_secs(CONFIG.request_timeout))
-            .build()
-            .unwrap();
-
-        Self {
-            client,
+    pub fn new() -> Result<Self> {
+        Ok(Self {
+            client: http::client()?,
             shorts_available: false,
             streams_available: false,
             continuation: None,
-        }
+        })
     }
 
     async fn get_visitor_data(&self) -> Result<String> {

@@ -42,7 +42,7 @@ chrono = "0.4.45"
 dyn-clone = "1.0.20"
 ratatui = "0.30.2"
 regex-lite = "0.1.9"
-reqwest = { version = "0.13.4", features = ["json", "query", "gzip"] }
+reqwest = { version = "0.13.4", features = ["json", "query", "gzip", "socks"] }
 async-trait = "0.1.91"
 open = "5.4.0"
 bitflags = "2.13.1"

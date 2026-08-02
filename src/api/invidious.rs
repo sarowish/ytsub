@@ -1,6 +1,7 @@
 use super::{Api, ApiBackend, Chapters, Format, VideoInfo};
 use crate::api::{ChannelFeed, ChannelTab, load_more_progress_msg};
 use crate::channel::Video;
+use crate::http;
 use crate::stream_formats::Formats;
 use crate::{CONFIG, TX, emit_msg};
 use anyhow::Result;
@@ -9,7 +10,6 @@ use rand::prelude::*;
 use reqwest::Client;
 use serde_json::Value;
 use std::collections::HashSet;
-use std::time::Duration;
 
 const API_BACKEND: ApiBackend = ApiBackend::Invidious;
 
@@ -27,19 +27,15 @@ pub struct Instance {
 }
 
 impl Instance {
-    pub fn new(invidious_instances: &[String]) -> Self {
+    pub fn new(invidious_instances: &[String]) -> Result<Self> {
         let mut rng = rand::rng();
         let domain = invidious_instances[rng.random_range(0..invidious_instances.len())].clone();
-        let client = Client::builder()
-            .timeout(Duration::from_secs(CONFIG.request_timeout))
-            .build()
-            .unwrap();
 
-        Self {
+        Ok(Self {
             domain,
-            client,
+            client: http::client()?,
             continuation: None,
-        }
+        })
     }
 
     async fn get_tab_of_channel(&self, channel_id: &str, tab: ChannelTab) -> Result<Value> {

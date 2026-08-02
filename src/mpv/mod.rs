@@ -12,6 +12,18 @@ use tokio::{
 mod controller;
 mod ipc;
 
+pub fn configure_proxy(command: &mut Command, uses_ytdlp: bool) {
+    let Some(proxy) = CONFIG.mpv_proxy.as_deref() else {
+        return;
+    };
+
+    command.arg(format!("--http-proxy={proxy}"));
+
+    if uses_ytdlp {
+        command.arg(format!("--ytdl-raw-options-append=proxy={proxy}"));
+    }
+}
+
 #[cfg(unix)]
 fn ipc_endpoint() -> PathBuf {
     std::env::temp_dir().join(format!("ytsub-mpv-{}.sock", std::process::id()))
@@ -36,13 +48,15 @@ impl MpvSession {
 
         let endpoint = ipc_endpoint();
 
-        let mut child = Command::new(&CONFIG.mpv_path)
+        let mut command = Command::new(&CONFIG.mpv_path);
+        command
             .arg("--idle=yes")
             .arg("--no-terminal")
             .arg("--vid=no")
-            .arg(format!("--input-ipc-server={}", endpoint.display()))
-            .kill_on_drop(true)
-            .spawn()?;
+            .arg(format!("--input-ipc-server={}", endpoint.display()));
+        configure_proxy(&mut command, true);
+
+        let mut child = command.kill_on_drop(true).spawn()?;
 
         let deadline = Instant::now() + CONNECT_TIMEOUT;
 
