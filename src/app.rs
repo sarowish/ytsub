@@ -379,8 +379,8 @@ impl App {
     }
 
     pub fn play_video(&mut self) {
-        if let Some(current_video) = self.get_current_video() {
-            self.dispatch(IoEvent::PlayUsingYtdlp(current_video.video_id.clone()));
+        if let Some(metadata) = self.get_current_video_metadata() {
+            self.dispatch(IoEvent::PlayUsingYtdlp(metadata));
         }
     }
 
@@ -411,24 +411,28 @@ impl App {
         }
     }
 
-    pub fn toggle_audio(&mut self) {
-        self.dispatch(IoEvent::ToggleAudio);
+    pub fn toggle_playback(&mut self) {
+        self.dispatch(IoEvent::TogglePlayback);
     }
 
-    pub fn seek_audio(&mut self, seconds: i32) {
-        self.dispatch(IoEvent::SeekAudio(seconds));
+    pub fn seek_playback(&mut self, seconds: i32) {
+        self.dispatch(IoEvent::SeekPlayback(seconds));
     }
 
-    pub fn adjust_audio_volume(&mut self, value: i8) {
+    pub fn adjust_volume(&mut self, value: i8) {
         self.dispatch(IoEvent::AdjustVolume(value));
     }
 
-    pub fn toggle_audio_mute(&mut self) {
+    pub fn toggle_mute(&mut self) {
         self.dispatch(IoEvent::ToggleMute);
     }
 
-    pub fn stop_audio(&mut self) {
-        self.dispatch(IoEvent::StopAudio);
+    pub fn stop_playback(&mut self) {
+        self.dispatch(IoEvent::StopPlayback);
+    }
+
+    pub fn release_video(&mut self) {
+        self.dispatch(IoEvent::ReleaseVideo);
     }
 
     pub fn enter_format_selection(&mut self) {

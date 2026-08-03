@@ -1,6 +1,9 @@
-use super::MpvSession;
-use crate::{channel::VideoMetadata, mpv::ipc::MpvNotification};
-use anyhow::Result;
+use super::{
+    MpvLaunch, MpvSession, PlaybackItem, PlaybackKind, VideoRequest, VideoSource,
+    ipc::MpvNotification,
+};
+use crate::channel::VideoMetadata;
+use anyhow::{Context, Result};
 use serde_json::Value;
 use std::time::Duration;
 use tokio::{
@@ -9,21 +12,53 @@ use tokio::{
     time::MissedTickBehavior,
 };
 
-enum PlayerCommand {
-    Play {
+enum PlayRequest {
+    Audio {
         metadata: VideoMetadata,
         source: String,
     },
+    Video(VideoRequest),
+}
+
+impl PlayRequest {
+    fn kind(&self) -> PlaybackKind {
+        match self {
+            PlayRequest::Audio { .. } => PlaybackKind::Audio,
+            PlayRequest::Video(_) => PlaybackKind::Video,
+        }
+    }
+
+    fn metadata(&self) -> &VideoMetadata {
+        match self {
+            PlayRequest::Audio { metadata, .. } => metadata,
+            PlayRequest::Video(request) => &request.metadata,
+        }
+    }
+
+    fn source(&self) -> &str {
+        match self {
+            PlayRequest::Audio { source, .. } => source,
+            PlayRequest::Video(request) => match &request.source {
+                VideoSource::YtDlp(source) => source,
+                VideoSource::Direct { video_url, .. } => video_url,
+            },
+        }
+    }
+}
+
+enum PlayerCommand {
+    Play(PlayRequest),
     Toggle,
     Seek(i32),
     AdjustVolume(i8),
     ToggleMute,
     Stop,
+    ReleaseVideo,
 }
 
 #[derive(Clone)]
 pub struct PlaybackState {
-    pub metadata: Option<VideoMetadata>,
+    pub item: Option<PlaybackItem>,
     pub phase: PlaybackPhase,
     pub elapsed: Option<u64>,
     pub duration: Option<u64>,
@@ -34,7 +69,7 @@ pub struct PlaybackState {
 impl PlaybackState {
     fn idle() -> Self {
         Self {
-            metadata: None,
+            item: None,
             phase: PlaybackPhase::Idle,
             elapsed: None,
             duration: None,
@@ -129,12 +164,38 @@ impl PlayerController {
         }
     }
 
-    async fn ensure_session(&mut self) -> Result<&mut MpvSession> {
-        if self.session.is_none() {
-            self.session = Some(MpvSession::new().await?);
+    async fn close_session(&mut self) {
+        if let Some(session) = self.session.take() {
+            let _ = session.ipc.call(serde_json::json!(["quit"])).await;
         }
 
-        Ok(self.session.as_mut().unwrap())
+        self.requested_entry_id = None;
+        self.event_entry_id = None;
+    }
+
+    async fn ensure_session(&mut self, request: &PlayRequest) -> Result<&mut MpvSession> {
+        let reuse_audio = matches!(request, PlayRequest::Audio { .. })
+            && self
+                .session
+                .as_ref()
+                .is_some_and(|session| session.kind == PlaybackKind::Audio);
+
+        if !reuse_audio {
+            self.close_session().await;
+
+            let launch = match request {
+                PlayRequest::Audio { .. } => MpvLaunch {
+                    kind: PlaybackKind::Audio,
+                    uses_ytdlp: true,
+                    extra_args: Vec::new(),
+                },
+                PlayRequest::Video(request) => MpvLaunch::from_video(request),
+            };
+
+            self.session = Some(MpvSession::new(launch).await?);
+        }
+
+        self.session.as_mut().context("mpv session was not created")
     }
 
     fn notification_is_for_current(&self) -> bool {
@@ -164,24 +225,44 @@ impl PlayerController {
             return Ok(());
         };
 
-        session.ipc.call(serde_json::json!(["stop"])).await?;
-        self.publish_state();
+        match session.kind {
+            PlaybackKind::Video => {
+                session.ipc.call(serde_json::json!(["quit"])).await?;
+            }
+            PlaybackKind::Audio => {
+                session.ipc.call(serde_json::json!(["stop"])).await?;
+            }
+        }
 
         Ok(())
     }
 
+    fn release_video(&mut self) {
+        if self
+            .session
+            .as_ref()
+            .is_some_and(|session| session.kind == PlaybackKind::Video)
+        {
+            self.disconnect_session();
+            self.publish_state();
+        }
+    }
+
     async fn handle_command(&mut self, command: PlayerCommand) -> Result<()> {
         let result: Result<()> = match command {
-            PlayerCommand::Play { metadata, source } => {
-                self.state.metadata = Some(metadata);
+            PlayerCommand::Play(request) => {
+                self.state.item = Some(PlaybackItem {
+                    metadata: request.metadata().clone(),
+                    kind: request.kind(),
+                });
                 self.state.phase = PlaybackPhase::Loading;
                 self.state.elapsed = None;
                 self.state.duration = None;
                 self.publish_state();
 
                 async {
-                    let session = self.ensure_session().await?;
-                    let entry_id = session.ipc.load_file(&source).await?;
+                    let session = self.ensure_session(&request).await?;
+                    let entry_id = session.ipc.load_file(request.source()).await?;
 
                     session
                         .ipc
@@ -243,6 +324,10 @@ impl PlayerController {
                 }
             }
             PlayerCommand::Stop => self.stop_playback().await,
+            PlayerCommand::ReleaseVideo => {
+                self.release_video();
+                Ok(())
+            }
         };
 
         if let Err(error) = result {
@@ -338,7 +423,7 @@ impl PlayerController {
                         let error = event
                             .get("file_error")
                             .and_then(Value::as_str)
-                            .unwrap_or("mpv failed to play audio");
+                            .unwrap_or("mpv failed to play media");
 
                         self.state.phase = PlaybackPhase::Error(error.to_owned());
                     }
@@ -346,8 +431,16 @@ impl PlayerController {
                 _ => return Ok(()),
             },
             MpvNotification::Disconnected(error) => {
+                let previous_phase = self.state.phase.clone();
+
                 self.disconnect_session();
-                self.state.phase = PlaybackPhase::Error(error);
+
+                self.state.phase = match previous_phase {
+                    PlaybackPhase::Loading | PlaybackPhase::Playing | PlaybackPhase::Paused => {
+                        PlaybackPhase::Error(error)
+                    }
+                    _ => previous_phase,
+                }
             }
         }
 
@@ -386,8 +479,12 @@ impl PlayerHandle {
             .map_err(|error| anyhow::anyhow!("failed to send player command: {error}"))
     }
 
-    pub fn play(&self, metadata: VideoMetadata, source: String) -> Result<()> {
-        self.send(PlayerCommand::Play { metadata, source })
+    pub fn play_audio(&self, metadata: VideoMetadata, source: String) -> Result<()> {
+        self.send(PlayerCommand::Play(PlayRequest::Audio { metadata, source }))
+    }
+
+    pub fn play_video(&self, request: VideoRequest) -> Result<()> {
+        self.send(PlayerCommand::Play(PlayRequest::Video(request)))
     }
 
     pub fn toggle(&self) -> Result<()> {
@@ -408,5 +505,9 @@ impl PlayerHandle {
 
     pub fn stop(&self) -> Result<()> {
         self.send(PlayerCommand::Stop)
+    }
+
+    pub fn release_video(&self) -> Result<()> {
+        self.send(PlayerCommand::ReleaseVideo)
     }
 }

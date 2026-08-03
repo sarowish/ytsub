@@ -138,7 +138,7 @@ bitflags! {
     }
 }
 
-#[derive(Clone)]
+#[derive(Default, Clone)]
 pub struct VideoMetadata {
     pub video_id: String,
     pub title: String,

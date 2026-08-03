@@ -2,42 +2,17 @@ use crate::TX;
 use crate::api::ApiBackend;
 use crate::client::{Client, ClientRequest};
 use crate::clipboard::{CopyStatus, copy_to_clipboard};
-use crate::{CONFIG, api::Api, app::VideoPlayer, emit_msg, mpv, stream_formats::Formats};
+use crate::mpv::{PlayerHandle, VideoRequest, VideoSource};
+use crate::process::run_detached;
+use crate::{CONFIG, api::Api, app::VideoPlayer, emit_msg, stream_formats::Formats};
 use anyhow::Result;
-use std::path::Path;
-use std::process::Stdio;
 use tokio::process::Command;
 
-pub async fn run_detached(mut command: Command) -> Result<()> {
-    #[cfg(unix)]
-    unsafe {
-        command.pre_exec(|| {
-            if libc::setsid() < 0 {
-                return Err(std::io::Error::last_os_error());
-            }
-
-            Ok(())
-        })
-    };
-
-    let mut child = command
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .spawn()?;
-
-    let exit_status = child.wait().await?;
-
-    if let Some(code) = exit_status.code()
-        && code != 0
-    {
-        Err(anyhow::anyhow!("Process exited with status code {code}"))
-    } else {
-        Ok(())
-    }
-}
-
-pub async fn play_from_formats(instance: Box<dyn Api>, formats: Formats) -> Result<()> {
+pub async fn play_from_formats(
+    instance: Box<dyn Api>,
+    player: PlayerHandle,
+    formats: Formats,
+) -> Result<()> {
     let Some((video_url, audio_url)) = formats.get_selected_video_url() else {
         emit_msg!(error, "No playable stream available");
         return Ok(());
@@ -48,79 +23,34 @@ pub async fn play_from_formats(instance: Box<dyn Api>, formats: Formats) -> Resu
     let chapters = formats
         .chapters
         .as_ref()
-        .and_then(|chapters| chapters.write_to_file(&formats.id).ok());
+        .and_then(|chapters| chapters.write_to_file(&formats.metadata.video_id).ok());
 
-    let player_command = gen_video_player_command(
-        video_url,
-        audio_url,
-        &captions,
-        chapters.as_deref(),
-        &formats.title,
-    );
-
-    play_video(player_command, &formats.id).await
-}
-
-pub fn youtube_watch_url(video_id: &str) -> String {
-    format!("https://www.youtube.com/watch?v={video_id}")
-}
-
-pub async fn play_using_ytdlp(video_id: &str) -> Result<()> {
-    let url = youtube_watch_url(video_id);
-
-    let mut player_command = Command::new(&CONFIG.mpv_path);
-    mpv::configure_proxy(&mut player_command, true);
-    player_command.arg(url);
-
-    play_video(player_command, video_id).await
-}
-
-async fn play_video(player_command: Command, video_id: &str) -> Result<()> {
     emit_msg!("Launching video player");
-    TX.send(ClientRequest::SetWatched(video_id.to_owned(), true))?;
 
-    if let Err(e) = run_detached(player_command).await {
-        emit_msg!(error, e.to_string());
-        TX.send(ClientRequest::SetWatched(video_id.to_owned(), false))?;
-    }
-
-    Ok(())
-}
-
-fn gen_video_player_command(
-    video_url: &str,
-    audio_url: Option<&str>,
-    captions: &[String],
-    chapters: Option<&Path>,
-    title: &str,
-) -> Command {
-    let mut command;
     match CONFIG.video_player_for_stream_formats {
         VideoPlayer::Mpv => {
-            command = Command::new(&CONFIG.mpv_path);
-            mpv::configure_proxy(&mut command, false);
-            command
-                .arg(format!("--force-media-title={title}"))
-                .arg("--no-ytdl")
-                .arg(video_url);
+            let request = VideoRequest {
+                source: VideoSource::Direct {
+                    video_url: video_url.to_owned(),
+                    audio_url: audio_url.map(str::to_owned),
+                    captions,
+                    chapters,
+                },
+                metadata: formats.metadata,
+            };
 
-            if let Some(audio_url) = audio_url {
-                command.arg(format!("--audio-file={audio_url}"));
+            match player.play_video(request) {
+                Ok(()) => emit_msg!(),
+                Err(error) => emit_msg!(error, error.to_string()),
             }
 
-            for caption in captions {
-                command.arg(format!("--sub-file={caption}"));
-            }
-
-            if let Some(path) = chapters {
-                command.arg(format!("--chapters-file={}", path.display()));
-            }
+            Ok(())
         }
         VideoPlayer::Vlc => {
-            command = Command::new(&CONFIG.vlc_path);
+            let mut command = Command::new(&CONFIG.vlc_path);
             command
                 .arg("--no-video-title-show")
-                .arg(format!("--input-title-format={title}"))
+                .arg(format!("--input-title-format={}", formats.metadata.title))
                 .arg("--play-and-exit")
                 .arg(video_url);
 
@@ -131,10 +61,25 @@ fn gen_video_player_command(
             if !captions.is_empty() {
                 command.arg(format!("--sub-file={}", captions.join(" ")));
             }
+
+            play_video(command, &formats.metadata.video_id).await
         }
     }
+}
 
-    command
+pub fn youtube_watch_url(video_id: &str) -> String {
+    format!("https://www.youtube.com/watch?v={video_id}")
+}
+
+async fn play_video(player_command: Command, video_id: &str) -> Result<()> {
+    TX.send(ClientRequest::SetWatched(video_id.to_owned(), true))?;
+
+    if let Err(e) = run_detached(player_command).await {
+        emit_msg!(error, e.to_string());
+        TX.send(ClientRequest::SetWatched(video_id.to_owned(), false))?;
+    }
+
+    Ok(())
 }
 
 async fn invidious_url(client: &mut Client, url_component: &str) -> Result<String> {

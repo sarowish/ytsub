@@ -765,8 +765,12 @@ impl Api for Local {
         let captions = formats.captions.get_selected_items();
 
         join_all(captions.iter().map(|captions| async {
-            self.get_caption(captions.get_url(), &formats.id, captions.id())
-                .await
+            self.get_caption(
+                captions.get_url(),
+                &formats.metadata.video_id,
+                captions.id(),
+            )
+            .await
         }))
         .await
         .into_iter()

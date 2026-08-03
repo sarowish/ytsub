@@ -54,7 +54,7 @@ pub async fn get_thumbnail(
 
 pub async fn fetch_formats(
     instance: Box<dyn Api>,
-    audio_player: PlayerHandle,
+    player: PlayerHandle,
     metadata: VideoMetadata,
     action: FormatAction,
 ) -> Result<()> {
@@ -62,11 +62,7 @@ pub async fn fetch_formats(
     let video_info = instance.get_video_formats(&metadata.video_id).await;
 
     let formats = match video_info {
-        Ok(video_info) => Formats::new(
-            metadata.title.clone(),
-            metadata.video_id.clone(),
-            video_info,
-        ),
+        Ok(video_info) => Formats::new(metadata, video_info),
         Err(e) => {
             emit_msg!(error, e.to_string());
             return Ok(());
@@ -79,7 +75,7 @@ pub async fn fetch_formats(
             TX.send(ClientRequest::EnterFormatSelection(Box::new(formats)))?;
         }
         FormatAction::PlayVideo => {
-            player::play_from_formats(instance, formats).await?;
+            player::play_from_formats(instance, player, formats).await?;
         }
         FormatAction::PlayAudio => {
             let Some(source) = formats.get_selected_audio_url().map(str::to_owned) else {
@@ -87,7 +83,7 @@ pub async fn fetch_formats(
                 return Ok(());
             };
 
-            match audio_player.play(metadata, source) {
+            match player.play_audio(formats.metadata, source) {
                 Ok(()) => emit_msg!(),
                 Err(error) => emit_msg!(error, error.to_string()),
             }

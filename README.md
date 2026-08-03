@@ -242,15 +242,16 @@ Window-specific bindings are shown as inline help in popup windows.
 | `open_in_invidious`           | Open channel or video Invidious page in browser                     | `O`           |
 | `play_from_formats`           | Play video in video player using stream formats                     | `p`           |
 | `play_using_ytdlp`            | Play video in mpv using yt-dlp                                      | `P`           |
-| `play_audio`                  | Play audio in the TUI using stream formats                          | `a`           |
-| `play_audio_using_ytdlp`      | Play audio in the TUI using yt-dlp                                  | `A`           |
-| `toggle_audio`                | Pause/resume audio                                                  | `space`       |
-| `seek_audio_backward`         | Seek audio backward 10 seconds                                      | `<`           |
-| `seek_audio_forward`          | Seek audio forward 10 seconds                                       | `>`           |
-| `increase_audio_volume`       | Increase audio volume by 2%                                         | `+`           |
-| `decrease_audio_volume`       | Decrease audio volume by 2%                                         | `-`           |
-| `toggle_audio_mute`           | Mute/unmute audio                                                   | `_`           |
-| `stop_audio`                  | Stop audio                                                          | `x`           |
+| `play_audio`                  | Play audio using stream formats                                     | `a`           |
+| `play_audio_using_ytdlp`      | Play audio using yt-dlp                                             | `A`           |
+| `toggle_playback`             | Pause/resume playback                                               | `space`       |
+| `seek_backward`               | Seek playback backward 10 seconds                                   | `<`           |
+| `seek_forward`                | Seek playback forward 10 seconds                                    | `>`           |
+| `increase_volume`             | Increase volume by 2%                                               | `+`           |
+| `decrease_volume`             | Decrease volume by 2%                                               | `-`           |
+| `toggle_mute`                 | Mute/unmute playback                                                | `_`           |
+| `stop_playback`               | Stop playback                                                       | `x`           |
+| `release_video`               | Release control of the current video                                | —             |
 | `select_formats`              | Toggle format selection window                                      | `f`           |
 | `toggle_watched`              | Mark/unmark video as watched                                        | `m`           |
 | `toggle_help`                 | Toggle help window                                                  | `ctrl-h`      |

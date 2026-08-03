@@ -5,11 +5,8 @@ use crate::{
     api::{Api, ApiBackend, ChannelFeed, invidious::Instance, local::Local},
     channel::{ChannelTab, RefreshState, VideoMetadata},
     message::MessageType,
-    mpv::PlayerHandle,
-    player::{
-        copy_link, open_in_invidious, open_in_youtube, play_from_formats, play_using_ytdlp,
-        youtube_watch_url,
-    },
+    mpv::{PlayerHandle, VideoRequest, VideoSource},
+    player::{copy_link, open_in_invidious, open_in_youtube, play_from_formats, youtube_watch_url},
     ro_cell::RoCell,
     stream_formats::Formats,
     thumbnail::{Thumbnail, protocols::GraphicsProtocol},
@@ -64,13 +61,14 @@ pub enum IoEvent {
     GetThumbnail(GraphicsProtocol, String),
     FetchFormats(VideoMetadata, FormatAction),
     PlayFromFormats(Box<Formats>),
-    PlayUsingYtdlp(String),
+    PlayUsingYtdlp(VideoMetadata),
     PlayAudioUsingYtdlp(VideoMetadata),
-    ToggleAudio,
-    SeekAudio(i32),
+    TogglePlayback,
+    SeekPlayback(i32),
     AdjustVolume(i8),
     ToggleMute,
-    StopAudio,
+    StopPlayback,
+    ReleaseVideo,
     CopyLink(String, ApiBackend),
     OpenInBrowser(String, ApiBackend),
     ClearMessage(CancellationToken, u64),
@@ -126,7 +124,7 @@ pub static TX: RoCell<UnboundedSender<ClientRequest>> = RoCell::new();
 
 pub struct Client {
     rx: UnboundedReceiver<IoEvent>,
-    audio_player: PlayerHandle,
+    player: PlayerHandle,
     pub invidious_instances: Option<Vec<String>>,
     pub invidious_instance: Option<Instance>,
     local_api: Local,
@@ -134,10 +132,10 @@ pub struct Client {
 }
 
 impl Client {
-    pub async fn new(rx: UnboundedReceiver<IoEvent>, audio_player: PlayerHandle) -> Result<Self> {
+    pub async fn new(rx: UnboundedReceiver<IoEvent>, player: PlayerHandle) -> Result<Self> {
         let mut client = Self {
             rx,
-            audio_player,
+            player,
             invidious_instances: utils::read_instances().ok(),
             invidious_instance: None,
             local_api: Local::new()?,
@@ -189,48 +187,66 @@ impl Client {
                 }
                 IoEvent::FetchFormats(metadata, action) => {
                     let instance = self.instance();
-                    let audio_player = self.audio_player.clone();
+                    let player = self.player.clone();
 
-                    tokio::spawn(async move {
-                        fetch_formats(instance, audio_player, metadata, action).await
-                    });
+                    tokio::spawn(
+                        async move { fetch_formats(instance, player, metadata, action).await },
+                    );
                 }
                 IoEvent::PlayFromFormats(formats) => {
                     let instance = self.instance();
-                    tokio::spawn(async move { play_from_formats(instance, *formats).await });
+                    let player = self.player.clone();
+
+                    tokio::spawn(
+                        async move { play_from_formats(instance, player, *formats).await },
+                    );
                 }
-                IoEvent::PlayUsingYtdlp(video_id) => {
-                    tokio::spawn(async move { play_using_ytdlp(&video_id).await });
+                IoEvent::PlayUsingYtdlp(metadata) => {
+                    let url = youtube_watch_url(&metadata.video_id);
+
+                    let request = VideoRequest {
+                        metadata,
+                        source: VideoSource::YtDlp(url),
+                    };
+
+                    if let Err(error) = self.player.play_video(request) {
+                        emit_msg!(error, error.to_string());
+                    }
                 }
                 IoEvent::PlayAudioUsingYtdlp(metadata) => {
                     let source = youtube_watch_url(&metadata.video_id);
 
-                    if let Err(error) = self.audio_player.play(metadata, source) {
+                    if let Err(error) = self.player.play_audio(metadata, source) {
                         emit_msg!(error, error.to_string());
                     }
                 }
-                IoEvent::ToggleAudio => {
-                    if let Err(error) = self.audio_player.toggle() {
+                IoEvent::TogglePlayback => {
+                    if let Err(error) = self.player.toggle() {
                         emit_msg!(error, error.to_string());
                     }
                 }
-                IoEvent::SeekAudio(seconds) => {
-                    if let Err(error) = self.audio_player.seek_relative(seconds) {
+                IoEvent::SeekPlayback(seconds) => {
+                    if let Err(error) = self.player.seek_relative(seconds) {
                         emit_msg!(error, error.to_string());
                     }
                 }
                 IoEvent::AdjustVolume(value) => {
-                    if let Err(error) = self.audio_player.adjust_volume(value) {
+                    if let Err(error) = self.player.adjust_volume(value) {
                         emit_msg!(error, error.to_string());
                     }
                 }
                 IoEvent::ToggleMute => {
-                    if let Err(error) = self.audio_player.toggle_mute() {
+                    if let Err(error) = self.player.toggle_mute() {
                         emit_msg!(error, error.to_string());
                     }
                 }
-                IoEvent::StopAudio => {
-                    if let Err(error) = self.audio_player.stop() {
+                IoEvent::StopPlayback => {
+                    if let Err(error) = self.player.stop() {
+                        emit_msg!(error, error.to_string());
+                    }
+                }
+                IoEvent::ReleaseVideo => {
+                    if let Err(error) = self.player.release_video() {
                         emit_msg!(error, error.to_string());
                     }
                 }

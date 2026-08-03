@@ -114,8 +114,8 @@ values are patched onto the selected style.
 | `members_only_indicator` | The `[M]` indicator shown for members-only videos.                                    |
 | `selected_block`         | Border of the active pane.                                                            |
 | `video_info`             | Field names in the `Video Info` panel.                                                |
-| `progress_bar`           | Filled portion of the audio playback progress bar.                                    |
-| `progress_bar_unfilled`  | Unfilled portion of the audio playback progress bar.                                  |
+| `progress_bar`           | Filled portion of the playback progress bar.                                          |
+| `progress_bar_unfilled`  | Unfilled portion of the playback progress bar.                                        |
 | `error`                  | Error messages.                                                                       |
 | `warning`                | Warning messages.                                                                     |
 | `help`                   | Key names in help popups and inline help.                                             |
@@ -206,15 +206,16 @@ Valid key codes are:
 | `open_in_invidious`           | Open channel or video Invidious page in browser                     |
 | `play_from_formats`           | Play video in video player using stream formats                     |
 | `play_using_ytdlp`            | Play video in mpv using yt-dlp                                      |
-| `play_audio`                  | Play audio in the TUI using stream formats                          |
-| `play_audio_using_ytdlp`      | Play audio in the TUI using yt-dlp                                  |
-| `toggle_audio`                | Pause/resume audio                                                  |
-| `seek_audio_backward`         | Seek audio backward 10 seconds                                      |
-| `seek_audio_forward`          | Seek audio forward 10 seconds                                       |
-| `increase_audio_volume`       | Increase audio volume by 2%                                         |
-| `decrease_audio_volume`       | Decrease audio volume by 2%                                         |
-| `toggle_audio_mute`           | Mute/unmute audio                                                   |
-| `stop_audio`                  | Stop audio                                                          |
+| `play_audio`                  | Play audio using stream formats                                     |
+| `play_audio_using_ytdlp`      | Play audio using yt-dlp                                             |
+| `toggle_playback`             | Pause/resume playback                                               |
+| `seek_backward`               | Seek playback backward 10 seconds                                   |
+| `seek_forward`                | Seek playback forward 10 seconds                                    |
+| `increase_volume`             | Increase volume by 2%                                               |
+| `decrease_volume`             | Decrease volume by 2%                                               |
+| `toggle_mute`                 | Mute/unmute playback                                                |
+| `stop_playback`               | Stop playback                                                       |
+| `release_video`               | Release control of the current video                                |
 | `select_formats`              | Toggle format selection window                                      |
 | `toggle_watched`              | Mark/unmark video as watched                                        |
 | `toggle_help`                 | Toggle help window                                                  |

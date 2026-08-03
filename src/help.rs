@@ -4,7 +4,7 @@ use ratatui::layout::Rect;
 use std::ops::{Deref, DerefMut};
 use unicode_width::UnicodeWidthStr;
 
-const DESCRIPTIONS_LEN: usize = 49;
+const DESCRIPTIONS_LEN: usize = 50;
 const DESCRIPTIONS: [&str; DESCRIPTIONS_LEN] = [
     "Switch to subscriptions mode",
     "Switch to latest videos mode",
@@ -43,13 +43,14 @@ const DESCRIPTIONS: [&str; DESCRIPTIONS_LEN] = [
     "Play video in mpv using yt-dlp",
     "Play audio using stream formats",
     "Play audio using yt-dlp",
-    "Pause/resume audio",
-    "Seek audio backward 10 seconds",
-    "Seek audio forward 10 seconds",
-    "Increase audio volume by 2%",
-    "Decrease audio volume by 2%",
-    "Mute/unmute audio",
-    "Stop audio",
+    "Pause/resume playback",
+    "Seek playback backward 10 seconds",
+    "Seek playback forward 10 seconds",
+    "Increase volume by 2%",
+    "Decrease volume by 2%",
+    "Mute/unmute playback",
+    "Stop playback",
+    "Release control of the current video",
     "Toggle format selection window",
     "Mark/unmark video as watched",
     "Toggle help window",
