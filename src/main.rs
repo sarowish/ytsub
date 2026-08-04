@@ -17,6 +17,7 @@ mod message;
 mod mpv;
 mod player;
 mod process;
+mod progress;
 mod protobuf;
 mod ro_cell;
 mod search;
@@ -188,7 +189,7 @@ async fn run_tui(
     let (req_tx, mut req_rx) = mpsc::unbounded_channel();
     TX.init(req_tx);
 
-    let (player, mut playback_state, _player_task) = mpv::PlayerHandle::spawn();
+    let (player, mut playback_update, _player_task) = mpv::PlayerHandle::spawn();
     let mut client = client::Client::new(rx, player).await?;
     tokio::spawn(async move { client.run().await });
 
@@ -200,7 +201,7 @@ async fn run_tui(
     render(&mut app, terminal)?;
 
     let (mut timeout, mut last_render) = (None, Instant::now());
-    let mut playback_state_open = true;
+    let mut playback_update_open = true;
 
     loop {
         tokio::select! {
@@ -228,39 +229,21 @@ async fn run_tui(
                     last_render = Instant::now();
                 }
             }
-            result = playback_state.changed(), if playback_state_open => {
+            result = playback_update.recv(), if playback_update_open => {
                 match result {
-                    Ok(()) => {
-                        let state = playback_state.borrow_and_update().clone();
-
-                        if let Some(item) = &state.item {
-                            let metadata = &item.metadata;
-                            let started_playing = matches!(state.phase, PlaybackPhase::Playing)
-                                && (!matches!(
-                                    app.playback_state.phase,
-                                    PlaybackPhase::Playing | PlaybackPhase::Paused
-                                ) || app.playback_state.item.as_ref().is_none_or(|previous| {
-                                    previous.metadata.video_id != metadata.video_id
-                                        || previous.kind != item.kind
-                                }));
-
-                            if started_playing && !metadata.video_id.is_empty() {
-                                app.set_watched(&metadata.video_id, true);
-                            }
-                        }
-
-                        if let PlaybackPhase::Error(error) = &state.phase {
+                    Some(update) => {
+                        if let PlaybackPhase::Error(error) = &update.state.phase {
                             app.set_error_message(&format!("Playback failed: {error}"));
                         }
 
-                        app.playback_state = state;
+                        app.handle_playback_update(update);
 
                         timeout = None;
                         render(&mut app, terminal)?;
                         last_render = Instant::now();
                     }
-                    Err(_) => {
-                        playback_state_open = false;
+                    None => {
+                        playback_update_open = false;
                         app.set_error_message("Player stopped unexpectedly");
                         timeout = None;
                         render(&mut app, terminal)?;

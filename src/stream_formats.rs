@@ -1,15 +1,15 @@
 use crate::CONFIG;
 use crate::api::Chapters;
+use crate::video::PlaybackSpec;
 use crate::{
     api::{Format, VideoInfo},
     list::{ListItem, SelectionList},
-    video::VideoMetadata,
 };
 use std::fmt::Display;
 
 #[derive(Default)]
 pub struct Formats {
-    pub metadata: VideoMetadata,
+    pub spec: PlaybackSpec,
     pub video_formats: SelectionList<Format>,
     pub audio_formats: SelectionList<Format>,
     pub formats: SelectionList<Format>,
@@ -20,9 +20,9 @@ pub struct Formats {
 }
 
 impl Formats {
-    pub fn new(metadata: VideoMetadata, video_info: VideoInfo) -> Self {
+    pub fn new(spec: PlaybackSpec, video_info: VideoInfo) -> Self {
         let mut formats = Self {
-            metadata,
+            spec,
             video_formats: SelectionList::new(video_info.video_formats),
             audio_formats: SelectionList::new(video_info.audio_formats),
             formats: SelectionList::new(video_info.format_streams),

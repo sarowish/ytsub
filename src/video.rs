@@ -43,7 +43,21 @@ pub struct VideoListItem {
     pub channel_name: Option<String>,
     pub published_text: String,
     pub watched: bool,
+    pub position: Option<u64>,
     pub is_new: bool,
+}
+
+impl VideoListItem {
+    pub fn resume_position(&self) -> Option<u64> {
+        const MIN_RESUME_REMAINING_SECONDS: u64 = 8;
+
+        self.position.filter(|position| {
+            *position > 0
+                && self.length.is_none_or(|duration| {
+                    u64::from(duration).saturating_sub(*position) > MIN_RESUME_REMAINING_SECONDS
+                })
+        })
+    }
 }
 
 impl Deref for VideoListItem {
@@ -75,4 +89,10 @@ pub struct VideoMetadata {
     pub video_id: String,
     pub title: String,
     pub channel: String,
+}
+
+#[derive(Default, Clone)]
+pub struct PlaybackSpec {
+    pub metadata: VideoMetadata,
+    pub start_position: Option<u64>,
 }

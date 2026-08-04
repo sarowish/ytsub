@@ -2,36 +2,22 @@ use super::{
     MpvLaunch, MpvSession, PlaybackItem, PlaybackKind, VideoRequest, VideoSource,
     ipc::MpvNotification,
 };
-use crate::video::VideoMetadata;
+use crate::video::PlaybackSpec;
 use anyhow::{Context, Result};
 use serde_json::Value;
 use std::time::Duration;
-use tokio::{
-    sync::{mpsc, watch},
-    task::JoinHandle,
-    time::MissedTickBehavior,
-};
+use tokio::{sync::mpsc, task::JoinHandle, time::MissedTickBehavior};
 
 enum PlayRequest {
-    Audio {
-        metadata: VideoMetadata,
-        source: String,
-    },
+    Audio { spec: PlaybackSpec, source: String },
     Video(VideoRequest),
 }
 
 impl PlayRequest {
-    fn kind(&self) -> PlaybackKind {
+    fn spec(&self) -> &PlaybackSpec {
         match self {
-            PlayRequest::Audio { .. } => PlaybackKind::Audio,
-            PlayRequest::Video(_) => PlaybackKind::Video,
-        }
-    }
-
-    fn metadata(&self) -> &VideoMetadata {
-        match self {
-            PlayRequest::Audio { metadata, .. } => metadata,
-            PlayRequest::Video(request) => &request.metadata,
+            PlayRequest::Audio { spec, .. } => spec,
+            PlayRequest::Video(request) => &request.spec,
         }
     }
 
@@ -93,6 +79,35 @@ impl Default for PlaybackState {
     }
 }
 
+pub struct PlaybackUpdate {
+    pub state: PlaybackState,
+    pub cause: PlaybackUpdateCause,
+}
+
+pub enum PlaybackUpdateCause {
+    Loading,
+    Loaded,
+    Progress,
+    Paused,
+    Resumed,
+    Seeked,
+    Released,
+    Replaced,
+    Ended(PlaybackEndReason),
+    Failed,
+    Other,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PlaybackEndReason {
+    Eof,
+    Stop,
+    Quit,
+    Redirect,
+    Error,
+    Unknown,
+}
+
 #[derive(Clone)]
 pub enum PlaybackPhase {
     Idle,
@@ -108,13 +123,13 @@ struct PlayerController {
     requested_entry_id: Option<i64>,
     event_entry_id: Option<i64>,
     command_rx: mpsc::Receiver<PlayerCommand>,
-    state_tx: watch::Sender<PlaybackState>,
+    update_tx: mpsc::Sender<PlaybackUpdate>,
 }
 
 impl PlayerController {
     fn new(
         commands: mpsc::Receiver<PlayerCommand>,
-        state_tx: watch::Sender<PlaybackState>,
+        update_tx: mpsc::Sender<PlaybackUpdate>,
     ) -> Self {
         Self {
             session: None,
@@ -122,7 +137,7 @@ impl PlayerController {
             requested_entry_id: None,
             event_entry_id: None,
             command_rx: commands,
-            state_tx,
+            update_tx,
         }
     }
 
@@ -138,9 +153,8 @@ impl PlayerController {
                             && self.state.elapsed != elapsed
                         {
                             self.state.elapsed = elapsed;
-                            self.publish_state();
+                            self.publish_state(PlaybackUpdateCause::Progress).await;
                         }
-
                     }
                     command = self.command_rx.recv() => {
                         let Some(command) = command else {
@@ -237,32 +251,43 @@ impl PlayerController {
         Ok(())
     }
 
-    fn release_video(&mut self) {
+    async fn release_video(&mut self) {
         if self
             .session
             .as_ref()
             .is_some_and(|session| session.kind == PlaybackKind::Video)
         {
+            let mut released_state = self.state.clone();
+            released_state.phase = PlaybackPhase::Idle;
+
             self.disconnect_session();
-            self.publish_state();
+
+            self.publish_update(released_state, PlaybackUpdateCause::Released)
+                .await;
         }
     }
 
     async fn handle_command(&mut self, command: PlayerCommand) -> Result<()> {
         let result: Result<()> = match command {
             PlayerCommand::Play(request) => {
+                if self.requested_entry_id.is_some() {
+                    self.publish_state(PlaybackUpdateCause::Replaced).await;
+                }
+
                 self.state.item = Some(PlaybackItem {
-                    metadata: request.metadata().clone(),
-                    kind: request.kind(),
+                    metadata: request.spec().metadata.clone(),
                 });
                 self.state.phase = PlaybackPhase::Loading;
                 self.state.elapsed = None;
                 self.state.duration = None;
-                self.publish_state();
+                self.publish_state(PlaybackUpdateCause::Loading).await;
 
                 async {
                     let session = self.ensure_session(&request).await?;
-                    let entry_id = session.ipc.load_file(request.source()).await?;
+                    let entry_id = session
+                        .ipc
+                        .load_file(request.source(), request.spec().start_position)
+                        .await?;
 
                     session
                         .ipc
@@ -325,7 +350,7 @@ impl PlayerController {
             }
             PlayerCommand::Stop => self.stop_playback().await,
             PlayerCommand::ReleaseVideo => {
-                self.release_video();
+                self.release_video().await;
                 Ok(())
             }
         };
@@ -333,7 +358,8 @@ impl PlayerController {
         if let Err(error) = result {
             self.disconnect_session();
             self.state.phase = PlaybackPhase::Error(error.to_string());
-            self.publish_state();
+            self.publish_state(PlaybackUpdateCause::Ended(PlaybackEndReason::Error))
+                .await;
         }
 
         Ok(())
@@ -342,9 +368,12 @@ impl PlayerController {
     async fn handle_notification(&mut self, notification: Option<MpvNotification>) -> Result<()> {
         let Some(notification) = notification else {
             self.disconnect_session();
-            self.publish_state();
+            self.publish_state(PlaybackUpdateCause::Ended(PlaybackEndReason::Unknown))
+                .await;
             return Ok(());
         };
+
+        let mut cause = PlaybackUpdateCause::Other;
 
         match notification {
             MpvNotification::Event(event) => match event.get("event").and_then(Value::as_str) {
@@ -363,10 +392,10 @@ impl PlayerController {
                             &self.state.phase,
                             PlaybackPhase::Playing | PlaybackPhase::Paused
                         ) {
-                            self.state.phase = if paused {
-                                PlaybackPhase::Paused
+                            (self.state.phase, cause) = if paused {
+                                (PlaybackPhase::Paused, PlaybackUpdateCause::Paused)
                             } else {
-                                PlaybackPhase::Playing
+                                (PlaybackPhase::Playing, PlaybackUpdateCause::Resumed)
                             };
                         }
                     }
@@ -383,7 +412,7 @@ impl PlayerController {
                             .map(|seconds| seconds.round() as u64);
                     }
                     Some("mute") => self.state.muted = event.get("data").and_then(Value::as_bool),
-                    _ => {}
+                    _ => return Ok(()),
                 },
                 Some("seek") if self.notification_is_for_current() => {
                     let Some(session) = &self.session else {
@@ -397,9 +426,12 @@ impl PlayerController {
                     } else {
                         return Ok(());
                     }
+
+                    cause = PlaybackUpdateCause::Seeked;
                 }
                 Some("file-loaded") if self.notification_is_for_current() => {
                     self.state.phase = PlaybackPhase::Playing;
+                    cause = PlaybackUpdateCause::Loaded;
                 }
                 Some("end-file") => {
                     let Some(entry_id) = event.get("playlist_entry_id").and_then(Value::as_i64)
@@ -415,11 +447,18 @@ impl PlayerController {
                         return Ok(());
                     }
 
-                    let reason = event.get("reason").and_then(Value::as_str);
+                    let reason = match event.get("reason").and_then(Value::as_str) {
+                        Some("eof") => PlaybackEndReason::Eof,
+                        Some("stop") => PlaybackEndReason::Stop,
+                        Some("quit") => PlaybackEndReason::Quit,
+                        Some("error") => PlaybackEndReason::Error,
+                        Some("redirect") => PlaybackEndReason::Redirect,
+                        _ => PlaybackEndReason::Unknown,
+                    };
 
-                    self.set_idle();
+                    self.state.phase = PlaybackPhase::Idle;
 
-                    if reason == Some("error") {
+                    if matches!(reason, PlaybackEndReason::Error) {
                         let error = event
                             .get("file_error")
                             .and_then(Value::as_str)
@@ -427,30 +466,38 @@ impl PlayerController {
 
                         self.state.phase = PlaybackPhase::Error(error.to_owned());
                     }
+
+                    self.publish_state(PlaybackUpdateCause::Ended(reason)).await;
+                    self.set_idle();
+                    return Ok(());
                 }
                 _ => return Ok(()),
             },
             MpvNotification::Disconnected(error) => {
                 let previous_phase = self.state.phase.clone();
-
                 self.disconnect_session();
 
                 self.state.phase = match previous_phase {
                     PlaybackPhase::Loading | PlaybackPhase::Playing | PlaybackPhase::Paused => {
+                        cause = PlaybackUpdateCause::Failed;
                         PlaybackPhase::Error(error)
                     }
                     _ => previous_phase,
-                }
+                };
             }
         }
 
-        self.publish_state();
+        self.publish_state(cause).await;
 
         Ok(())
     }
 
-    fn publish_state(&self) {
-        self.state_tx.send_replace(self.state.clone());
+    async fn publish_state(&self, cause: PlaybackUpdateCause) {
+        self.publish_update(self.state.clone(), cause).await
+    }
+
+    async fn publish_update(&self, state: PlaybackState, cause: PlaybackUpdateCause) {
+        let _ = self.update_tx.send(PlaybackUpdate { state, cause }).await;
     }
 }
 
@@ -460,17 +507,13 @@ pub struct PlayerHandle {
 }
 
 impl PlayerHandle {
-    pub fn spawn() -> (Self, watch::Receiver<PlaybackState>, JoinHandle<Result<()>>) {
+    pub fn spawn() -> (Self, mpsc::Receiver<PlaybackUpdate>, JoinHandle<Result<()>>) {
         let (command_tx, command_rx) = mpsc::channel(32);
-
-        let initial_state = PlaybackState::idle();
-        let (state_tx, state_rx) = watch::channel(initial_state);
-
-        let mut controller = PlayerController::new(command_rx, state_tx);
-
+        let (update_tx, update_rx) = mpsc::channel(32);
+        let mut controller = PlayerController::new(command_rx, update_tx);
         let task = tokio::spawn(async move { controller.run().await });
 
-        (Self { command_tx }, state_rx, task)
+        (Self { command_tx }, update_rx, task)
     }
 
     fn send(&self, command: PlayerCommand) -> Result<()> {
@@ -479,8 +522,8 @@ impl PlayerHandle {
             .map_err(|error| anyhow::anyhow!("failed to send player command: {error}"))
     }
 
-    pub fn play_audio(&self, metadata: VideoMetadata, source: String) -> Result<()> {
-        self.send(PlayerCommand::Play(PlayRequest::Audio { metadata, source }))
+    pub fn play_audio(&self, spec: PlaybackSpec, source: String) -> Result<()> {
+        self.send(PlayerCommand::Play(PlayRequest::Audio { spec, source }))
     }
 
     pub fn play_video(&self, request: VideoRequest) -> Result<()> {

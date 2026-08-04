@@ -7,11 +7,12 @@ use crate::import::{self, ImportItem};
 use crate::input::InputMode;
 use crate::list::{ListItem, Selectable, SelectionItem, SelectionList, StatefulList};
 use crate::message::Message;
-use crate::mpv::{PlaybackPhase, PlaybackState};
+use crate::mpv::{PlaybackPhase, PlaybackState, PlaybackUpdate, PlaybackUpdateCause};
+use crate::progress::{ProgressActions, ProgressTracker};
 use crate::search::{Search, SearchDirection, SearchState};
 use crate::stream_formats::Formats;
 use crate::thumbnail::Thumbnail;
-use crate::video::{FetchedVideo, Video, VideoListItem, VideoMetadata};
+use crate::video::{FetchedVideo, PlaybackSpec, Video, VideoListItem, VideoMetadata};
 use crate::{CLAP_ARGS, CONFIG, IoEvent, database, utils};
 use anyhow::{Context, Result};
 use ratatui::widgets::{ListState, TableState};
@@ -36,6 +37,7 @@ pub struct App {
     pub thumbnail: Option<Thumbnail>,
     pub message: Message,
     pub playback_state: PlaybackState,
+    progress_tracker: ProgressTracker,
     pub input: String,
     pub input_mode: InputMode,
     pub input_idx: usize,
@@ -71,6 +73,7 @@ impl App {
             thumbnail: None,
             message: Message::new(),
             playback_state: PlaybackState::default(),
+            progress_tracker: ProgressTracker::default(),
             input: String::default(),
             input_mode: InputMode::Normal,
             input_idx: 0,
@@ -348,14 +351,65 @@ impl App {
     }
 
     pub fn set_watched(&mut self, video_id: &str, is_watched: bool) {
-        if let Some(videos) = self.tabs.get_videos_mut()
-            && let Some(video) = videos.get_mut_by_id(video_id)
-        {
+        if let Some(video) = self.tabs.get_video_mut_by_id(video_id) {
             video.watched = is_watched;
         }
 
-        if let Err(e) = database::add_watched(&self.conn, video_id, is_watched) {
+        if let Err(e) = database::set_watched(&self.conn, video_id, is_watched) {
             self.set_error_message(&e.to_string());
+        }
+    }
+
+    pub fn handle_playback_update(&mut self, update: PlaybackUpdate) {
+        let PlaybackUpdate { state, cause } = update;
+
+        let video_id = state
+            .item
+            .as_ref()
+            .map(|item| item.metadata.video_id.clone());
+        let actions = video_id.as_deref().map(|video_id| {
+            self.progress_tracker
+                .handle_update(video_id, state.elapsed, &cause)
+        });
+
+        self.playback_state = state;
+
+        if let Some(video_id) = video_id
+            && let Some(actions) = actions
+        {
+            if matches!(cause, PlaybackUpdateCause::Loaded) {
+                self.set_watched(&video_id, true);
+            }
+
+            self.apply_progress_actions(&video_id, actions);
+        }
+    }
+
+    fn apply_progress_actions(&mut self, video_id: &str, actions: ProgressActions) {
+        if let Some(save) = actions.previous_save {
+            self.persist_progress(&save.video_id, save.position);
+        }
+
+        if let Some(position) = actions.position
+            && let Some(video) = self.tabs.get_video_mut_by_id(video_id)
+        {
+            video.position = Some(position);
+        }
+
+        if let Some(position) = actions.save_position
+            && self.persist_progress(video_id, position)
+        {
+            self.progress_tracker.mark_saved(position);
+        }
+    }
+
+    fn persist_progress(&mut self, video_id: &str, position: u64) -> bool {
+        match database::set_position(&self.conn, video_id, position) {
+            Ok(()) => true,
+            Err(error) => {
+                self.set_error_message(&error.to_string());
+                false
+            }
         }
     }
 
@@ -376,12 +430,12 @@ impl App {
     }
 
     pub fn play_video(&mut self) {
-        if let Some(metadata) = self.get_current_video_metadata() {
-            self.dispatch(IoEvent::PlayUsingYtdlp(metadata));
+        if let Some(spec) = self.get_current_video_spec() {
+            self.dispatch(IoEvent::PlayUsingYtdlp(spec));
         }
     }
 
-    pub fn get_current_video_metadata(&self) -> Option<VideoMetadata> {
+    pub fn get_current_video_spec(&self) -> Option<PlaybackSpec> {
         let video = self.get_current_video()?;
 
         let channel = match video.channel_name.as_deref() {
@@ -389,21 +443,27 @@ impl App {
             None => &self.get_current_channel()?.channel_name,
         };
 
-        Some(VideoMetadata {
-            video_id: video.video_id.clone(),
-            title: video.title.clone(),
-            channel: channel.to_owned(),
+        Some(PlaybackSpec {
+            metadata: VideoMetadata {
+                video_id: video.video_id.clone(),
+                title: video.title.clone(),
+                channel: channel.to_owned(),
+            },
+            start_position: CONFIG
+                .resume_playback
+                .then(|| video.resume_position())
+                .flatten(),
         })
     }
 
     pub fn play_audio(&mut self) {
-        if let Some(metadata) = self.get_current_video_metadata() {
+        if let Some(metadata) = self.get_current_video_spec() {
             self.dispatch(IoEvent::FetchFormats(metadata, FormatAction::PlayAudio));
         }
     }
 
     pub fn play_audio_using_ytdlp(&mut self) {
-        if let Some(metadata) = self.get_current_video_metadata() {
+        if let Some(metadata) = self.get_current_video_spec() {
             self.dispatch(IoEvent::PlayAudioUsingYtdlp(metadata));
         }
     }
@@ -433,13 +493,13 @@ impl App {
     }
 
     pub fn enter_format_selection(&mut self) {
-        if let Some(metadata) = self.get_current_video_metadata() {
+        if let Some(metadata) = self.get_current_video_spec() {
             self.dispatch(IoEvent::FetchFormats(metadata, FormatAction::Select));
         }
     }
 
     pub fn play_from_formats(&mut self) {
-        if let Some(metadata) = self.get_current_video_metadata() {
+        if let Some(metadata) = self.get_current_video_spec() {
             self.dispatch(IoEvent::FetchFormats(metadata, FormatAction::PlayVideo));
         }
     }
@@ -1380,6 +1440,15 @@ impl Tabs {
 
     fn get_videos_mut(&mut self) -> Option<&mut StatefulList<VideoListItem, TableState>> {
         self.get_mut_selected().map(|tab| &mut tab.videos)
+    }
+
+    fn get_video_mut_by_id(&mut self, video_id: &str) -> Option<&mut VideoListItem> {
+        self.items.iter_mut().find_map(|tab| {
+            tab.videos
+                .items
+                .iter_mut()
+                .find(|video| video.video_id == video_id)
+        })
     }
 
     pub fn get_selected_video(&self) -> Option<&VideoListItem> {

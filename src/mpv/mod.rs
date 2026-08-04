@@ -1,9 +1,12 @@
 use self::ipc::{MpvIpc, MpvNotification};
 use crate::CONFIG;
 use crate::process::detach_process;
-use crate::video::VideoMetadata;
+use crate::video::{PlaybackSpec, VideoMetadata};
 use anyhow::{Context, Result, bail};
-pub use controller::{PlaybackPhase, PlaybackState, PlayerHandle};
+pub use controller::{
+    PlaybackEndReason, PlaybackPhase, PlaybackState, PlaybackUpdate, PlaybackUpdateCause,
+    PlayerHandle,
+};
 use std::ffi::OsString;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::{path::PathBuf, time::Duration};
@@ -27,7 +30,6 @@ pub enum PlaybackKind {
 #[derive(Clone)]
 pub struct PlaybackItem {
     pub metadata: VideoMetadata,
-    pub kind: PlaybackKind,
 }
 
 pub enum VideoSource {
@@ -41,7 +43,7 @@ pub enum VideoSource {
 }
 
 pub struct VideoRequest {
-    pub metadata: VideoMetadata,
+    pub spec: PlaybackSpec,
     pub source: VideoSource,
 }
 
@@ -64,7 +66,7 @@ impl MpvLaunch {
                 ..
             } => {
                 args.push("--no-ytdl".into());
-                args.push(format!("--force-media-title={}", request.metadata.title).into());
+                args.push(format!("--force-media-title={}", request.spec.metadata.title).into());
 
                 if let Some(url) = audio_url {
                     args.push(format!("--audio-file={url}").into());

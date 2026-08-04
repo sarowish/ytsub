@@ -767,7 +767,7 @@ impl Api for Local {
         join_all(captions.iter().map(|captions| async {
             self.get_caption(
                 captions.get_url(),
-                &formats.metadata.video_id,
+                &formats.spec.metadata.video_id,
                 captions.id(),
             )
             .await

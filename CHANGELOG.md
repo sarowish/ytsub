@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add mpv audio and video playback controls to the TUI.
 - Make channel refresh symbols and Unicode progress bar configurable.
 - Add separate proxy configuration for requests and mpv/yt-dlp playback.
+- Save playback progress and resume from the last position.
 
 ### Fixed
 - Don't show delayed thumbnails from previously selected videos.

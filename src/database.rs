@@ -7,7 +7,7 @@ use anyhow::Result;
 use rusqlite::{Connection, params};
 use std::ops::RangeInclusive;
 
-const LATEST_USER_VERSION: u8 = 3;
+const LATEST_USER_VERSION: u8 = 4;
 
 pub fn initialize_db(conn: &mut Connection) -> Result<()> {
     conn.pragma_update(None, "foreign_keys", "on")?;
@@ -110,6 +110,35 @@ fn apply_migration(conn: &mut Connection, current_user_version: u8) -> Result<()
             }
 
             tx.pragma_update(None, "user_version", 3)?;
+
+            tx.commit()?;
+        }
+        3 => {
+            let tx = conn.transaction()?;
+
+            tx.execute(
+                "CREATE TABLE IF NOT EXISTS video_state (
+                    video_id TEXT PRIMARY KEY,
+                    watched INTEGER NOT NULL DEFAULT 0
+                        CHECK (watched IN (0, 1)),
+                    position INTEGER
+                        CHECK (position IS NULL OR position >= 0)
+                )",
+                [],
+            )?;
+
+            tx.execute(
+                "
+                INSERT INTO video_state (video_id, watched, position)
+                SELECT video_id, 1, NULL
+                FROM watched
+                ",
+                [],
+            )?;
+
+            tx.execute("DROP TABLE watched", [])?;
+
+            tx.pragma_update(None, "user_version", 4)?;
 
             tx.commit()?;
         }
@@ -223,13 +252,14 @@ fn build_bulk_stmt(
             "
         ),
         StatementType::GetLatestVideos => format!(
-            "SELECT DISTINCT video_id, title, published, length, members_only, videos.channel_id,
-            channel_name,
-            EXISTS (SELECT * FROM watched WHERE watched.video_id=videos.video_id)
-            FROM videos, channels, tag_relations
-            WHERE videos.channel_id = channels.channel_id AND tag_relations.tag_name IN ({values_string}) AND tab=?1
-            AND tag_relations.channel_id=channels.channel_id
-            ORDER BY published DESC
+            "SELECT DISTINCT videos.video_id, title, published, length, members_only, videos.channel_id,
+            channel_name, COALESCE(video_state.watched, 0), position
+            FROM videos
+            JOIN channels ON channels.channel_id = videos.channel_id
+            JOIN tag_relations ON tag_relations.channel_id = channels.channel_id
+            LEFT JOIN video_state ON video_state.video_id = videos.video_id
+            WHERE tag_relations.tag_name IN ({values_string}) AND videos.tab=?1
+            ORDER BY videos.published DESC
             LIMIT 100
             "
         ),
@@ -337,10 +367,11 @@ pub fn get_videos(
 ) -> Result<Vec<VideoListItem>> {
     let mut stmt = conn.prepare(
         "SELECT videos.video_id, title, published, length, members_only,
-        EXISTS (SELECT * FROM watched WHERE watched.video_id=videos.video_id)
+        COALESCE(video_state.watched, 0), position
         FROM videos
-        WHERE channel_id=?1 AND tab=?2
-        ORDER BY published DESC
+        LEFT JOIN video_state ON video_state.video_id = videos.video_id
+        WHERE videos.channel_id=?1 AND videos.tab=?2
+        ORDER BY videos.published DESC
         ",
     )?;
     let mut videos = Vec::new();
@@ -360,6 +391,7 @@ pub fn get_videos(
             published_text: utils::published_text(row.get(2)?, tab == ChannelTab::Streams)
                 .unwrap_or_default(),
             watched: row.get(5)?,
+            position: row.get(6)?,
             is_new: false,
         })
     })? {
@@ -381,12 +413,13 @@ pub fn get_latest_videos(
 
     if tags.is_empty() {
         stmt = conn.prepare(
-            "SELECT video_id, title, published, length, members_only, videos.channel_id,
-            channel_name,
-            EXISTS (SELECT * FROM watched WHERE watched.video_id=videos.video_id)
-            FROM videos, channels
-            WHERE videos.channel_id = channels.channel_id AND tab=?1
-            ORDER BY published DESC
+            "SELECT videos.video_id, title, published, length, members_only, videos.channel_id,
+            channel_name, COALESCE(video_state.watched, 0), position
+            FROM videos
+            JOIN channels ON channels.channel_id = videos.channel_id
+            LEFT JOIN video_state ON video_state.video_id = videos.video_id
+            WHERE videos.tab=?1
+            ORDER BY videos.published DESC
             LIMIT 100
             ",
         )?;
@@ -420,6 +453,7 @@ pub fn get_latest_videos(
             published_text: utils::published_text(row.get(2)?, tab == ChannelTab::Streams)
                 .unwrap_or_default(),
             watched: row.get(7)?,
+            position: row.get(8)?,
             is_new: false,
         })
     })? {
@@ -429,14 +463,29 @@ pub fn get_latest_videos(
     Ok(videos)
 }
 
-pub fn add_watched(conn: &Connection, video_id: &str, watched: bool) -> Result<()> {
-    let mut stmt = if watched {
-        conn.prepare("INSERT OR IGNORE INTO watched (video_id) VALUES (?1)")?
-    } else {
-        conn.prepare("DELETE FROM watched WHERE video_id=?1")?
-    };
+pub fn set_watched(conn: &Connection, video_id: &str, watched: bool) -> Result<()> {
+    let mut stmt = conn.prepare(
+        "
+        INSERT INTO video_state (video_id, watched)
+        VALUES (?1, ?2)
+        ON CONFLICT(video_id) DO UPDATE SET watched = excluded.watched
+        ",
+    )?;
 
-    stmt.execute(params![video_id])?;
+    stmt.execute(params![video_id, watched])?;
+    Ok(())
+}
+
+pub fn set_position(conn: &Connection, video_id: &str, position: u64) -> Result<()> {
+    let mut stmt = conn.prepare(
+        "
+        INSERT INTO video_state (video_id, position)
+        VALUES (?1, ?2)
+        ON CONFLICT(video_id) DO UPDATE SET position = excluded.position
+        ",
+    )?;
+
+    stmt.execute(params![video_id, position])?;
     Ok(())
 }
 

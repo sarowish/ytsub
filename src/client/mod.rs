@@ -11,7 +11,7 @@ use crate::{
     stream_formats::Formats,
     thumbnail::{Thumbnail, protocols::GraphicsProtocol},
     utils,
-    video::VideoMetadata,
+    video::PlaybackSpec,
 };
 use anyhow::{Result, bail};
 use feeds::{
@@ -60,10 +60,10 @@ pub enum IoEvent {
     LoadMoreVideos(String, ChannelTab, HashSet<String>, bool),
     GetVideoTitle(String),
     GetThumbnail(GraphicsProtocol, String),
-    FetchFormats(VideoMetadata, FormatAction),
+    FetchFormats(PlaybackSpec, FormatAction),
     PlayFromFormats(Box<Formats>),
-    PlayUsingYtdlp(VideoMetadata),
-    PlayAudioUsingYtdlp(VideoMetadata),
+    PlayUsingYtdlp(PlaybackSpec),
+    PlayAudioUsingYtdlp(PlaybackSpec),
     TogglePlayback,
     SeekPlayback(i32),
     AdjustVolume(i8),
@@ -202,11 +202,11 @@ impl Client {
                         async move { play_from_formats(instance, player, *formats).await },
                     );
                 }
-                IoEvent::PlayUsingYtdlp(metadata) => {
-                    let url = youtube_watch_url(&metadata.video_id);
+                IoEvent::PlayUsingYtdlp(spec) => {
+                    let url = youtube_watch_url(&spec.metadata.video_id);
 
                     let request = VideoRequest {
-                        metadata,
+                        spec,
                         source: VideoSource::YtDlp(url),
                     };
 
@@ -214,10 +214,10 @@ impl Client {
                         emit_msg!(error, error.to_string());
                     }
                 }
-                IoEvent::PlayAudioUsingYtdlp(metadata) => {
-                    let source = youtube_watch_url(&metadata.video_id);
+                IoEvent::PlayAudioUsingYtdlp(spec) => {
+                    let source = youtube_watch_url(&spec.metadata.video_id);
 
-                    if let Err(error) = self.player.play_audio(metadata, source) {
+                    if let Err(error) = self.player.play_audio(spec, source) {
                         emit_msg!(error, error.to_string());
                     }
                 }

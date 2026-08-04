@@ -17,13 +17,14 @@ pub async fn play_from_formats(
         emit_msg!(error, "No playable stream available");
         return Ok(());
     };
+    let metadata = &formats.spec.metadata;
 
     let captions = instance.get_caption_paths(&formats).await;
 
     let chapters = formats
         .chapters
         .as_ref()
-        .and_then(|chapters| chapters.write_to_file(&formats.metadata.video_id).ok());
+        .and_then(|chapters| chapters.write_to_file(&metadata.video_id).ok());
 
     emit_msg!("Launching video player");
 
@@ -36,7 +37,7 @@ pub async fn play_from_formats(
                     captions,
                     chapters,
                 },
-                metadata: formats.metadata,
+                spec: formats.spec,
             };
 
             match player.play_video(request) {
@@ -50,7 +51,7 @@ pub async fn play_from_formats(
             let mut command = Command::new(&CONFIG.vlc_path);
             command
                 .arg("--no-video-title-show")
-                .arg(format!("--input-title-format={}", formats.metadata.title))
+                .arg(format!("--input-title-format={}", metadata.title))
                 .arg("--play-and-exit")
                 .arg(video_url);
 
@@ -62,7 +63,7 @@ pub async fn play_from_formats(
                 command.arg(format!("--sub-file={}", captions.join(" ")));
             }
 
-            play_video(command, &formats.metadata.video_id).await
+            play_video(command, &metadata.video_id).await
         }
     }
 }

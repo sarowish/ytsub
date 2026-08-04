@@ -91,10 +91,19 @@ impl MpvIpc {
         reply_rx.await.context("mpv IPC connection closed")?
     }
 
-    pub async fn load_file(&self, file: &str) -> Result<i64> {
-        let data = self
-            .call(serde_json::json!(["loadfile", file, "replace"]))
-            .await?;
+    pub async fn load_file(&self, file: &str, start: Option<u64>) -> Result<i64> {
+        let mut command = serde_json::json!(["loadfile", file, "replace"]);
+
+        if let Some(position) = start {
+            let args = command
+                .as_array_mut()
+                .context("loadfile command was not an array")?;
+
+            args.push(serde_json::json!(-1));
+            args.push(serde_json::json!({ "start": position.to_string() }));
+        }
+
+        let data = self.call(command).await?;
 
         data.get("playlist_entry_id")
             .and_then(Value::as_i64)

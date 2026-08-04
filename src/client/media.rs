@@ -7,7 +7,7 @@ use crate::{
     stream_formats::Formats,
     thumbnail::{Thumbnail, protocols::GraphicsProtocol},
     utils,
-    video::VideoMetadata,
+    video::PlaybackSpec,
 };
 use anyhow::Result;
 use std::{
@@ -55,14 +55,14 @@ pub async fn get_thumbnail(
 pub async fn fetch_formats(
     instance: Box<dyn Api>,
     player: PlayerHandle,
-    metadata: VideoMetadata,
+    spec: PlaybackSpec,
     action: FormatAction,
 ) -> Result<()> {
     emit_msg!(perm, "Fetching formats");
-    let video_info = instance.get_video_formats(&metadata.video_id).await;
+    let video_info = instance.get_video_formats(&spec.metadata.video_id).await;
 
     let formats = match video_info {
-        Ok(video_info) => Formats::new(metadata, video_info),
+        Ok(video_info) => Formats::new(spec, video_info),
         Err(e) => {
             emit_msg!(error, e.to_string());
             return Ok(());
@@ -83,7 +83,7 @@ pub async fn fetch_formats(
                 return Ok(());
             };
 
-            match player.play_audio(formats.metadata, source) {
+            match player.play_audio(formats.spec, source) {
                 Ok(()) => emit_msg!(),
                 Err(error) => emit_msg!(error, error.to_string()),
             }
