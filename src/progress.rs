@@ -14,6 +14,7 @@ pub struct ProgressActions {
     pub previous_save: Option<ProgressSave>,
     pub position: Option<u64>,
     pub save_position: Option<u64>,
+    pub mark_watched: bool,
 }
 
 #[derive(Default)]
@@ -29,7 +30,9 @@ impl ProgressTracker {
         &mut self,
         video_id: &str,
         elapsed: Option<u64>,
+        duration: Option<u64>,
         cause: &PlaybackUpdateCause,
+        watched_threshold: u8,
     ) -> ProgressActions {
         let previous_save = self.switch_video(video_id);
 
@@ -53,10 +56,12 @@ impl ProgressTracker {
         } else {
             None
         };
+        let mark_watched = should_mark_watched(cause, position, duration, watched_threshold);
 
         let Some(position) = position else {
             return ProgressActions {
                 previous_save,
+                mark_watched,
                 ..ProgressActions::default()
             };
         };
@@ -70,6 +75,7 @@ impl ProgressTracker {
             previous_save,
             position: Some(position),
             save_position,
+            mark_watched,
         }
     }
 
@@ -129,4 +135,26 @@ impl ProgressTracker {
     fn is_meaningful(position: u64) -> bool {
         position >= MIN_PROGRESS_SECONDS
     }
+}
+fn should_mark_watched(
+    cause: &PlaybackUpdateCause,
+    position: Option<u64>,
+    duration: Option<u64>,
+    threshold_percent: u8,
+) -> bool {
+    match cause {
+        PlaybackUpdateCause::Ended(PlaybackEndReason::Eof) => true,
+        PlaybackUpdateCause::Released
+        | PlaybackUpdateCause::Replaced
+        | PlaybackUpdateCause::Ended(PlaybackEndReason::Stop | PlaybackEndReason::Quit) => {
+            position.zip(duration).is_some_and(|(position, duration)| {
+                reached_threshold(position, duration, threshold_percent)
+            })
+        }
+        _ => false,
+    }
+}
+
+pub fn reached_threshold(value: u64, duration: u64, threshold_percent: u8) -> bool {
+    duration > 0 && u128::from(value) * 100 >= u128::from(duration) * u128::from(threshold_percent)
 }

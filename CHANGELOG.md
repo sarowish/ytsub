@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add separate proxy configuration for requests and mpv/yt-dlp playback.
 - Save playback progress and resume from the last position.
 
+### Changed
+- Mark videos as watched when playback reaches EOF or ends past a configurable threshold.
+
 ### Fixed
 - Don't show delayed thumbnails from previously selected videos.
 - Allow the `-` key to be used in key bindings.

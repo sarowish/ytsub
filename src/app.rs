@@ -7,7 +7,7 @@ use crate::import::{self, ImportItem};
 use crate::input::InputMode;
 use crate::list::{ListItem, Selectable, SelectionItem, SelectionList, StatefulList};
 use crate::message::Message;
-use crate::mpv::{PlaybackPhase, PlaybackState, PlaybackUpdate, PlaybackUpdateCause};
+use crate::mpv::{PlaybackPhase, PlaybackState, PlaybackUpdate};
 use crate::progress::{ProgressActions, ProgressTracker};
 use crate::search::{Search, SearchDirection, SearchState};
 use crate::stream_formats::Formats;
@@ -367,9 +367,19 @@ impl App {
             .item
             .as_ref()
             .map(|item| item.metadata.video_id.clone());
+        let duration = video_id
+            .as_deref()
+            .and_then(|id| self.tabs.get_video_by_id(id))
+            .and_then(|video| video.length.map(u64::from))
+            .or(state.duration);
         let actions = video_id.as_deref().map(|video_id| {
-            self.progress_tracker
-                .handle_update(video_id, state.elapsed, &cause)
+            self.progress_tracker.handle_update(
+                video_id,
+                state.elapsed,
+                duration,
+                &cause,
+                CONFIG.watched_threshold,
+            )
         });
 
         self.playback_state = state;
@@ -377,10 +387,6 @@ impl App {
         if let Some(video_id) = video_id
             && let Some(actions) = actions
         {
-            if matches!(cause, PlaybackUpdateCause::Loaded) {
-                self.set_watched(&video_id, true);
-            }
-
             self.apply_progress_actions(&video_id, actions);
         }
     }
@@ -400,6 +406,10 @@ impl App {
             && self.persist_progress(video_id, position)
         {
             self.progress_tracker.mark_saved(position);
+        }
+
+        if actions.mark_watched {
+            self.set_watched(video_id, true);
         }
     }
 
@@ -1440,6 +1450,15 @@ impl Tabs {
 
     fn get_videos_mut(&mut self) -> Option<&mut StatefulList<VideoListItem, TableState>> {
         self.get_mut_selected().map(|tab| &mut tab.videos)
+    }
+
+    fn get_video_by_id(&self, video_id: &str) -> Option<&VideoListItem> {
+        self.items.iter().find_map(|tab| {
+            tab.videos
+                .items
+                .iter()
+                .find(|video| video.video_id == video_id)
+        })
     }
 
     fn get_video_mut_by_id(&mut self, video_id: &str) -> Option<&mut VideoListItem> {

@@ -47,6 +47,7 @@ It is advisable to add only the parts you want to change instead of checking in 
 | `show_thumbnails`                 | Show thumbnails in the video info area.                                                                      | `true`                                      |
 | `video_info_position`             | Position of the video info area: `top` or `bottom`.                                                          | `"top"`                                     |
 | `always_show_video_info`          | If `false`, shown only when there isn't enough space for all columns. Ignored when `show_thumbnails = true`. | `true`                                      |
+| `watched_threshold`               | Playback percentage after which ending playback marks the video as watched.                                  | `90`                                        |
 | `resume_playback`                 | Resume video and audio-only playback from the saved position.                                                | `true`                                      |
 | `video_player_for_stream_formats` | Video player used for stream formats: `mpv` or `vlc`.                                                        | `"mpv"`                                     |
 | `mpv_path`                        | Path to `mpv`.                                                                                               | `"mpv"`                                     |
