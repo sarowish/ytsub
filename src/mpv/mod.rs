@@ -1,7 +1,7 @@
 use self::ipc::{MpvIpc, MpvNotification};
 use crate::CONFIG;
-use crate::channel::VideoMetadata;
 use crate::process::detach_process;
+use crate::video::VideoMetadata;
 use anyhow::{Context, Result, bail};
 pub use controller::{PlaybackPhase, PlaybackState, PlayerHandle};
 use std::ffi::OsString;

@@ -2,7 +2,7 @@ use super::{
     MpvLaunch, MpvSession, PlaybackItem, PlaybackKind, VideoRequest, VideoSource,
     ipc::MpvNotification,
 };
-use crate::channel::VideoMetadata;
+use crate::video::VideoMetadata;
 use anyhow::{Context, Result};
 use serde_json::Value;
 use std::time::Duration;

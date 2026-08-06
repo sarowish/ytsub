@@ -1,11 +1,14 @@
-use super::{Api, ApiBackend, ChannelFeed, ChannelTab, Chapters, Format, VideoInfo};
+use super::{Api, ApiBackend, ChannelFeed, ChannelTab, Chapters, Format, VideoInfo, rss};
 use crate::TX;
 use crate::api::load_more_progress_msg;
 use crate::config::EnabledTabs;
 use crate::emit_msg;
 use crate::list::ListItem;
 use crate::stream_formats::Formats;
-use crate::{CONFIG, channel::Video, http, utils};
+use crate::{
+    CONFIG, http, utils,
+    video::{FetchedVideo, Video},
+};
 use anyhow::{Result, bail};
 use async_trait::async_trait;
 use futures_util::future::join_all;
@@ -63,8 +66,8 @@ pub struct Local {
     continuation: Option<String>,
 }
 
-fn extract_videos_tab(value: &[Value]) -> Result<Vec<Video>> {
-    let mut videos: Vec<Video> = Vec::new();
+fn extract_videos_tab(value: &[Value]) -> Result<Vec<FetchedVideo>> {
+    let mut videos = Vec::new();
 
     for video in value {
         let title;
@@ -158,24 +161,23 @@ fn extract_videos_tab(value: &[Value]) -> Result<Vec<Video>> {
             }
         }
 
-        videos.push(Video {
-            channel_name: None,
-            video_id,
-            title,
-            published,
-            published_text: published_text.unwrap_or_default(),
-            length,
-            watched: false,
-            members_only,
-            new: true,
+        videos.push(FetchedVideo {
+            video: Video {
+                video_id,
+                title,
+                published,
+                length,
+                members_only,
+            },
+            published_text,
         });
     }
 
     Ok(videos)
 }
 
-fn extract_shorts_tab(value: &[Value]) -> Result<Vec<Video>> {
-    let mut videos: Vec<Video> = Vec::new();
+fn extract_shorts_tab(value: &[Value]) -> Result<Vec<FetchedVideo>> {
+    let mut videos = Vec::new();
 
     for video in value {
         let video = &video["richItemRenderer"]["content"]["shortsLockupViewModel"];
@@ -194,24 +196,23 @@ fn extract_shorts_tab(value: &[Value]) -> Result<Vec<Video>> {
             .as_str()
             .is_some_and(|content| content.contains("Members only"));
 
-        videos.push(Video {
-            channel_name: None,
-            video_id,
-            title,
-            published: utils::now()?,
-            published_text: String::new(),
-            length: None,
-            watched: false,
-            members_only,
-            new: true,
+        videos.push(FetchedVideo {
+            video: Video {
+                video_id,
+                title,
+                published: utils::now()?,
+                length: None,
+                members_only,
+            },
+            published_text: None,
         });
     }
 
     Ok(videos)
 }
 
-fn extract_streams_tab(value: &[Value]) -> Result<Vec<Video>> {
-    let mut videos: Vec<Video> = Vec::new();
+fn extract_streams_tab(value: &[Value]) -> Result<Vec<FetchedVideo>> {
+    let mut videos = Vec::new();
 
     for video in value {
         let title;
@@ -302,16 +303,15 @@ fn extract_streams_tab(value: &[Value]) -> Result<Vec<Video>> {
             continue;
         }
 
-        videos.push(Video {
-            channel_name: None,
-            video_id,
-            title,
-            published,
-            published_text: String::new(),
-            length,
-            watched: false,
-            members_only,
-            new: true,
+        videos.push(FetchedVideo {
+            video: Video {
+                video_id,
+                title,
+                published,
+                length,
+                members_only,
+            },
+            published_text: None,
         });
     }
 
@@ -442,7 +442,7 @@ impl Local {
         &mut self,
         channel_id: &str,
         channel_title: &mut Option<String>,
-    ) -> Result<Vec<Video>> {
+    ) -> Result<Vec<FetchedVideo>> {
         let response = self
             .post_browse(&[("browseId", channel_id), ("params", "EgZ2aWRlb3PyBgQKAjoA")])
             .await?;
@@ -482,7 +482,7 @@ impl Local {
         extract_videos_tab(videos)
     }
 
-    async fn get_shorts_tab(&mut self, channel_id: &str) -> Result<Vec<Video>> {
+    async fn get_shorts_tab(&mut self, channel_id: &str) -> Result<Vec<FetchedVideo>> {
         let response = self
             .post_browse(&[
                 ("browseId", channel_id),
@@ -504,7 +504,7 @@ impl Local {
         extract_shorts_tab(shorts)
     }
 
-    async fn get_streams_tab(&mut self, channel_id: &str) -> Result<Vec<Video>> {
+    async fn get_streams_tab(&mut self, channel_id: &str) -> Result<Vec<FetchedVideo>> {
         let response = self
             .post_browse(&[
                 ("browseId", channel_id),
@@ -526,7 +526,7 @@ impl Local {
         extract_streams_tab(streams)
     }
 
-    async fn get_continuation(&mut self, tab: ChannelTab) -> Result<Vec<Video>> {
+    async fn get_continuation(&mut self, tab: ChannelTab) -> Result<Vec<FetchedVideo>> {
         let Some(continuation_token) = &self.continuation else {
             return Err(anyhow::anyhow!("No continuation token"));
         };
@@ -655,7 +655,7 @@ impl Api for Local {
         let url = format!("https://www.youtube.com/feeds/videos.xml?channel_id={channel_id}");
         let response = self.client.get(&url).send().await?.error_for_status()?;
 
-        let mut channel_feed: ChannelFeed = quick_xml::de::from_str(&response.text().await?)?;
+        let mut channel_feed = rss::parse(&response.text().await?)?;
         channel_feed.channel_id = Some(channel_id.to_string());
 
         Ok(channel_feed)
@@ -677,7 +677,7 @@ impl Api for Local {
             ChannelTab::Streams => feed.live_streams = self.get_streams_tab(channel_id).await?,
         }
 
-        let new_video_present = |videos: &[Video]| {
+        let new_video_present = |videos: &[FetchedVideo]| {
             !videos
                 .iter()
                 .all(|video| present_videos.contains(&video.video_id))

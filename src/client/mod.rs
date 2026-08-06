@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use crate::{
     CONFIG,
     api::{Api, ApiBackend, ChannelFeed, invidious::Instance, local::Local},
-    channel::{ChannelTab, RefreshState, VideoMetadata},
+    channel::{ChannelTab, RefreshState},
     message::MessageType,
     mpv::{PlayerHandle, VideoRequest, VideoSource},
     player::{copy_link, open_in_invidious, open_in_youtube, play_from_formats, youtube_watch_url},
@@ -11,6 +11,7 @@ use crate::{
     stream_formats::Formats,
     thumbnail::{Thumbnail, protocols::GraphicsProtocol},
     utils,
+    video::VideoMetadata,
 };
 use anyhow::{Result, bail};
 use feeds::{

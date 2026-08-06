@@ -1,13 +1,13 @@
 use super::{ClientRequest, FormatAction, TX};
 use crate::{
     api::Api,
-    channel::VideoMetadata,
     emit_msg,
     mpv::PlayerHandle,
     player,
     stream_formats::Formats,
     thumbnail::{Thumbnail, protocols::GraphicsProtocol},
     utils,
+    video::VideoMetadata,
 };
 use anyhow::Result;
 use std::{

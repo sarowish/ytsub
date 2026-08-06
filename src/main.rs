@@ -24,6 +24,7 @@ mod stream_formats;
 mod thumbnail;
 mod ui;
 mod utils;
+mod video;
 
 use crate::client::IoEvent;
 use crate::config::Config;

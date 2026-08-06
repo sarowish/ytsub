@@ -1,9 +1,9 @@
 use crate::CONFIG;
 use crate::api::Chapters;
-use crate::channel::VideoMetadata;
 use crate::{
     api::{Format, VideoInfo},
     list::{ListItem, SelectionList},
+    video::VideoMetadata,
 };
 use std::fmt::Display;
 

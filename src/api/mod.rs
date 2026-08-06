@@ -1,13 +1,10 @@
 pub mod invidious;
 pub mod local;
+mod rss;
 
 use crate::{
-    CONFIG,
-    channel::{ChannelTab, Video},
-    list::ListItem,
-    protobuf::decode_protobuf,
-    stream_formats::Formats,
-    utils,
+    CONFIG, channel::ChannelTab, list::ListItem, protobuf::decode_protobuf,
+    stream_formats::Formats, utils, video::FetchedVideo,
 };
 use anyhow::Result;
 use async_trait::async_trait;
@@ -17,16 +14,13 @@ use serde::Deserialize;
 use serde_json::Value;
 use std::{collections::HashSet, fmt::Display, io::Write, path::PathBuf, sync::LazyLock};
 
-#[derive(Default, Deserialize)]
+#[derive(Default)]
 pub struct ChannelFeed {
-    #[serde(rename = "title")]
     pub channel_title: Option<String>,
-    #[serde(rename = "channelId")]
     pub channel_id: Option<String>,
-    #[serde(rename = "entry")]
-    pub videos: Vec<Video>,
-    pub live_streams: Vec<Video>,
-    pub shorts: Vec<Video>,
+    pub videos: Vec<FetchedVideo>,
+    pub live_streams: Vec<FetchedVideo>,
+    pub shorts: Vec<FetchedVideo>,
 }
 
 impl ChannelFeed {
@@ -42,12 +36,12 @@ impl ChannelFeed {
         self
     }
 
-    pub fn videos(mut self, videos: Vec<Video>) -> Self {
+    pub fn videos(mut self, videos: Vec<FetchedVideo>) -> Self {
         self.videos = videos;
         self
     }
 
-    pub fn get_videos(&self, tab: ChannelTab) -> &[Video] {
+    pub fn get_videos(&self, tab: ChannelTab) -> &[FetchedVideo] {
         match tab {
             ChannelTab::Videos => &self.videos,
             ChannelTab::Shorts => &self.shorts,
@@ -55,7 +49,7 @@ impl ChannelFeed {
         }
     }
 
-    pub const fn get_mut_videos(&mut self, tab: ChannelTab) -> &mut Vec<Video> {
+    pub const fn get_mut_videos(&mut self, tab: ChannelTab) -> &mut Vec<FetchedVideo> {
         match tab {
             ChannelTab::Videos => &mut self.videos,
             ChannelTab::Shorts => &mut self.shorts,
@@ -63,23 +57,24 @@ impl ChannelFeed {
         }
     }
 
-    pub fn extend_videos(&mut self, videos: Vec<Video>, tab: ChannelTab) {
-        let Some(published_of_first) = videos.first().map(|video| video.published_text.clone())
-        else {
+    pub fn extend_videos(&mut self, videos: Vec<FetchedVideo>, tab: ChannelTab) {
+        let Some(first_video) = videos.first() else {
             return;
         };
+
+        let published_of_first = first_video.published_text.clone();
 
         let present_videos = self.get_mut_videos(tab);
         present_videos.extend(videos);
 
-        present_videos
-            .iter_mut()
-            .filter(|video| video.published_text == published_of_first)
-            .for_each(|video| {
-                if let Ok(published) = utils::published_text_as_timestamp(&video.published_text) {
-                    video.published = published;
-                }
-            });
+        if let Some(published_text) = published_of_first
+            && let Ok(published) = utils::published_text_as_timestamp(&published_text)
+        {
+            present_videos
+                .iter_mut()
+                .filter(|video| video.published_text.as_ref() == Some(&published_text))
+                .for_each(|video| video.published = published);
+        }
     }
 }
 

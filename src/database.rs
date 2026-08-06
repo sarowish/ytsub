@@ -1,6 +1,7 @@
 use crate::{
-    channel::{Channel, ChannelTab, Video},
+    channel::{Channel, ChannelTab},
     utils,
+    video::{Video, VideoListItem},
 };
 use anyhow::Result;
 use rusqlite::{Connection, params};
@@ -222,7 +223,8 @@ fn build_bulk_stmt(
             "
         ),
         StatementType::GetLatestVideos => format!(
-            "SELECT DISTINCT video_id, title, published, length, members_only, channel_name,
+            "SELECT DISTINCT video_id, title, published, length, members_only, videos.channel_id,
+            channel_name,
             EXISTS (SELECT * FROM watched WHERE watched.video_id=videos.video_id)
             FROM videos, channels, tag_relations
             WHERE videos.channel_id = channels.channel_id AND tag_relations.tag_name IN ({values_string}) AND tab=?1
@@ -328,7 +330,11 @@ pub fn get_channels(conn: &Connection, tags: &[&str]) -> Result<Vec<Channel>> {
     Ok(channels)
 }
 
-pub fn get_videos(conn: &Connection, channel_id: &str, tab: ChannelTab) -> Result<Vec<Video>> {
+pub fn get_videos(
+    conn: &Connection,
+    channel_id: &str,
+    tab: ChannelTab,
+) -> Result<Vec<VideoListItem>> {
     let mut stmt = conn.prepare(
         "SELECT videos.video_id, title, published, length, members_only,
         EXISTS (SELECT * FROM watched WHERE watched.video_id=videos.video_id)
@@ -339,17 +345,22 @@ pub fn get_videos(conn: &Connection, channel_id: &str, tab: ChannelTab) -> Resul
     )?;
     let mut videos = Vec::new();
     for video in stmt.query_map(params![channel_id, tab as u8], |row| {
-        Ok(Video {
+        let published = row.get(2)?;
+
+        Ok(VideoListItem {
+            video: Video {
+                video_id: row.get(0)?,
+                title: row.get(1)?,
+                published,
+                length: row.get(3)?,
+                members_only: row.get(4).unwrap_or_default(),
+            },
+            channel_id: channel_id.to_owned(),
             channel_name: None,
-            video_id: row.get(0)?,
-            title: row.get(1)?,
-            published: row.get(2)?,
             published_text: utils::published_text(row.get(2)?, tab == ChannelTab::Streams)
                 .unwrap_or_default(),
-            length: row.get(3)?,
             watched: row.get(5)?,
-            members_only: row.get(4).unwrap_or_default(),
-            new: false,
+            is_new: false,
         })
     })? {
         videos.push(video?);
@@ -358,7 +369,11 @@ pub fn get_videos(conn: &Connection, channel_id: &str, tab: ChannelTab) -> Resul
     Ok(videos)
 }
 
-pub fn get_latest_videos(conn: &Connection, tags: &[&str], tab: ChannelTab) -> Result<Vec<Video>> {
+pub fn get_latest_videos(
+    conn: &Connection,
+    tags: &[&str],
+    tab: ChannelTab,
+) -> Result<Vec<VideoListItem>> {
     let mut stmt;
     let mut values = Vec::with_capacity(tags.len() + 1);
     let tab_param = params![tab as u8];
@@ -366,7 +381,8 @@ pub fn get_latest_videos(conn: &Connection, tags: &[&str], tab: ChannelTab) -> R
 
     if tags.is_empty() {
         stmt = conn.prepare(
-            "SELECT video_id, title, published, length, members_only, channel_name,
+            "SELECT video_id, title, published, length, members_only, videos.channel_id,
+            channel_name,
             EXISTS (SELECT * FROM watched WHERE watched.video_id=videos.video_id)
             FROM videos, channels
             WHERE videos.channel_id = channels.channel_id AND tab=?1
@@ -389,17 +405,22 @@ pub fn get_latest_videos(conn: &Connection, tags: &[&str], tab: ChannelTab) -> R
     let mut videos = Vec::new();
 
     for video in stmt.query_map(values.as_slice(), |row| {
-        Ok(Video {
-            channel_name: Some(row.get(5)?),
-            video_id: row.get(0)?,
-            title: row.get(1)?,
-            published: row.get(2)?,
+        let published = row.get(2)?;
+
+        Ok(VideoListItem {
+            video: Video {
+                video_id: row.get(0)?,
+                title: row.get(1)?,
+                published,
+                length: row.get(3)?,
+                members_only: row.get(4).unwrap_or_default(),
+            },
+            channel_id: row.get(5)?,
+            channel_name: Some(row.get(6)?),
             published_text: utils::published_text(row.get(2)?, tab == ChannelTab::Streams)
                 .unwrap_or_default(),
-            length: row.get(3)?,
-            watched: row.get(6)?,
-            members_only: row.get(4).unwrap_or_default(),
-            new: false,
+            watched: row.get(7)?,
+            is_new: false,
         })
     })? {
         videos.push(video?);

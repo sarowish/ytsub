@@ -253,7 +253,7 @@ fn draw_videos(f: &mut Frame, app: &mut App, area: Rect) {
                         THEME.members_only_indicator,
                     ),
                     Span::styled(
-                        if video.new { " [N]" } else { "" },
+                        if video.is_new { " [N]" } else { "" },
                         THEME.new_video_indicator,
                     ),
                 ])),

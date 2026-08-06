@@ -1,7 +1,5 @@
 use crate::api::{ApiBackend, ChannelFeed};
-use crate::channel::{
-    Channel, ChannelTab, HideVideos, RefreshState, Video, VideoMetadata, tabs_to_be_loaded,
-};
+use crate::channel::{Channel, ChannelTab, HideVideos, RefreshState, tabs_to_be_loaded};
 use crate::client::FormatAction;
 use crate::emulator::Emulator;
 use crate::help::HelpWindowState;
@@ -13,6 +11,7 @@ use crate::mpv::{PlaybackPhase, PlaybackState};
 use crate::search::{Search, SearchDirection, SearchState};
 use crate::stream_formats::Formats;
 use crate::thumbnail::Thumbnail;
+use crate::video::{FetchedVideo, Video, VideoListItem, VideoMetadata};
 use crate::{CLAP_ARGS, CONFIG, IoEvent, database, utils};
 use anyhow::{Context, Result};
 use ratatui::widgets::{ListState, TableState};
@@ -156,18 +155,19 @@ impl App {
 
         let channel_id = channel_feed.channel_id.as_ref().unwrap();
 
-        let present_videos: Vec<Video> = match database::get_videos(&self.conn, channel_id, tab) {
-            Ok(videos) => videos,
-            Err(e) => {
-                self.set_error_message(&e.to_string());
-                return;
-            }
-        };
+        let present_videos: Vec<VideoListItem> =
+            match database::get_videos(&self.conn, channel_id, tab) {
+                Ok(videos) => videos,
+                Err(e) => {
+                    self.set_error_message(&e.to_string());
+                    return;
+                }
+            };
 
         // Videos sharing the same published text has the same unix time. Because of this, to
         // preserve a new video's order relative to the other videos sharing the same published
         // text, they need to be replaced in the database.
-        let mut timestamps: HashMap<u64, Vec<Video>> = HashMap::new();
+        let mut timestamps: HashMap<u64, Vec<FetchedVideo>> = HashMap::new();
         let mut to_be_added = HashSet::new();
         let mut added_new_video = false;
 
@@ -196,6 +196,7 @@ impl App {
             .into_iter()
             .filter(|(date, _)| to_be_added.contains(date))
             .flat_map(|(_, video)| video)
+            .map(|FetchedVideo { video, .. }| video)
             .collect::<Vec<Video>>();
 
         if videos.is_empty() {
@@ -232,7 +233,10 @@ impl App {
                     .collect()
             } else {
                 match database::get_videos(&self.conn, &current_channel.channel_id, tab.variant) {
-                    Ok(videos) => videos.into_iter().map(|video| video.video_id).collect(),
+                    Ok(videos) => videos
+                        .into_iter()
+                        .map(|VideoListItem { video, .. }| video.video_id)
+                        .collect(),
                     Err(e) => {
                         self.set_error_message(&e.to_string());
                         return;
@@ -335,18 +339,11 @@ impl App {
         }
     }
 
-    fn find_channel_by_name(&self, channel_name: &str) -> Option<usize> {
-        self.channels
-            .items
-            .iter()
-            .position(|channel| channel.channel_name == channel_name)
-    }
-
     pub fn get_current_channel(&self) -> Option<&Channel> {
         self.channels.get_selected()
     }
 
-    pub fn get_current_video(&self) -> Option<&Video> {
+    pub fn get_current_video(&self) -> Option<&VideoListItem> {
         self.tabs.get_selected_video()
     }
 
@@ -506,7 +503,7 @@ impl App {
         Ok(tabs)
     }
 
-    fn get_latest_videos(&self) -> Result<Vec<(Vec<Video>, ChannelTab)>> {
+    fn get_latest_videos(&self) -> Result<Vec<(Vec<VideoListItem>, ChannelTab)>> {
         let selected_tags: Vec<&str> = self
             .tags
             .get_selected_items()
@@ -546,11 +543,11 @@ impl App {
                             .hide_videos
                             .contains(HideVideos::WATCHED | HideVideos::MEMBERS_ONLY)
                         {
-                            |video: &Video| !(video.watched || video.members_only)
+                            |video: &VideoListItem| !(video.watched || video.members_only)
                         } else if self.hide_videos.contains(HideVideos::WATCHED) {
-                            |video: &Video| !video.watched
+                            |video: &VideoListItem| !video.watched
                         } else if self.hide_videos.contains(HideVideos::MEMBERS_ONLY) {
-                            |video: &Video| !video.members_only
+                            |video: &VideoListItem| !video.members_only
                         } else {
                             unreachable!()
                         };
@@ -561,7 +558,7 @@ impl App {
                     let mut count = 0;
                     for video in &mut tab.videos.items {
                         if self.new_video_ids.contains(&video.video_id) {
-                            video.new = true;
+                            video.is_new = true;
                             tab.has_new_video = true;
                             count += 1;
                         }
@@ -704,15 +701,14 @@ impl App {
         if self.mode == Mode::LatestVideos
             && let Some(tab) = self.tabs.get_selected()
             && let Some(video) = tab.videos.get_selected()
-            && let Some(channel_name) = &video.channel_name
         {
             let tab = tab.variant;
             let video_id = video.video_id.clone();
-            let channel_name = channel_name.clone();
+            let channel_id = video.channel_id.clone();
             self.mode = Mode::Subscriptions;
             self.selected = Selected::Videos;
 
-            if let Some(index) = self.find_channel_by_name(&channel_name) {
+            if let Some(index) = self.channels.find_by_id(&channel_id) {
                 self.channels.select_with_index(index);
                 self.on_change_channel();
                 self.tabs.select_tab(tab);
@@ -1317,16 +1313,16 @@ pub enum VideoPlayer {
     Vlc,
 }
 
-type TabList = Vec<(Vec<Video>, ChannelTab)>;
+type TabList = Vec<(Vec<VideoListItem>, ChannelTab)>;
 
 pub struct Tab {
     pub variant: ChannelTab,
-    pub videos: StatefulList<Video, TableState>,
+    pub videos: StatefulList<VideoListItem, TableState>,
     pub has_new_video: bool,
 }
 
 impl Tab {
-    pub fn new(variant: ChannelTab, videos: Vec<Video>) -> Self {
+    pub fn new(variant: ChannelTab, videos: Vec<VideoListItem>) -> Self {
         Self {
             variant,
             videos: StatefulList::with_items(videos),
@@ -1382,11 +1378,11 @@ impl Tabs {
         }
     }
 
-    fn get_videos_mut(&mut self) -> Option<&mut StatefulList<Video, TableState>> {
+    fn get_videos_mut(&mut self) -> Option<&mut StatefulList<VideoListItem, TableState>> {
         self.get_mut_selected().map(|tab| &mut tab.videos)
     }
 
-    pub fn get_selected_video(&self) -> Option<&Video> {
+    pub fn get_selected_video(&self) -> Option<&VideoListItem> {
         self.get_selected()
             .and_then(|tab| tab.videos.get_selected())
     }

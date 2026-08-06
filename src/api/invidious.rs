@@ -1,10 +1,10 @@
 use super::{Api, ApiBackend, Chapters, Format, VideoInfo};
-use crate::api::{ChannelFeed, ChannelTab, load_more_progress_msg};
-use crate::channel::Video;
+use crate::api::{ChannelFeed, ChannelTab, load_more_progress_msg, rss};
 use crate::http;
 use crate::stream_formats::Formats;
+use crate::video::{FetchedVideo, Video};
 use crate::{CONFIG, TX, emit_msg};
-use anyhow::Result;
+use anyhow::{Context, Result};
 use async_trait::async_trait;
 use rand::prelude::*;
 use reqwest::Client;
@@ -13,10 +13,62 @@ use std::collections::HashSet;
 
 const API_BACKEND: ApiBackend = ApiBackend::Invidious;
 
-fn extract_tab(videos_array: &Value) -> Option<Vec<Video>> {
+fn extract_video(video_json: &Value) -> Result<FetchedVideo> {
+    let is_upcoming = video_json["isUpcoming"]
+        .as_bool()
+        .context("Video is missing `isUpcoming`")?;
+    let mut published = video_json["published"]
+        .as_u64()
+        .context("Video is missing `published`")?;
+    let published_text = video_json
+        .get("publishedText")
+        .and_then(Value::as_str)
+        .map(ToOwned::to_owned);
+    let mut length = video_json["lengthSeconds"]
+        .as_u64()
+        .context("Video is missing `lengthSeconds`")?;
+
+    if is_upcoming {
+        let premiere_timestamp = video_json["premiereTimestamp"]
+            .as_u64()
+            .context("Upcoming video is missing `premiereTimestamp`")?;
+
+        // In Invidious API, all shorts are marked as upcoming but the published key needs to be
+        // used for the release time. If the premiere timestamp is 0, assume it is a shorts.
+        if premiere_timestamp != 0 {
+            published = premiere_timestamp;
+        }
+    }
+
+    if length == 0 {
+        length = 60;
+    }
+
+    Ok(FetchedVideo {
+        video: Video {
+            video_id: video_json["videoId"]
+                .as_str()
+                .context("Video is missing `videoId`")?
+                .to_owned(),
+            title: video_json["title"]
+                .as_str()
+                .context("Video is missing `title`")?
+                .to_owned(),
+            published,
+            length: Some(length as u32),
+            members_only: false,
+        },
+        published_text,
+    })
+}
+
+fn extract_tab(videos_array: &Value) -> Result<Vec<FetchedVideo>> {
     videos_array
         .as_array()
-        .map(|array| array.iter().map(Video::from).collect())
+        .into_iter()
+        .flatten()
+        .map(extract_video)
+        .collect()
 }
 
 #[derive(Clone)]
@@ -51,7 +103,7 @@ impl Instance {
         &mut self,
         channel_id: &str,
         tab: ChannelTab,
-    ) -> Result<Vec<Video>> {
+    ) -> Result<Vec<FetchedVideo>> {
         let url = format!("{}/api/v1/channels/{}/{}", self.domain, channel_id, tab);
         let mut request = self.client.get(&url);
 
@@ -67,7 +119,7 @@ impl Instance {
             .and_then(Value::as_str)
             .map(ToString::to_string);
 
-        Ok(extract_tab(&value["videos"]).unwrap_or_default())
+        extract_tab(&value["videos"])
     }
 }
 
@@ -93,9 +145,7 @@ impl Api for Instance {
         for tab in CONFIG.tabs.iter().map(|tab| tab.bits().into()) {
             let videos_array = self.get_tab_of_channel(channel_id, tab).await?;
 
-            if let Some(videos) = extract_tab(&videos_array) {
-                *channel_feed.get_mut_videos(tab) = videos;
-            }
+            *channel_feed.get_mut_videos(tab) = extract_tab(&videos_array)?;
         }
 
         Ok(channel_feed)
@@ -113,9 +163,7 @@ impl Api for Instance {
                 channel_feed.channel_title = video["author"].as_str().map(ToString::to_string);
             }
 
-            if let Some(videos) = extract_tab(&videos_array) {
-                *channel_feed.get_mut_videos(tab) = videos;
-            }
+            *channel_feed.get_mut_videos(tab) = extract_tab(&videos_array)?;
         }
 
         Ok(channel_feed)
@@ -125,7 +173,7 @@ impl Api for Instance {
         let url = format!("{}/feed/channel/{}", self.domain, channel_id);
         let response = self.client.get(&url).send().await?.error_for_status()?;
 
-        Ok(quick_xml::de::from_str(&response.text().await?)?)
+        Ok(rss::parse(&response.text().await?)?)
     }
 
     async fn get_more_videos(
@@ -146,7 +194,7 @@ impl Api for Instance {
             ChannelTab::Streams => feed.live_streams = videos,
         }
 
-        let new_video_present = |videos: &[Video]| {
+        let new_video_present = |videos: &[FetchedVideo]| {
             !videos
                 .iter()
                 .all(|video| present_videos.contains(&video.video_id))
