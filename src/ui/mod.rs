@@ -383,8 +383,8 @@ fn draw_player(f: &mut Frame, app: &App, area: Rect) {
         Span::styled(format!("[{phase}]"), THEME.title),
         Span::raw(format!(
             " {} - {} ",
-            state.item.as_ref().map_or("", |i| &i.metadata.channel),
-            state.item.as_ref().map_or("", |i| &i.metadata.title),
+            state.metadata.as_ref().map_or("", |m| &m.channel),
+            state.metadata.as_ref().map_or("", |m| &m.title),
         )),
     ]);
 

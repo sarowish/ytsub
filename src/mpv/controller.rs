@@ -1,8 +1,5 @@
-use super::{
-    MpvLaunch, MpvSession, PlaybackItem, PlaybackKind, VideoRequest, VideoSource,
-    ipc::MpvNotification,
-};
-use crate::video::PlaybackSpec;
+use super::{MpvLaunch, MpvSession, PlaybackKind, VideoRequest, VideoSource, ipc::MpvNotification};
+use crate::video::{PlaybackSpec, VideoMetadata};
 use anyhow::{Context, Result};
 use serde_json::Value;
 use std::time::Duration;
@@ -44,7 +41,7 @@ enum PlayerCommand {
 
 #[derive(Clone)]
 pub struct PlaybackState {
-    pub item: Option<PlaybackItem>,
+    pub metadata: Option<VideoMetadata>,
     pub phase: PlaybackPhase,
     pub elapsed: Option<u64>,
     pub duration: Option<u64>,
@@ -55,7 +52,7 @@ pub struct PlaybackState {
 impl PlaybackState {
     fn idle() -> Self {
         Self {
-            item: None,
+            metadata: None,
             phase: PlaybackPhase::Idle,
             elapsed: None,
             duration: None,
@@ -274,9 +271,7 @@ impl PlayerController {
                     self.publish_state(PlaybackUpdateCause::Replaced).await;
                 }
 
-                self.state.item = Some(PlaybackItem {
-                    metadata: request.spec().metadata.clone(),
-                });
+                self.state.metadata = Some(request.spec().metadata.clone());
                 self.state.phase = PlaybackPhase::Loading;
                 self.state.elapsed = None;
                 self.state.duration = None;

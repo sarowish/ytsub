@@ -364,9 +364,9 @@ impl App {
         let PlaybackUpdate { state, cause } = update;
 
         let video_id = state
-            .item
+            .metadata
             .as_ref()
-            .map(|item| item.metadata.video_id.clone());
+            .map(|metadata| metadata.video_id.clone());
         let duration = video_id
             .as_deref()
             .and_then(|id| self.tabs.get_video_by_id(id))
@@ -541,10 +541,10 @@ impl App {
 
     pub fn copy_url_at_time(&mut self, api: ApiBackend) {
         if self.is_player_active()
-            && let Some(item) = &self.playback_state.item
+            && let Some(metadata) = &self.playback_state.metadata
             && let Some(elapsed) = self.playback_state.elapsed
         {
-            let url_component = format!("watch?v={}&t={elapsed}s", item.metadata.video_id);
+            let url_component = format!("watch?v={}&t={elapsed}s", metadata.video_id);
             self.dispatch(IoEvent::CopyLink(url_component, api));
         } else {
             self.set_warning_message("No active playback to copy a timestamp from");

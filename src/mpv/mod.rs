@@ -1,7 +1,7 @@
 use self::ipc::{MpvIpc, MpvNotification};
 use crate::CONFIG;
 use crate::process::detach_process;
-use crate::video::{PlaybackSpec, VideoMetadata};
+use crate::video::PlaybackSpec;
 use anyhow::{Context, Result, bail};
 pub use controller::{
     PlaybackEndReason, PlaybackPhase, PlaybackState, PlaybackUpdate, PlaybackUpdateCause,
@@ -25,11 +25,6 @@ static SESSION_ID: AtomicU64 = AtomicU64::new(1);
 pub enum PlaybackKind {
     Audio,
     Video,
-}
-
-#[derive(Clone)]
-pub struct PlaybackItem {
-    pub metadata: VideoMetadata,
 }
 
 pub enum VideoSource {
