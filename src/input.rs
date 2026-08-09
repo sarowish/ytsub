@@ -86,6 +86,8 @@ fn handle_key_normal_mode(key: KeyEvent, app: &mut App) -> bool {
             Command::LoadAllVideos => app.get_more_videos(true),
             Command::CopyYoutubeLink => app.copy_url_to_clipboard(ApiBackend::Local),
             Command::CopyInvidiousLink => app.copy_url_to_clipboard(ApiBackend::Invidious),
+            Command::CopyYoutubeLinkAtTime => app.copy_url_at_time(ApiBackend::Local),
+            Command::CopyInvidiousLinkAtTime => app.copy_url_at_time(ApiBackend::Invidious),
             Command::OpenInYoutube => app.open_in_browser(ApiBackend::Local),
             Command::OpenInInvidious => app.open_in_browser(ApiBackend::Invidious),
             Command::LoadMoreVideos => app.get_more_videos(false),

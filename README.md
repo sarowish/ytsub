@@ -238,6 +238,8 @@ Window-specific bindings are shown as inline help in popup windows.
 | `load_all_videos`             | Load all videos                                                     | `ctrl-j`      |
 | `copy_youtube_link`           | Copy channel or video Youtube link to clipboard                     | `y`           |
 | `copy_invidious_link`         | Copy channel or video Invidious link to clipboard                   | `Y`           |
+| `copy_youtube_link_at_time`   | Copy the playing video Youtube link with timestamp to clipboard     | `alt-y`       |
+| `copy_invidious_link_at_time` | Copy the playing video Invidious link with timestamp to clipboard   | `alt-Y`       |
 | `open_in_youtube`             | Open channel or video Youtube page in browser                       | `o`           |
 | `open_in_invidious`           | Open channel or video Invidious page in browser                     | `O`           |
 | `play_from_formats`           | Play video in video player using stream formats                     | `p`           |

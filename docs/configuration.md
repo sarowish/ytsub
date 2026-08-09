@@ -204,6 +204,8 @@ Valid key codes are:
 | `load_all_videos`             | Load all videos                                                     |
 | `copy_youtube_link`           | Copy channel or video Youtube link to clipboard                     |
 | `copy_invidious_link`         | Copy channel or video Invidious link to clipboard                   |
+| `copy_youtube_link_at_time`   | Copy the playing video Youtube link with timestamp to clipboard     |
+| `copy_invidious_link_at_time` | Copy the playing video Invidious link with timestamp to clipboard   |
 | `open_in_youtube`             | Open channel or video Youtube page in browser                       |
 | `open_in_invidious`           | Open channel or video Invidious page in browser                     |
 | `play_from_formats`           | Play video in video player using stream formats                     |

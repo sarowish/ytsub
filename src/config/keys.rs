@@ -124,6 +124,8 @@ impl Default for KeyBindings {
         insert_binding!(general, "ctrl-j", Command::LoadAllVideos);
         insert_binding!(general, "y", Command::CopyYoutubeLink);
         insert_binding!(general, "Y", Command::CopyInvidiousLink);
+        insert_binding!(general, "alt-y", Command::CopyYoutubeLinkAtTime);
+        insert_binding!(general, "alt-Y", Command::CopyInvidiousLinkAtTime);
         insert_binding!(general, "o", Command::OpenInYoutube);
         insert_binding!(general, "O", Command::OpenInInvidious);
         insert_binding!(general, "p", Command::PlayFromFormats);

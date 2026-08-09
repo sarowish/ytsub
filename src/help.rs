@@ -4,7 +4,7 @@ use ratatui::layout::Rect;
 use std::ops::{Deref, DerefMut};
 use unicode_width::UnicodeWidthStr;
 
-const DESCRIPTIONS_LEN: usize = 50;
+const DESCRIPTIONS_LEN: usize = 52;
 const DESCRIPTIONS: [&str; DESCRIPTIONS_LEN] = [
     "Switch to subscriptions mode",
     "Switch to latest videos mode",
@@ -37,6 +37,8 @@ const DESCRIPTIONS: [&str; DESCRIPTIONS_LEN] = [
     "Load all videos",
     "Copy channel or video Youtube link to clipboard",
     "Copy channel or video Invidious link to clipboard",
+    "Copy the playing video Youtube link with timestamp to clipboard",
+    "Copy the playing video Invidious link with timestamp to clipboard",
     "Open channel or video Youtube page in browser",
     "Open channel or video Invidious page in browser",
     "Play video in video player using stream formats",

@@ -539,6 +539,18 @@ impl App {
         self.dispatch(IoEvent::CopyLink(url_component, api));
     }
 
+    pub fn copy_url_at_time(&mut self, api: ApiBackend) {
+        if self.is_player_active()
+            && let Some(item) = &self.playback_state.item
+            && let Some(elapsed) = self.playback_state.elapsed
+        {
+            let url_component = format!("watch?v={}&t={elapsed}s", item.metadata.video_id);
+            self.dispatch(IoEvent::CopyLink(url_component, api));
+        } else {
+            self.set_warning_message("No active playback to copy a timestamp from");
+        }
+    }
+
     pub fn open_in_browser(&mut self, api: ApiBackend) {
         let url_component = match self.selected {
             Selected::Channels => match self.get_current_channel() {

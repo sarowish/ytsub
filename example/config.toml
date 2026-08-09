@@ -92,6 +92,8 @@ help = { fg = "Green" }
 "F" = "refresh_failed_channels"
 "y" = "copy_youtube_link"
 "Y" = "copy_invidious_link"
+"alt-y" = "copy_youtube_link_at_time"
+"alt-Y" = "copy_invidious_link_at_time"
 "o" = "open_in_youtube"
 "O" = "open_in_invidious"
 "p" = "play_from_formats"

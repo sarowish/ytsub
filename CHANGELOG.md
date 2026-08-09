@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Make channel refresh symbols and Unicode progress bar configurable.
 - Add separate proxy configuration for requests and mpv/yt-dlp playback.
 - Save playback progress and resume from the last position.
+- Add commands for copying the playing video link with a timestamp.
 
 ### Changed
 - Mark videos as watched when playback reaches EOF or ends past a configurable threshold.
