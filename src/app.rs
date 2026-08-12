@@ -69,7 +69,7 @@ impl App {
             tags: SelectionList::default(),
             selected: Selected::default(),
             mode: Mode::default(),
-            conn: Connection::open(CONFIG.database.clone())?,
+            conn: database::open_db(&CONFIG.database)?,
             thumbnail: None,
             message: Message::new(),
             playback_state: PlaybackState::default(),
@@ -99,8 +99,6 @@ impl App {
                 Set them in the config file.",
             );
         }
-
-        database::initialize_db(&mut app.conn)?;
 
         app.load_channels();
 

@@ -3,23 +3,170 @@ use crate::{
     utils,
     video::{Video, VideoListItem},
 };
-use anyhow::Result;
+use anyhow::{Context, Result};
+use chrono::Utc;
 use rusqlite::{Connection, params};
-use std::ops::RangeInclusive;
+use std::{
+    fs::{self, OpenOptions},
+    ops::RangeInclusive,
+    path::{Path, PathBuf},
+};
 
 const LATEST_USER_VERSION: u8 = 4;
 
-pub fn initialize_db(conn: &mut Connection) -> Result<()> {
+pub fn open_db(path: &Path) -> Result<Connection> {
+    let database_exists = match std::fs::metadata(path) {
+        Ok(metadata) => metadata.len() > 0,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => false,
+        Err(error) => {
+            return Err(error)
+                .with_context(|| format!("failed to inspect database at {}", path.display()));
+        }
+    };
+
+    let mut conn = Connection::open(path)?;
+
     conn.pragma_update(None, "foreign_keys", "on")?;
 
     let current_user_version =
         conn.pragma_query_value(None, "user_version", |value| value.get(0))?;
 
-    for i in current_user_version..LATEST_USER_VERSION {
-        apply_migration(conn, i)?;
+    if database_exists && current_user_version < LATEST_USER_VERSION {
+        backup_db(&conn, path, current_user_version)?;
     }
 
-    Ok(())
+    for i in current_user_version..LATEST_USER_VERSION {
+        apply_migration(&mut conn, i)?;
+    }
+
+    Ok(conn)
+}
+
+fn backup_db(conn: &Connection, database_path: &Path, schema_version: u8) -> Result<PathBuf> {
+    let original_name = database_path
+        .file_name()
+        .context("database path does not contain a filename")?;
+
+    let timestamp = Utc::now().format("%Y%m%dT%H%M%SZ");
+
+    let mut backup_name = original_name.to_os_string();
+    backup_name.push(format!(".schema-{schema_version}.{timestamp}.bak"));
+
+    let mut base_path = database_path.to_owned();
+    base_path.set_file_name(backup_name);
+
+    let (backup_path, partial_file) = reserve_backup_paths(&base_path)?;
+
+    let permissions = fs::metadata(database_path)
+        .with_context(|| {
+            format!(
+                "failed to read permissions from database at {}",
+                database_path.display()
+            )
+        })?
+        .permissions();
+
+    fs::set_permissions(partial_file.path(), permissions).with_context(|| {
+        format!(
+            "failed to set permissions on backup at {}",
+            partial_file.path().display()
+        )
+    })?;
+
+    conn.backup(rusqlite::MAIN_DB, partial_file.path(), None)
+        .with_context(|| {
+            format!(
+                "failed to create backup at {}",
+                partial_file.path().display()
+            )
+        })?;
+
+    fs::rename(partial_file.path(), &backup_path).with_context(|| {
+        format!(
+            "failed to move completed backup from {} to {}",
+            partial_file.path().display(),
+            backup_path.display()
+        )
+    })?;
+    partial_file.keep();
+
+    Ok(backup_path)
+}
+
+struct PartialFile {
+    path: PathBuf,
+    persisted: bool,
+}
+
+impl PartialFile {
+    fn new(path: PathBuf) -> Self {
+        Self {
+            path,
+            persisted: false,
+        }
+    }
+
+    fn keep(mut self) {
+        self.persisted = true;
+    }
+
+    fn path(&self) -> &Path {
+        &self.path
+    }
+}
+
+impl Drop for PartialFile {
+    fn drop(&mut self) {
+        if !self.persisted {
+            let _ = fs::remove_file(&self.path);
+        }
+    }
+}
+
+fn reserve_backup_paths(base: &Path) -> Result<(PathBuf, PartialFile)> {
+    for number in 0.. {
+        let mut backup_path = base.to_owned();
+
+        if number != 0 {
+            backup_path.set_extension(format!("{number}.bak"));
+        }
+
+        match backup_path.try_exists() {
+            Ok(true) => continue,
+            Ok(false) => {}
+            Err(error) => {
+                return Err(error)
+                    .with_context(|| format!("failed to inspect {}", backup_path.display()));
+            }
+        }
+
+        let mut partial_path = backup_path.clone();
+        partial_path.as_mut_os_string().push(".partial");
+
+        match OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&partial_path)
+        {
+            Ok(_) => {
+                let partial_file = PartialFile::new(partial_path);
+
+                if backup_path.try_exists()? {
+                    continue;
+                }
+
+                return Ok((backup_path, partial_file));
+            }
+
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(error) => {
+                return Err(error)
+                    .with_context(|| format!("failed to reserve {}", partial_path.display()));
+            }
+        }
+    }
+
+    unreachable!()
 }
 
 fn apply_migration(conn: &mut Connection, current_user_version: u8) -> Result<()> {
@@ -574,4 +721,153 @@ pub fn update_channels_of_tag(
     conn.execute(&query, values.as_slice())?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{LATEST_USER_VERSION, apply_migration, backup_db, open_db, reserve_backup_paths};
+    use anyhow::Result;
+    use rusqlite::Connection;
+    use std::{
+        fs,
+        path::{Path, PathBuf},
+    };
+    use tempfile::tempdir;
+
+    const VIDEO_ID: &str = "test-video";
+
+    fn user_version(conn: &Connection) -> Result<u8> {
+        Ok(conn.pragma_query_value(None, "user_version", |row| row.get(0))?)
+    }
+
+    fn completed_backups(directory: &Path) -> Result<Vec<PathBuf>> {
+        let mut backups = fs::read_dir(directory)?
+            .filter_map(|entry| entry.ok())
+            .map(|entry| entry.path())
+            .filter(|path| {
+                path.file_name()
+                    .is_some_and(|name| name.to_string_lossy().ends_with(".bak"))
+            })
+            .collect::<Vec<_>>();
+
+        backups.sort();
+        Ok(backups)
+    }
+
+    fn create_schema_three_database(path: &Path) -> Result<()> {
+        let mut conn = Connection::open(path)?;
+
+        apply_migration(&mut conn, 0)?;
+        apply_migration(&mut conn, 1)?;
+
+        conn.execute(
+            "INSERT INTO channels (channel_id, channel_name) VALUES ('test-channel', 'Test')",
+            [],
+        )?;
+        conn.execute(
+            "
+            INSERT INTO videos (video_id, channel_id, title, published, length, watched)
+            VALUES (?1, 'test-channel', 'Test video', 0, 60, true)
+            ",
+            [VIDEO_ID],
+        )?;
+
+        apply_migration(&mut conn, 2)?;
+        Ok(())
+    }
+
+    #[test]
+    fn fresh_and_current_databases_are_not_backed_up() -> Result<()> {
+        let directory = tempdir()?;
+        let database_path = directory.path().join("videos.db");
+
+        let conn = open_db(&database_path)?;
+        assert_eq!(user_version(&conn)?, LATEST_USER_VERSION);
+        drop(conn);
+        assert!(completed_backups(directory.path())?.is_empty());
+
+        let conn = open_db(&database_path)?;
+        assert_eq!(user_version(&conn)?, LATEST_USER_VERSION);
+        drop(conn);
+        assert!(completed_backups(directory.path())?.is_empty());
+
+        Ok(())
+    }
+
+    #[test]
+    fn migration_creates_a_backup_of_the_previous_schema() -> Result<()> {
+        let directory = tempdir()?;
+        let database_path = directory.path().join("videos.db");
+        create_schema_three_database(&database_path)?;
+
+        let conn = open_db(&database_path)?;
+        assert_eq!(user_version(&conn)?, LATEST_USER_VERSION);
+        assert!(conn.query_row(
+            "SELECT watched FROM video_state WHERE video_id = ?1",
+            [VIDEO_ID],
+            |row| row.get::<_, bool>(0),
+        )?);
+
+        let backups = completed_backups(directory.path())?;
+        assert_eq!(backups.len(), 1);
+        assert!(
+            backups[0]
+                .file_name()
+                .unwrap()
+                .to_string_lossy()
+                .contains(".schema-3.")
+        );
+
+        let backup = Connection::open(&backups[0])?;
+        assert_eq!(user_version(&backup)?, 3);
+        assert_eq!(
+            backup.query_row(
+                "SELECT COUNT(*) FROM watched WHERE video_id = ?1",
+                [VIDEO_ID],
+                |row| row.get::<_, u32>(0),
+            )?,
+            1
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn backup_name_collision_uses_the_next_number() -> Result<()> {
+        let directory = tempdir()?;
+        let base_path = directory
+            .path()
+            .join("videos.db.schema-3.20260812T143052Z.bak");
+        fs::write(&base_path, b"existing backup")?;
+
+        let (backup_path, partial_file) = reserve_backup_paths(&base_path)?;
+
+        assert_eq!(
+            backup_path,
+            directory
+                .path()
+                .join("videos.db.schema-3.20260812T143052Z.1.bak")
+        );
+        assert_eq!(
+            partial_file.path(),
+            directory
+                .path()
+                .join("videos.db.schema-3.20260812T143052Z.1.bak.partial")
+        );
+        assert_eq!(fs::read(&base_path)?, b"existing backup");
+
+        Ok(())
+    }
+
+    #[test]
+    fn backup_error_removes_the_partial_file() -> Result<()> {
+        let directory = tempdir()?;
+        let nonexistent_database = directory.path().join("missing.db");
+        let conn = Connection::open_in_memory()?;
+
+        assert!(backup_db(&conn, &nonexistent_database, 0).is_err());
+        assert!(fs::read_dir(directory.path())?.next().is_none());
+
+        Ok(())
+    }
 }

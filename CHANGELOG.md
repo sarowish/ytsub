@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add separate proxy configuration for requests and mpv/yt-dlp playback.
 - Save playback progress and resume from the last position.
 - Add commands for copying the playing video link with a timestamp.
+- Automatically back up existing databases before applying schema migrations.
 
 ### Changed
 - Mark videos as watched when playback reaches EOF or ends past a configurable threshold.
