@@ -80,11 +80,43 @@ async fn main() -> Result<()> {
         return Ok(());
     }
 
+    let subcommand = CLAP_ARGS.subcommand();
+
+    if let Some(("database", database_matches)) = subcommand
+        && let Some(("downgrade", downgrade_matches)) = database_matches.subcommand()
+    {
+        let target_version = downgrade_matches.get_one::<u8>("target").copied();
+
+        match database::downgrade_database(&CONFIG.database, target_version)? {
+            database::DowngradeOutcome::Downgraded {
+                from,
+                to,
+                backup_path,
+            } => {
+                println!("Downgraded database schema from {from} to {to}.");
+                println!("Backup: {}", backup_path.display());
+
+                let removed_data = downgrade_removed_data(from, to);
+                if !removed_data.is_empty() {
+                    println!(
+                        "Removed during downgrade: {}. The original data remains in the backup.",
+                        removed_data.join(", ")
+                    );
+                }
+            }
+            database::DowngradeOutcome::AlreadyAtTarget { version } => {
+                println!("Database is already at schema version {version}.");
+            }
+        }
+
+        return Ok(());
+    }
+
     let (io_tx, io_rx) = mpsc::unbounded_channel();
 
     let mut app = App::new(io_tx)?;
 
-    match CLAP_ARGS.subcommand() {
+    match subcommand {
         Some(("import", matches)) => app.select_channels_to_import(
             matches.get_one::<PathBuf>("source").unwrap(),
             matches
@@ -129,6 +161,22 @@ async fn main() -> Result<()> {
     }
 
     Ok(())
+}
+
+fn downgrade_removed_data(from: u8, to: u8) -> Vec<&'static str> {
+    let mut removed = Vec::new();
+
+    if from >= 4 && to < 4 {
+        removed.push("saved playback positions");
+    }
+    if from >= 3 && to < 3 {
+        removed.push("video tab and members-only state");
+    }
+    if from >= 2 && to < 2 {
+        removed.push("channel refresh timestamps");
+    }
+
+    removed
 }
 
 fn render(app: &mut App, terminal: &mut DefaultTerminal) -> Result<()> {

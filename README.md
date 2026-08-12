@@ -129,9 +129,10 @@ binary somewhere in your `PATH`.
 Usage: ytsub [OPTIONS] [COMMAND]
 
 Commands:
-  import  Import subscriptions
-  export  Export subscriptions
-  help    Print this message or the help of the given subcommand(s)
+  import    Import subscriptions
+  export    Export subscriptions
+  database  Manage the database
+  help      Print this message or the help of the given subcommand(s)
 
 Options:
   -c, --config <FILE>     Path to configuration file
@@ -262,6 +263,35 @@ Window-specific bindings are shown as inline help in popup windows.
 
 To configure the key bindings, see the
 [key bindings section in the configuration documentation](docs/configuration.md#key-bindings).
+
+### Downgrading the database
+
+Older revisions of ytsub may expect a different database schema.
+Before running one, make the database compatible with the schema it uses:
+
+```bash
+ytsub database downgrade [--to <SCHEMA>]
+```
+
+Omit `--to` to move down one schema version, or specify a schema to downgrade directly to it.
+
+| Target schema | Compatible ytsub versions  |
+| ------------- | -------------------------- |
+| `3`           | v0.7.0–v0.10.0             |
+| `2`           | v0.3.0–v0.6.0              |
+| `1`           | v0.1.x–v0.2.0              |
+
+The command creates a backup beside the database before making any changes. Information that an
+older schema cannot represent is removed from the active database but remains in that backup:
+
+| Migration | Information removed from the active database |
+| --------- | -------------------------------------------- |
+| 4 → 3     | Saved playback positions                     |
+| 3 → 2     | Video tab and members-only state             |
+| 2 → 1     | Channel refresh timestamps                   |
+
+After downgrading, switch to the older binary before starting ytsub again. Starting the current
+version normally will automatically migrate the database back to the latest schema.
 
 ## Thumbnails
 

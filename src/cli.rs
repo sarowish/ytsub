@@ -70,6 +70,7 @@ pub fn get_matches() -> ArgMatches {
         )
         .subcommand(create_import_subcommand())
         .subcommand(create_export_subcommand())
+        .subcommand(create_database_subcommand())
         .get_matches()
 }
 
@@ -112,5 +113,25 @@ fn create_export_subcommand() -> Command {
                 .value_parser(ValueParser::path_buf())
                 .value_name("FILE")
                 .required(true),
+        )
+}
+
+fn create_database_subcommand() -> Command {
+    Command::new("database")
+        .about("Manage the database")
+        .subcommand_required(true)
+        .arg_required_else_help(true)
+        .subcommand(
+            Command::new("downgrade")
+                .about(
+                    "Downgrade the database schema for compatibility with an older ytsub version",
+                )
+                .arg(
+                    Arg::new("target")
+                        .long("to")
+                        .help("Target schema version (defaults to the previous version)")
+                        .value_name("SCHEMA")
+                        .value_parser(clap::value_parser!(u8)),
+                ),
         )
 }

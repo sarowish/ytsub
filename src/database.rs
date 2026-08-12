@@ -3,9 +3,9 @@ use crate::{
     utils,
     video::{Video, VideoListItem},
 };
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, bail, ensure};
 use chrono::Utc;
-use rusqlite::{Connection, params};
+use rusqlite::{Connection, OpenFlags, Transaction, TransactionBehavior, params};
 use std::{
     fs::{self, OpenOptions},
     ops::RangeInclusive,
@@ -13,6 +13,11 @@ use std::{
 };
 
 const LATEST_USER_VERSION: u8 = 4;
+const MIN_DOWNGRADE_USER_VERSION: u8 = 1;
+
+fn user_version(conn: &Connection) -> Result<u8> {
+    Ok(conn.pragma_query_value(None, "user_version", |value| value.get(0))?)
+}
 
 pub fn open_db(path: &Path) -> Result<Connection> {
     let database_exists = match std::fs::metadata(path) {
@@ -28,18 +33,156 @@ pub fn open_db(path: &Path) -> Result<Connection> {
 
     conn.pragma_update(None, "foreign_keys", "on")?;
 
-    let current_user_version =
-        conn.pragma_query_value(None, "user_version", |value| value.get(0))?;
+    let current_user_version = user_version(&conn)?;
 
     if database_exists && current_user_version < LATEST_USER_VERSION {
         backup_db(&conn, path, current_user_version)?;
     }
 
     for i in current_user_version..LATEST_USER_VERSION {
-        apply_migration(&mut conn, i)?;
+        apply_up_migration(&mut conn, i)?;
     }
 
     Ok(conn)
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub enum DowngradeOutcome {
+    Downgraded {
+        from: u8,
+        to: u8,
+        backup_path: PathBuf,
+    },
+    AlreadyAtTarget {
+        version: u8,
+    },
+}
+
+pub fn downgrade_database(path: &Path, target_version: Option<u8>) -> Result<DowngradeOutcome> {
+    if let Some(target_version) = target_version {
+        ensure!(
+            (MIN_DOWNGRADE_USER_VERSION..LATEST_USER_VERSION).contains(&target_version),
+            "unsupported target database schema version {target_version}; supported downgrade targets are {} through {}",
+            MIN_DOWNGRADE_USER_VERSION,
+            LATEST_USER_VERSION - 1
+        );
+    }
+
+    let flags = OpenFlags::default().difference(OpenFlags::SQLITE_OPEN_CREATE);
+    let mut conn = Connection::open_with_flags(path, flags).with_context(|| {
+        format!(
+            "failed to open database for downgrade at {}",
+            path.display()
+        )
+    })?;
+
+    conn.pragma_update(None, "foreign_keys", "on")?;
+
+    let current_version = user_version(&conn)?;
+
+    ensure!(
+        current_version <= LATEST_USER_VERSION,
+        "database schema version {current_version} is newer than the latest version supported by this ytsub build ({LATEST_USER_VERSION})"
+    );
+
+    let target_version = match target_version {
+        Some(target_version) => target_version,
+        None => {
+            ensure!(
+                current_version > MIN_DOWNGRADE_USER_VERSION,
+                "database schema version {current_version} has no supported previous version"
+            );
+            current_version - 1
+        }
+    };
+
+    ensure!(
+        target_version <= current_version,
+        "cannot downgrade database schema version {current_version} to newer version {target_version}"
+    );
+
+    if target_version == current_version {
+        return Ok(DowngradeOutcome::AlreadyAtTarget {
+            version: current_version,
+        });
+    }
+
+    let backup_path = backup_db(&conn, path, current_version)?;
+
+    apply_down_migrations(&mut conn, current_version, target_version).with_context(|| {
+        format!(
+            "failed to downgrade database schema from {current_version} to {target_version}; the original database backup is at {}",
+            backup_path.display()
+        )
+    })?;
+
+    Ok(DowngradeOutcome::Downgraded {
+        from: current_version,
+        to: target_version,
+        backup_path,
+    })
+}
+
+fn apply_down_migrations(
+    conn: &mut Connection,
+    current_version: u8,
+    target_version: u8,
+) -> Result<()> {
+    let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
+
+    for version in ((target_version + 1)..=current_version).rev() {
+        apply_down_migration(&tx, version).with_context(|| {
+            format!(
+                "failed to migrate database schema from {version} to {}",
+                version - 1
+            )
+        })?;
+    }
+
+    tx.commit()?;
+    Ok(())
+}
+
+fn apply_down_migration(tx: &Transaction<'_>, current_version: u8) -> Result<()> {
+    match current_version {
+        4 => {
+            tx.execute("CREATE TABLE watched (video_id TEXT PRIMARY KEY)", [])?;
+            tx.execute(
+                "
+                INSERT INTO watched (video_id)
+                SELECT video_id
+                FROM video_state
+                WHERE watched = 1
+                ",
+                [],
+            )?;
+            tx.execute("DROP TABLE video_state", [])?;
+        }
+        3 => {
+            tx.execute("ALTER TABLE videos ADD COLUMN watched BOOL", [])?;
+            tx.execute(
+                "
+                UPDATE videos
+                SET watched = EXISTS (
+                    SELECT 1
+                    FROM watched
+                    WHERE watched.video_id = videos.video_id
+                )
+                ",
+                [],
+            )?;
+            tx.execute("DROP TABLE watched", [])?;
+            tx.execute("ALTER TABLE videos DROP COLUMN tab", [])?;
+            tx.execute("ALTER TABLE videos DROP COLUMN members_only", [])?;
+        }
+        2 => {
+            tx.execute("ALTER TABLE channels DROP COLUMN last_refreshed", [])?;
+        }
+        _ => bail!("no down migration from database schema version {current_version}"),
+    }
+
+    tx.pragma_update(None, "user_version", current_version - 1)?;
+    Ok(())
 }
 
 fn backup_db(conn: &Connection, database_path: &Path, schema_version: u8) -> Result<PathBuf> {
@@ -169,7 +312,7 @@ fn reserve_backup_paths(base: &Path) -> Result<(PathBuf, PartialFile)> {
     unreachable!()
 }
 
-fn apply_migration(conn: &mut Connection, current_user_version: u8) -> Result<()> {
+fn apply_up_migration(conn: &mut Connection, current_user_version: u8) -> Result<()> {
     match current_user_version {
         0 => {
             conn.execute(
@@ -725,7 +868,10 @@ pub fn update_channels_of_tag(
 
 #[cfg(test)]
 mod tests {
-    use super::{LATEST_USER_VERSION, apply_migration, backup_db, open_db, reserve_backup_paths};
+    use super::{
+        DowngradeOutcome, LATEST_USER_VERSION, apply_up_migration, backup_db, downgrade_database,
+        open_db, reserve_backup_paths, user_version,
+    };
     use anyhow::Result;
     use rusqlite::Connection;
     use std::{
@@ -735,10 +881,7 @@ mod tests {
     use tempfile::tempdir;
 
     const VIDEO_ID: &str = "test-video";
-
-    fn user_version(conn: &Connection) -> Result<u8> {
-        Ok(conn.pragma_query_value(None, "user_version", |row| row.get(0))?)
-    }
+    const UNWATCHED_VIDEO_ID: &str = "unwatched-video";
 
     fn completed_backups(directory: &Path) -> Result<Vec<PathBuf>> {
         let mut backups = fs::read_dir(directory)?
@@ -757,8 +900,8 @@ mod tests {
     fn create_schema_three_database(path: &Path) -> Result<()> {
         let mut conn = Connection::open(path)?;
 
-        apply_migration(&mut conn, 0)?;
-        apply_migration(&mut conn, 1)?;
+        apply_up_migration(&mut conn, 0)?;
+        apply_up_migration(&mut conn, 1)?;
 
         conn.execute(
             "INSERT INTO channels (channel_id, channel_name) VALUES ('test-channel', 'Test')",
@@ -772,8 +915,101 @@ mod tests {
             [VIDEO_ID],
         )?;
 
-        apply_migration(&mut conn, 2)?;
+        apply_up_migration(&mut conn, 2)?;
         Ok(())
+    }
+
+    fn create_schema_two_database(path: &Path) -> Result<()> {
+        let mut conn = Connection::open(path)?;
+
+        apply_up_migration(&mut conn, 0)?;
+        apply_up_migration(&mut conn, 1)?;
+        conn.execute(
+            "
+            INSERT INTO channels (channel_id, channel_name, last_refreshed)
+            VALUES ('test-channel', 'Test', 123)
+            ",
+            [],
+        )?;
+        conn.execute(
+            "
+            INSERT INTO videos (video_id, channel_id, title, published, length, watched)
+            VALUES (?1, 'test-channel', 'Test video', 0, 60, true)
+            ",
+            [VIDEO_ID],
+        )?;
+
+        Ok(())
+    }
+
+    fn create_schema_four_database(path: &Path) -> Result<()> {
+        let conn = open_db(path)?;
+
+        conn.execute(
+            "
+            INSERT INTO channels (channel_id, channel_name, last_refreshed)
+            VALUES ('test-channel', 'Test', 123)
+            ",
+            [],
+        )?;
+        conn.execute(
+            "
+            INSERT INTO videos (
+                video_id, channel_id, title, published, length, tab, members_only
+            ) VALUES
+                (?1, 'test-channel', 'Watched video', 0, 60, 1, true),
+                (?2, 'test-channel', 'Unwatched video', 0, 60, 2, false)
+            ",
+            [VIDEO_ID, UNWATCHED_VIDEO_ID],
+        )?;
+        conn.execute(
+            "
+            INSERT INTO video_state (video_id, watched, position) VALUES
+                (?1, true, 42),
+                (?2, false, 24)
+            ",
+            [VIDEO_ID, UNWATCHED_VIDEO_ID],
+        )?;
+
+        Ok(())
+    }
+
+    fn table_exists(conn: &Connection, table: &str) -> Result<bool> {
+        Ok(conn.query_row(
+            "
+            SELECT EXISTS (
+                SELECT 1 FROM sqlite_schema WHERE type = 'table' AND name = ?1
+            )
+            ",
+            [table],
+            |row| row.get(0),
+        )?)
+    }
+
+    fn table_columns(conn: &Connection, table: &str) -> Result<Vec<String>> {
+        let mut stmt = conn.prepare("SELECT name FROM pragma_table_info(?1) ORDER BY cid")?;
+        let columns = stmt
+            .query_map([table], |row| row.get(0))?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+
+        Ok(columns)
+    }
+
+    fn assert_downgraded(outcome: DowngradeOutcome, expected_from: u8, expected_to: u8) -> PathBuf {
+        match outcome {
+            DowngradeOutcome::Downgraded {
+                from,
+                to,
+                backup_path,
+            } => {
+                assert_eq!(from, expected_from);
+                assert_eq!(to, expected_to);
+                backup_path
+            }
+            DowngradeOutcome::AlreadyAtTarget { version } => {
+                panic!("expected downgrade, but database was already at schema {version}")
+            }
+        }
     }
 
     #[test]
@@ -783,12 +1019,10 @@ mod tests {
 
         let conn = open_db(&database_path)?;
         assert_eq!(user_version(&conn)?, LATEST_USER_VERSION);
-        drop(conn);
         assert!(completed_backups(directory.path())?.is_empty());
 
         let conn = open_db(&database_path)?;
         assert_eq!(user_version(&conn)?, LATEST_USER_VERSION);
-        drop(conn);
         assert!(completed_backups(directory.path())?.is_empty());
 
         Ok(())
@@ -867,6 +1101,219 @@ mod tests {
 
         assert!(backup_db(&conn, &nonexistent_database, 0).is_err());
         assert!(fs::read_dir(directory.path())?.next().is_none());
+
+        Ok(())
+    }
+
+    #[test]
+    fn downgrade_four_to_three_preserves_watched_state_and_backup() -> Result<()> {
+        let directory = tempdir()?;
+        let database_path = directory.path().join("videos.db");
+        create_schema_four_database(&database_path)?;
+
+        let backup_path = assert_downgraded(downgrade_database(&database_path, None)?, 4, 3);
+
+        let conn = Connection::open(&database_path)?;
+        assert_eq!(user_version(&conn)?, 3);
+        assert!(table_exists(&conn, "watched")?);
+        assert!(!table_exists(&conn, "video_state")?);
+        assert_eq!(
+            conn.query_row("SELECT COUNT(*) FROM watched", [], |row| {
+                row.get::<_, u32>(0)
+            })?,
+            1
+        );
+        assert_eq!(
+            conn.query_row("SELECT video_id FROM watched", [], |row| {
+                row.get::<_, String>(0)
+            })?,
+            VIDEO_ID
+        );
+
+        let backup = Connection::open(&backup_path)?;
+        assert_eq!(user_version(&backup)?, 4);
+        assert_eq!(
+            backup.query_row(
+                "SELECT position FROM video_state WHERE video_id = ?1",
+                [VIDEO_ID],
+                |row| row.get::<_, u64>(0),
+            )?,
+            42
+        );
+        assert_eq!(completed_backups(directory.path())?, vec![backup_path]);
+
+        Ok(())
+    }
+
+    #[test]
+    fn downgrade_three_to_two_restores_watched_column() -> Result<()> {
+        let directory = tempdir()?;
+        let database_path = directory.path().join("videos.db");
+        create_schema_three_database(&database_path)?;
+
+        let conn = Connection::open(&database_path)?;
+        conn.execute(
+            "UPDATE videos SET tab = 2, members_only = true WHERE video_id = ?1",
+            [VIDEO_ID],
+        )?;
+
+        assert_downgraded(downgrade_database(&database_path, Some(2))?, 3, 2);
+
+        let conn = Connection::open(&database_path)?;
+        assert_eq!(user_version(&conn)?, 2);
+        assert!(!table_exists(&conn, "watched")?);
+        assert_eq!(
+            table_columns(&conn, "videos")?,
+            [
+                "video_id",
+                "channel_id",
+                "title",
+                "published",
+                "length",
+                "watched",
+            ]
+        );
+        assert!(conn.query_row(
+            "SELECT watched FROM videos WHERE video_id = ?1",
+            [VIDEO_ID],
+            |row| row.get::<_, bool>(0),
+        )?);
+
+        Ok(())
+    }
+
+    #[test]
+    fn downgrade_two_to_one_removes_refresh_timestamp() -> Result<()> {
+        let directory = tempdir()?;
+        let database_path = directory.path().join("videos.db");
+        create_schema_two_database(&database_path)?;
+
+        assert_downgraded(downgrade_database(&database_path, Some(1))?, 2, 1);
+
+        let conn = Connection::open(&database_path)?;
+        assert_eq!(user_version(&conn)?, 1);
+        assert_eq!(
+            table_columns(&conn, "channels")?,
+            ["channel_id", "channel_name"]
+        );
+        assert_eq!(
+            conn.query_row(
+                "SELECT channel_name FROM channels WHERE channel_id = 'test-channel'",
+                [],
+                |row| row.get::<_, String>(0),
+            )?,
+            "Test"
+        );
+        assert!(conn.query_row(
+            "SELECT watched FROM videos WHERE video_id = ?1",
+            [VIDEO_ID],
+            |row| row.get::<_, bool>(0),
+        )?);
+
+        Ok(())
+    }
+
+    #[test]
+    fn multi_step_downgrade_reaches_target_and_creates_one_backup() -> Result<()> {
+        let directory = tempdir()?;
+        let database_path = directory.path().join("videos.db");
+        create_schema_four_database(&database_path)?;
+
+        let backup_path = assert_downgraded(downgrade_database(&database_path, Some(1))?, 4, 1);
+
+        let conn = Connection::open(&database_path)?;
+        assert_eq!(user_version(&conn)?, 1);
+        assert_eq!(
+            table_columns(&conn, "channels")?,
+            ["channel_id", "channel_name"]
+        );
+        assert_eq!(
+            table_columns(&conn, "videos")?,
+            [
+                "video_id",
+                "channel_id",
+                "title",
+                "published",
+                "length",
+                "watched",
+            ]
+        );
+        assert!(conn.query_row(
+            "SELECT watched FROM videos WHERE video_id = ?1",
+            [VIDEO_ID],
+            |row| row.get::<_, bool>(0),
+        )?);
+        assert!(!conn.query_row(
+            "SELECT watched FROM videos WHERE video_id = ?1",
+            [UNWATCHED_VIDEO_ID],
+            |row| row.get::<_, bool>(0),
+        )?);
+
+        assert_eq!(completed_backups(directory.path())?, vec![backup_path]);
+
+        Ok(())
+    }
+
+    #[test]
+    fn downgraded_database_can_be_migrated_forward_again() -> Result<()> {
+        let directory = tempdir()?;
+        let database_path = directory.path().join("videos.db");
+        create_schema_four_database(&database_path)?;
+
+        assert_downgraded(downgrade_database(&database_path, Some(1))?, 4, 1);
+
+        let conn = open_db(&database_path)?;
+        assert_eq!(user_version(&conn)?, 4);
+        assert!(conn.query_row(
+            "SELECT watched FROM video_state WHERE video_id = ?1",
+            [VIDEO_ID],
+            |row| row.get::<_, bool>(0),
+        )?);
+        assert_eq!(
+            conn.query_row(
+                "SELECT position FROM video_state WHERE video_id = ?1",
+                [VIDEO_ID],
+                |row| row.get::<_, Option<u64>>(0),
+            )?,
+            None
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn downgrade_validates_paths_and_schema_versions_before_backup() -> Result<()> {
+        let directory = tempdir()?;
+        let missing_path = directory.path().join("missing.db");
+
+        assert!(downgrade_database(&missing_path, Some(3)).is_err());
+        assert!(!missing_path.exists());
+
+        let database_path = directory.path().join("videos.db");
+        create_schema_three_database(&database_path)?;
+
+        assert_eq!(
+            downgrade_database(&database_path, Some(3))?,
+            DowngradeOutcome::AlreadyAtTarget { version: 3 }
+        );
+        assert!(downgrade_database(&database_path, Some(0)).is_err());
+
+        let oldest_database_path = directory.path().join("oldest.db");
+        let mut conn = Connection::open(&oldest_database_path)?;
+        apply_up_migration(&mut conn, 0)?;
+        assert!(downgrade_database(&oldest_database_path, None).is_err());
+
+        let older_database_path = directory.path().join("older.db");
+        create_schema_two_database(&older_database_path)?;
+        assert!(downgrade_database(&older_database_path, Some(3)).is_err());
+
+        let future_database_path = directory.path().join("future.db");
+        create_schema_four_database(&future_database_path)?;
+        let conn = Connection::open(&future_database_path)?;
+        conn.pragma_update(None, "user_version", 5)?;
+        assert!(downgrade_database(&future_database_path, Some(3)).is_err());
+
+        assert!(completed_backups(directory.path())?.is_empty());
 
         Ok(())
     }
