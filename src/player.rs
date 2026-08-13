@@ -40,9 +40,13 @@ pub async fn play_from_formats(
                 spec: formats.spec,
             };
 
-            match player.play_video(request) {
-                Ok(()) => emit_msg!(),
-                Err(error) => emit_msg!(error, error.to_string()),
+            if CONFIG.mpv_video_ipc {
+                match player.play_video(request) {
+                    Ok(()) => emit_msg!(),
+                    Err(error) => emit_msg!(error, error.to_string()),
+                }
+            } else {
+                play_mpv_without_ipc(request).await?;
             }
 
             Ok(())
@@ -70,6 +74,13 @@ pub async fn play_from_formats(
 
 pub fn youtube_watch_url(video_id: &str) -> String {
     format!("https://www.youtube.com/watch?v={video_id}")
+}
+
+pub async fn play_mpv_without_ipc(request: VideoRequest) -> Result<()> {
+    let video_id = request.spec.metadata.video_id.clone();
+    let command = crate::mpv::video_command_without_ipc(&request);
+
+    play_video(command, &video_id).await
 }
 
 async fn play_video(player_command: Command, video_id: &str) -> Result<()> {

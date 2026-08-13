@@ -1,4 +1,4 @@
-use super::{MpvLaunch, MpvSession, PlaybackKind, VideoRequest, VideoSource, ipc::MpvNotification};
+use super::{MpvLaunch, MpvSession, PlaybackKind, VideoRequest, ipc::MpvNotification};
 use crate::video::{PlaybackSpec, VideoMetadata};
 use anyhow::{Context, Result};
 use serde_json::Value;
@@ -21,10 +21,7 @@ impl PlayRequest {
     fn source(&self) -> &str {
         match self {
             PlayRequest::Audio { source, .. } => source,
-            PlayRequest::Video(request) => match &request.source {
-                VideoSource::YtDlp(source) => source,
-                VideoSource::Direct { video_url, .. } => video_url,
-            },
+            PlayRequest::Video(request) => request.source(),
         }
     }
 }

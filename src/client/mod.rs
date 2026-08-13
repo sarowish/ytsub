@@ -6,7 +6,10 @@ use crate::{
     channel::{ChannelTab, RefreshState},
     message::MessageType,
     mpv::{PlayerHandle, VideoRequest, VideoSource},
-    player::{copy_link, open_in_invidious, open_in_youtube, play_from_formats, youtube_watch_url},
+    player::{
+        copy_link, open_in_invidious, open_in_youtube, play_from_formats, play_mpv_without_ipc,
+        youtube_watch_url,
+    },
     ro_cell::RoCell,
     stream_formats::Formats,
     thumbnail::{Thumbnail, protocols::GraphicsProtocol},
@@ -203,15 +206,22 @@ impl Client {
                     );
                 }
                 IoEvent::PlayUsingYtdlp(spec) => {
-                    let url = youtube_watch_url(&spec.metadata.video_id);
-
+                    let source = youtube_watch_url(&spec.metadata.video_id);
                     let request = VideoRequest {
                         spec,
-                        source: VideoSource::YtDlp(url),
+                        source: VideoSource::YtDlp(source),
                     };
 
-                    if let Err(error) = self.player.play_video(request) {
-                        emit_msg!(error, error.to_string());
+                    if CONFIG.mpv_video_ipc {
+                        if let Err(error) = self.player.play_video(request) {
+                            emit_msg!(error, error.to_string());
+                        }
+                    } else {
+                        tokio::spawn(async move {
+                            emit_msg!("Launching video player");
+
+                            play_mpv_without_ipc(request).await
+                        });
                     }
                 }
                 IoEvent::PlayAudioUsingYtdlp(spec) => {

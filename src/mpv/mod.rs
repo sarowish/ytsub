@@ -42,6 +42,15 @@ pub struct VideoRequest {
     pub source: VideoSource,
 }
 
+impl VideoRequest {
+    fn source(&self) -> &str {
+        match &self.source {
+            VideoSource::YtDlp(source) => source,
+            VideoSource::Direct { video_url, .. } => video_url,
+        }
+    }
+}
+
 struct MpvLaunch {
     kind: PlaybackKind,
     uses_ytdlp: bool,
@@ -97,6 +106,16 @@ fn configure_proxy(command: &mut Command, uses_ytdlp: bool) {
     if uses_ytdlp {
         command.arg(format!("--ytdl-raw-options-append=proxy={proxy}"));
     }
+}
+
+pub fn video_command_without_ipc(request: &VideoRequest) -> Command {
+    let launch = MpvLaunch::from_video(request);
+    let mut command = Command::new(&CONFIG.mpv_path);
+
+    configure_proxy(&mut command, launch.uses_ytdlp);
+    command.args(launch.extra_args).arg(request.source());
+
+    command
 }
 
 #[cfg(unix)]

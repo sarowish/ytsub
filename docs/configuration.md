@@ -50,6 +50,7 @@ It is advisable to add only the parts you want to change instead of checking in 
 | `watched_threshold`               | Playback percentage after which ending playback marks the video as watched.                                  | `90`                                        |
 | `resume_playback`                 | Resume video and audio-only playback from the saved position.                                                | `true`                                      |
 | `video_player_for_stream_formats` | Video player used for stream formats: `mpv` or `vlc`.                                                        | `"mpv"`                                     |
+| `mpv_video_ipc`                   | Enable IPC control for mpv video playback.                                                                   | `true`                                      |
 | `mpv_path`                        | Path to `mpv`.                                                                                               | `"mpv"`                                     |
 | `vlc_path`                        | Path to `vlc`.                                                                                               | `"vlc"`                                     |
 | `subtitle_languages`              | Subtitle languages to add when available.                                                                    | `[]`                                        |
@@ -67,6 +68,9 @@ It is advisable to add only the parts you want to change instead of checking in 
 
 - The options from `subtitle_languages` to `chapters` only apply when playing
   stream formats (`play_from_formats` command).
+- With `mpv_video_ipc = false`, ytsub launches `mpv_path` without IPC control. Playback
+  controls, progress tracking, and resume are unavailable for those videos, and they are marked
+  watched when launched.
 - `proxy` controls requests made by ytsub and supports HTTP, HTTPS, SOCKS4,
   SOCKS4A, SOCKS5, and SOCKS5H URLs. When unset, it uses `HTTP_PROXY`,
   `HTTPS_PROXY`, and `ALL_PROXY` environment variables, or their lowercase

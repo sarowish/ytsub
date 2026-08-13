@@ -57,6 +57,7 @@ pub struct Config {
     #[serde(deserialize_with = "deserialize_date_format")]
     pub datetime_format: String,
     pub video_player_for_stream_formats: VideoPlayer,
+    pub mpv_video_ipc: bool,
     #[serde(alias = "video_player")]
     pub mpv_path: PathBuf,
     pub vlc_path: PathBuf,
@@ -154,6 +155,7 @@ impl Default for Config {
             unicode_progress_bar: true,
             datetime_format: String::from("%Y-%m-%d %H:%M"),
             video_player_for_stream_formats: VideoPlayer::Mpv,
+            mpv_video_ipc: true,
             mpv_path: PathBuf::from("mpv"),
             vlc_path: PathBuf::from("vlc"),
             hide_watched: false,
