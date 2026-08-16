@@ -23,7 +23,7 @@ const API_BACKEND: ApiBackend = ApiBackend::Local;
 
 enum InnertubeClient {
     Web,
-    AndroidVR,
+    VisionOS,
 }
 
 impl InnertubeClient {
@@ -39,18 +39,16 @@ impl InnertubeClient {
                     }
                 }
             }),
-            Self::AndroidVR => serde_json::json!({
+            Self::VisionOS => serde_json::json!({
                 "context": {
                     "client": {
-                        "clientName": "ANDROID_VR",
-                        "clientVersion": "1.65.10",
-                        "deviceMake": "Oculus",
-                        "deviceModel": "Quest 3",
-                        "androidSdkVersion": 32,
-                        "userAgent": "com.google.android.apps.youtube.vr.oculus/1.65.10 (Linux; U; Android 12L; eureka-user Build/SQ3A.220605.009.A1) gzip",
-                        "osName": "Android",
-                        "osVersion": "12L",
-                        "visitorData": "CgtLT21YQTlDUjNqbyjMp-jMBjInCgJCRRIhEh0SGwsMDg8QERITFBUWFxgZGhscHR4fICEiIyQlJiAp",
+                        "clientName": "VISIONOS",
+                        "clientVersion": "1.02",
+                        "deviceMake": "Apple",
+                        "deviceModel": "RealityDevice17,1",
+                        "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 15_7_3) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15",
+                        "osName": "visionOS",
+                        "osVersion": "26.5.23O471",
                     },
                 },
             }),
@@ -384,7 +382,7 @@ impl Local {
     pub async fn post_player(&self, video_id: &str) -> Result<Value> {
         let url = "https://www.youtube.com/youtubei/v1/player";
 
-        let mut data = InnertubeClient::AndroidVR.get();
+        let mut data = InnertubeClient::VisionOS.get();
         let map = data.as_object_mut().unwrap();
         map.insert(String::from("videoId"), Value::String(video_id.to_owned()));
 
