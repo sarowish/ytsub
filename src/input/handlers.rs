@@ -1,3 +1,4 @@
+use super::InputMode;
 use crate::{
     CONFIG, KEY_BINDINGS,
     api::ApiBackend,
@@ -10,21 +11,7 @@ use crate::{
     list::Scrollable as _,
     list::Selectable as _,
 };
-use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
-
-#[derive(Clone)]
-pub enum InputMode {
-    Normal,
-    Subscribe,
-    Search,
-    Confirmation,
-    Import,
-    Tag,
-    TagCreation,
-    TagRenaming,
-    ChannelSelection,
-    FormatSelection,
-}
+use crossterm::event::{KeyCode, KeyEvent, KeyEventKind};
 
 pub fn handle_event(key: KeyEvent, app: &mut App) -> bool {
     if key.kind == KeyEventKind::Release {
@@ -307,23 +294,16 @@ fn handle_key_format_selection_mode(key: KeyEvent, app: &mut App) -> bool {
 }
 
 fn handle_key_editing_mode(key: KeyEvent, app: &mut App) {
-    match (key.code, key.modifiers) {
-        (KeyCode::Left, KeyModifiers::CONTROL) => app.move_cursor_one_word_left(),
-        (KeyCode::Right, KeyModifiers::CONTROL) => app.move_cursor_one_word_right(),
-        (KeyCode::Left, _) | (KeyCode::Char('b'), KeyModifiers::CONTROL) => app.move_cursor_left(),
-        (KeyCode::Right, _) | (KeyCode::Char('f'), KeyModifiers::CONTROL) => {
-            app.move_cursor_right();
+    match key.code {
+        KeyCode::Enter => complete(app),
+        KeyCode::Esc => abort(app),
+        _ => {
+            if let Some(change) = app.input.update(key)
+                && matches!(app.input_mode, InputMode::Search)
+            {
+                app.update_search_after_input(change);
+            }
         }
-        (KeyCode::Char('a'), KeyModifiers::CONTROL) => app.move_cursor_to_beginning_of_line(),
-        (KeyCode::Char('e'), KeyModifiers::CONTROL) => app.move_cursor_to_end_of_line(),
-        (KeyCode::Char('w'), KeyModifiers::CONTROL) => app.delete_word_before_cursor(),
-        (KeyCode::Char('u'), KeyModifiers::CONTROL) => app.clear_line(),
-        (KeyCode::Char('k'), KeyModifiers::CONTROL) => app.clear_to_right(),
-        (KeyCode::Enter, _) => complete(app),
-        (KeyCode::Backspace, _) | (KeyCode::Char('h'), KeyModifiers::CONTROL) => app.pop_key(),
-        (KeyCode::Char(c), _) => app.push_key(c),
-        (KeyCode::Esc, _) => abort(app),
-        _ => {}
     }
 }
 

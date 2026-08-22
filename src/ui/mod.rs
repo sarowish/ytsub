@@ -6,7 +6,6 @@ use crate::input::InputMode;
 use crate::list::{Scrollable, StatefulList};
 use crate::message::MessageType;
 use crate::mpv::PlaybackPhase;
-use crate::search::SearchDirection;
 use crate::stream_formats::Formats;
 use crate::utils::length_as_hhmmss;
 use crate::{CONFIG, HELP, THEME};
@@ -440,12 +439,9 @@ fn draw_player(f: &mut Frame, app: &App, area: Rect) {
 fn draw_footer(f: &mut Frame, app: &App, area: Rect) {
     let text = match app.input_mode {
         InputMode::Search => Paragraph::new(Line::from(vec![
-            Span::raw(match app.search_direction() {
-                SearchDirection::Forward => "/",
-                SearchDirection::Backward => "?",
-            }),
+            Span::raw(app.input.prompt()),
             Span::styled(
-                &app.input,
+                app.input.text(),
                 if app.no_search_pattern_match() {
                     THEME.error
                 } else {
@@ -453,14 +449,12 @@ fn draw_footer(f: &mut Frame, app: &App, area: Rect) {
                 },
             ),
         ])),
-        InputMode::TagCreation | InputMode::TagRenaming => Paragraph::new(Line::from(vec![
-            Span::raw("Tag name: "),
-            Span::raw(&app.input),
-        ])),
-        InputMode::Subscribe => Paragraph::new(Line::from(vec![
-            Span::raw("Enter channel id or url: "),
-            Span::raw(&app.input),
-        ])),
+        InputMode::TagCreation | InputMode::TagRenaming | InputMode::Subscribe => {
+            Paragraph::new(Line::from(vec![
+                Span::raw(app.input.prompt()),
+                Span::raw(app.input.text()),
+            ]))
+        }
         _ => Paragraph::new(match app.message.message_type {
             MessageType::Normal => Span::raw(&*app.message),
             MessageType::Error => Span::styled(&*app.message, THEME.error),

@@ -4,7 +4,7 @@ use crate::client::FormatAction;
 use crate::emulator::Emulator;
 use crate::help::HelpWindowState;
 use crate::import::{self, ImportItem};
-use crate::input::InputMode;
+use crate::input::{Input, InputChange, InputMode};
 use crate::list::{ListItem, Selectable, SelectionItem, SelectionList, StatefulList};
 use crate::message::Message;
 use crate::mpv::{PlaybackPhase, PlaybackState, PlaybackUpdate};
@@ -23,8 +23,6 @@ use std::mem;
 use std::ops::{Deref, DerefMut};
 use std::path::Path;
 use tokio::sync::mpsc::UnboundedSender;
-use unicode_segmentation::UnicodeSegmentation;
-use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
 pub struct App {
     pub emulator: Option<Emulator>,
@@ -38,11 +36,9 @@ pub struct App {
     pub message: Message,
     pub playback_state: PlaybackState,
     progress_tracker: ProgressTracker,
-    pub input: String,
+    pub input: Input,
     pub input_mode: InputMode,
-    pub input_idx: usize,
     pub prev_input_mode: InputMode,
-    pub cursor_position: u16,
     pub help_window_state: HelpWindowState,
     pub import_state: SelectionList<ImportItem>,
     new_video_ids: HashSet<String>,
@@ -74,11 +70,9 @@ impl App {
             message: Message::new(),
             playback_state: PlaybackState::default(),
             progress_tracker: ProgressTracker::default(),
-            input: String::default(),
+            input: Input::default(),
             input_mode: InputMode::Normal,
-            input_idx: 0,
             prev_input_mode: InputMode::Normal,
-            cursor_position: 0,
             search: Search::default(),
             new_video_ids: HashSet::default(),
             channels_with_new_videos: HashSet::default(),
@@ -828,12 +822,11 @@ impl App {
         self.prev_input_mode = self.input_mode.clone();
         self.input_mode = InputMode::Subscribe;
         self.message.clear_message();
-        self.input_idx = 0;
-        self.cursor_position = 0;
+        self.input = Input::new("Enter channel id or url: ");
     }
 
     pub fn subscribe(&mut self) {
-        let input = self.input.drain(..).collect::<String>();
+        let input = self.input.take_text();
         self.input_mode = InputMode::Normal;
         self.subscribe_to_channel(input);
     }
@@ -854,50 +847,51 @@ impl App {
         }
     }
 
-    fn start_searching(&mut self) {
+    fn start_searching(&mut self, direction: SearchDirection) {
         self.prev_input_mode = self.input_mode.clone();
         self.input_mode = InputMode::Search;
         self.message.clear_message();
-        self.input_idx = 0;
-        self.cursor_position = 0;
+        self.input = Input::new(match direction {
+            SearchDirection::Forward => "/",
+            SearchDirection::Backward => "?",
+        });
+        self.search.direction = direction;
     }
 
     pub fn search_forward(&mut self) {
-        self.start_searching();
-        self.search.direction = SearchDirection::Forward;
+        self.start_searching(SearchDirection::Forward);
     }
 
     pub fn search_backward(&mut self) {
-        self.start_searching();
-        self.search.direction = SearchDirection::Backward;
-    }
-
-    pub const fn search_direction(&self) -> &SearchDirection {
-        &self.search.direction
+        self.start_searching(SearchDirection::Backward);
     }
 
     pub fn search_in_selected(&mut self) {
         match self.prev_input_mode {
             InputMode::Normal => match self.selected {
                 Selected::Channels => {
-                    self.search.search(&mut self.channels, &self.input);
+                    self.search.search(&mut self.channels, self.input.text());
                     self.on_change_channel();
                 }
                 Selected::Videos => {
                     if let Some(videos) = self.tabs.get_videos_mut() {
-                        self.search.search(videos, &self.input);
+                        self.search.search(videos, self.input.text());
                         self.on_change_video();
                     }
                 }
             },
-            InputMode::Import => self.search.search(&mut self.import_state, &self.input),
-            InputMode::Tag => self.search.search(&mut self.tags, &self.input),
-            InputMode::ChannelSelection => {
-                self.search.search(&mut self.channel_selection, &self.input);
-            }
-            InputMode::FormatSelection => self
+            InputMode::Import => self
                 .search
-                .search(self.stream_formats.get_mut_selected_tab(), &self.input),
+                .search(&mut self.import_state, self.input.text()),
+            InputMode::Tag => self.search.search(&mut self.tags, self.input.text()),
+            InputMode::ChannelSelection => {
+                self.search
+                    .search(&mut self.channel_selection, self.input.text());
+            }
+            InputMode::FormatSelection => self.search.search(
+                self.stream_formats.get_mut_selected_tab(),
+                self.input.text(),
+            ),
             _ => panic!(),
         }
     }
@@ -941,116 +935,15 @@ impl App {
         self.repeat_last_search_helper(true);
     }
 
-    fn update_search_on_delete(&mut self) {
-        self.search.state = SearchState::PoppedKey;
+    pub fn update_search_after_input(&mut self, change: InputChange) {
+        if !matches!(change, InputChange::Append) {
+            self.search.state = SearchState::PoppedKey;
+        }
+
         self.search_in_selected();
-    }
 
-    pub fn push_key(&mut self, c: char) {
-        if self.input_idx == self.input.len() {
-            self.input.push(c);
-        } else {
-            self.input.insert(self.input_idx, c);
-            if matches!(self.input_mode, InputMode::Search) {
-                self.search.state = SearchState::PoppedKey;
-            }
-        }
-        if matches!(self.input_mode, InputMode::Search) {
-            self.search_in_selected();
+        if !matches!(change, InputChange::Delete) {
             self.search.state = SearchState::PushedKey;
-        }
-        self.input_idx += c.len_utf8();
-        self.cursor_position += c.width().unwrap() as u16;
-    }
-
-    pub fn pop_key(&mut self) {
-        if self.input_idx != 0 {
-            let (idx, ch) = self.input[..self.input_idx]
-                .grapheme_indices(true)
-                .next_back()
-                .unwrap();
-            self.cursor_position -= ch.width() as u16;
-            self.input.drain(idx..self.input_idx);
-            self.input_idx = idx;
-            if matches!(self.input_mode, InputMode::Search) {
-                self.update_search_on_delete();
-            }
-        }
-    }
-
-    pub fn move_cursor_left(&mut self) {
-        if self.input_idx != 0 {
-            let (idx, ch) = self.input[..self.input_idx]
-                .grapheme_indices(true)
-                .next_back()
-                .unwrap();
-            self.input_idx = idx;
-            self.cursor_position -= ch.width() as u16;
-        }
-    }
-
-    pub fn move_cursor_right(&mut self) {
-        if self.input_idx != self.input.len() {
-            let (idx, ch) = self.input[self.input_idx..]
-                .grapheme_indices(true)
-                .next()
-                .map(|(idx, ch)| (self.input_idx + idx + ch.len(), ch))
-                .unwrap();
-            self.input_idx = idx;
-            self.cursor_position += ch.width() as u16;
-        }
-    }
-
-    pub fn move_cursor_one_word_left(&mut self) {
-        let idx = self.input[..self.input_idx]
-            .unicode_word_indices()
-            .next_back()
-            .map_or(0, |(idx, _)| idx);
-        self.cursor_position -= self.input[idx..self.input_idx].width() as u16;
-        self.input_idx = idx;
-    }
-
-    pub fn move_cursor_one_word_right(&mut self) {
-        let old_idx = self.input_idx;
-        self.input_idx = self.input[self.input_idx..]
-            .unicode_word_indices()
-            .nth(1)
-            .map_or(self.input.len(), |(idx, _)| self.input_idx + idx);
-        self.cursor_position += self.input[old_idx..self.input_idx].width() as u16;
-    }
-
-    pub const fn move_cursor_to_beginning_of_line(&mut self) {
-        self.input_idx = 0;
-        self.cursor_position = 0;
-    }
-
-    pub fn move_cursor_to_end_of_line(&mut self) {
-        self.input_idx = self.input.len();
-        self.cursor_position = self.input.width() as u16;
-    }
-
-    pub fn delete_word_before_cursor(&mut self) {
-        let old_idx = self.input_idx;
-        self.move_cursor_one_word_left();
-        self.input.drain(self.input_idx..old_idx);
-        if matches!(self.input_mode, InputMode::Search) {
-            self.update_search_on_delete();
-        }
-    }
-
-    pub fn clear_line(&mut self) {
-        self.input.clear();
-        self.input_idx = 0;
-        self.cursor_position = 0;
-        if matches!(self.input_mode, InputMode::Search) {
-            self.update_search_on_delete();
-        }
-    }
-
-    pub fn clear_to_right(&mut self) {
-        self.input.drain(self.input_idx..);
-        if matches!(self.input_mode, InputMode::Search) {
-            self.update_search_on_delete();
         }
     }
 
@@ -1272,18 +1165,17 @@ impl App {
         self.prev_input_mode = self.input_mode.clone();
         self.input_mode = InputMode::TagCreation;
         self.message.clear_message();
-        self.input_idx = 0;
-        self.cursor_position = 0;
+        self.input = Input::new("Tag name: ");
     }
 
     pub fn enter_tag_renaming(&mut self) {
         if let Some(tag) = self.tags.get_selected() {
+            let mut input = Input::new("Tag name: ");
+            input.set_text(&tag.item);
             self.prev_input_mode = self.input_mode.clone();
             self.input_mode = InputMode::TagRenaming;
             self.message.clear_message();
-            self.input = tag.item.clone();
-            self.input_idx = self.input.len();
-            self.cursor_position = self.input.width() as u16;
+            self.input = input;
         }
     }
 
@@ -1327,10 +1219,12 @@ impl App {
     }
 
     pub fn create_tag(&mut self) {
-        if let Err(e) = database::create_tag(&self.conn, &self.input) {
+        if let Err(e) = database::create_tag(&self.conn, self.input.text()) {
             self.set_error_message(&e.to_string());
         } else {
-            self.tags.items.push(SelectionItem::new(self.input.clone()));
+            self.tags
+                .items
+                .push(SelectionItem::new(self.input.text().to_owned()));
         }
 
         self.input_mode = InputMode::Tag;
@@ -1338,11 +1232,12 @@ impl App {
     }
 
     pub fn rename_selected_tag(&mut self) {
+        let input = self.input.text().to_owned();
         if let Some(tag) = self.tags.get_mut_selected() {
-            if let Err(e) = database::rename_tag(&self.conn, &tag.item, &self.input) {
+            if let Err(e) = database::rename_tag(&self.conn, &tag.item, &input) {
                 self.set_error_message(&e.to_string());
             } else {
-                self.input.clone_into(&mut tag.item);
+                input.clone_into(&mut tag.item);
             }
         }
 

@@ -180,10 +180,6 @@ fn downgrade_removed_data(from: u8, to: u8) -> Vec<&'static str> {
 }
 
 fn render(app: &mut App, terminal: &mut DefaultTerminal) -> Result<()> {
-    const SEARCH_MODE_CURSOR_OFFSET: u16 = 1;
-    const SUBSCRIBE_MODE_CURSOR_OFFSET: u16 = 25;
-    const TAG_CREATION_MODE_CURSOR_OFFSET: u16 = 10;
-
     let prev_covered_area = app.thumbnail.as_ref().and_then(|t| t.covered_area);
 
     terminal.draw(|f| draw(f, app))?;
@@ -196,20 +192,13 @@ fn render(app: &mut App, terminal: &mut DefaultTerminal) -> Result<()> {
         terminal.draw(|f| draw(f, app))?;
     }
 
-    let cursor_position = app.cursor_position;
+    let cursor_position = app.input.cursor_position();
     match &app.input_mode {
-        mode @ (InputMode::Subscribe
+        InputMode::Subscribe
         | InputMode::Search
         | InputMode::TagCreation
-        | InputMode::TagRenaming) => {
-            let offset = match mode {
-                InputMode::Search => SEARCH_MODE_CURSOR_OFFSET,
-                InputMode::Subscribe => SUBSCRIBE_MODE_CURSOR_OFFSET,
-                InputMode::TagCreation | InputMode::TagRenaming => TAG_CREATION_MODE_CURSOR_OFFSET,
-                _ => 0,
-            };
-            terminal
-                .set_cursor_position((cursor_position + offset, terminal.size()?.height - 1))?;
+        | InputMode::TagRenaming => {
+            terminal.set_cursor_position((cursor_position, terminal.size()?.height - 1))?;
             terminal.show_cursor()?;
         }
         _ => terminal.hide_cursor()?,
