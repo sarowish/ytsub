@@ -436,12 +436,19 @@ fn draw_player(f: &mut Frame, app: &App, area: Rect) {
     f.render_widget(progress, inner_area);
 }
 
-fn draw_footer(f: &mut Frame, app: &App, area: Rect) {
+fn draw_footer(f: &mut Frame, app: &mut App, area: Rect) {
+    if matches!(
+        app.input_mode,
+        InputMode::Subscribe | InputMode::Search | InputMode::TagCreation | InputMode::TagRenaming
+    ) {
+        app.input.update_width(area.width);
+    }
+
     let text = match app.input_mode {
         InputMode::Search => Paragraph::new(Line::from(vec![
             Span::raw(app.input.prompt()),
             Span::styled(
-                app.input.text(),
+                app.input.visible_text(),
                 if app.no_search_pattern_match() {
                     THEME.error
                 } else {
@@ -452,7 +459,7 @@ fn draw_footer(f: &mut Frame, app: &App, area: Rect) {
         InputMode::TagCreation | InputMode::TagRenaming | InputMode::Subscribe => {
             Paragraph::new(Line::from(vec![
                 Span::raw(app.input.prompt()),
-                Span::raw(app.input.text()),
+                Span::raw(app.input.visible_text()),
             ]))
         }
         _ => Paragraph::new(match app.message.message_type {

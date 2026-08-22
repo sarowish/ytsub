@@ -14,18 +14,37 @@ pub(crate) enum InputChange {
     Delete,
 }
 
-#[derive(Default)]
 pub struct Input {
     text: String,
     prompt: String,
+    prompt_width: u16,
     idx: usize,
+    offset: usize,
     cursor_position: u16,
+    available_width: u16,
+    max_cursor_position: u16,
+}
+
+impl Default for Input {
+    fn default() -> Self {
+        Self {
+            text: String::new(),
+            prompt: String::new(),
+            prompt_width: 0,
+            idx: 0,
+            offset: 0,
+            cursor_position: 0,
+            available_width: u16::MAX,
+            max_cursor_position: u16::MAX,
+        }
+    }
 }
 
 impl Input {
     pub fn new(prompt: &str) -> Self {
         Self {
             prompt: prompt.to_owned(),
+            prompt_width: u16::try_from(prompt.width()).unwrap_or(u16::MAX),
             ..Self::default()
         }
     }
@@ -39,12 +58,14 @@ impl Input {
     }
 
     pub fn set_text(&mut self, text: &str) {
+        self.offset = 0;
         text.clone_into(&mut self.text);
         self.move_cursor_to_end_of_line();
     }
 
     pub fn take_text(&mut self) -> String {
         self.idx = 0;
+        self.offset = 0;
         self.cursor_position = 0;
         std::mem::take(&mut self.text)
     }
@@ -52,6 +73,7 @@ impl Input {
     pub fn clear(&mut self) {
         self.text.clear();
         self.idx = 0;
+        self.offset = 0;
         self.cursor_position = 0;
     }
 
@@ -70,6 +92,7 @@ impl Input {
 
         self.idx += ch.len_utf8();
         self.cursor_position += ch.width().unwrap() as u16;
+        self.check_higher_bound();
         change
     }
 
@@ -85,6 +108,7 @@ impl Input {
         self.cursor_position -= ch.width() as u16;
         self.text.drain(idx..self.idx);
         self.idx = idx;
+        self.check_lower_bound();
         true
     }
 
@@ -99,6 +123,7 @@ impl Input {
             .unwrap();
         self.idx = idx;
         self.cursor_position -= ch.width() as u16;
+        self.check_lower_bound();
     }
 
     fn move_cursor_right(&mut self) {
@@ -113,6 +138,7 @@ impl Input {
             .unwrap();
         self.idx = idx;
         self.cursor_position += ch.width() as u16;
+        self.check_higher_bound();
     }
 
     fn move_cursor_one_word_left(&mut self) {
@@ -122,6 +148,7 @@ impl Input {
             .map_or(0, |(idx, _)| idx);
         self.cursor_position -= self.text[idx..self.idx].width() as u16;
         self.idx = idx;
+        self.check_lower_bound();
     }
 
     fn move_cursor_one_word_right(&mut self) {
@@ -131,16 +158,19 @@ impl Input {
             .nth(1)
             .map_or(self.text.len(), |(idx, _)| self.idx + idx);
         self.cursor_position += self.text[old_idx..self.idx].width() as u16;
+        self.check_higher_bound();
     }
 
     fn move_cursor_to_beginning_of_line(&mut self) {
         self.idx = 0;
+        self.offset = 0;
         self.cursor_position = 0;
     }
 
     fn move_cursor_to_end_of_line(&mut self) {
         self.idx = self.text.len();
         self.cursor_position = self.text.width() as u16;
+        self.check_higher_bound();
     }
 
     fn delete_word_before_cursor(&mut self) -> bool {
@@ -197,8 +227,46 @@ impl Input {
         None
     }
 
+    pub fn update_width(&mut self, width: u16) {
+        self.available_width = width.saturating_sub(self.prompt_width);
+        self.max_cursor_position = width.saturating_sub(1);
+        self.check_higher_bound();
+    }
+
+    fn check_lower_bound(&mut self) {
+        self.offset = self.offset.min(self.idx);
+    }
+
+    fn check_higher_bound(&mut self) {
+        let substring = &self.text[self.offset..self.idx];
+        let mut visible_width = substring.width();
+
+        if visible_width < self.available_width as usize {
+            return;
+        }
+
+        for (idx, grapheme) in substring.grapheme_indices(true) {
+            visible_width -= grapheme.width();
+
+            if visible_width < self.available_width as usize {
+                self.offset += idx + grapheme.len();
+                return;
+            }
+        }
+
+        self.offset = self.idx;
+    }
+
+    pub fn visible_text(&self) -> &str {
+        &self.text[self.offset..]
+    }
+
     pub fn cursor_position(&self) -> u16 {
-        self.prompt.width() as u16 + self.cursor_position
+        let hidden_width = u16::try_from(self.text[..self.offset].width()).unwrap_or(u16::MAX);
+
+        self.prompt_width
+            .saturating_add(self.cursor_position.saturating_sub(hidden_width))
+            .min(self.max_cursor_position)
     }
 }
 
