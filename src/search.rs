@@ -1,12 +1,9 @@
 use crate::list::{State, StatefulList};
 use std::fmt::Display;
 
-#[derive(Default)]
-pub enum SearchState {
-    #[default]
-    NotSearching,
-    PoppedKey,
-    PushedKey,
+pub enum SearchUpdate {
+    Build,
+    Filter,
 }
 
 #[derive(Default, PartialEq, Eq, Debug, Clone)]
@@ -31,41 +28,38 @@ type LastSearch = (String, SearchDirection);
 #[derive(Default)]
 pub struct Search {
     matches: Vec<Match>,
+    matches_valid: bool,
     pub pattern: String,
-    pub state: SearchState,
     pub direction: SearchDirection,
     pub recovery_index: Option<usize>,
     last_search: Option<LastSearch>,
 }
 
 impl Search {
-    pub fn search<T: Display, S: State>(&mut self, list: &mut StatefulList<T, S>, pattern: &str) {
+    pub fn search<T: Display, S: State>(
+        &mut self,
+        list: &mut StatefulList<T, S>,
+        pattern: &str,
+        update: SearchUpdate,
+    ) {
         if pattern.is_empty() {
+            self.matches_valid = false;
             self.recover_item(list);
             return;
         }
-        self.pattern = pattern.to_lowercase();
-        match self.state {
-            SearchState::NotSearching | SearchState::PoppedKey => {
-                if matches!(self.state, SearchState::NotSearching) {
-                    self.recovery_index = list.state.selected();
-                }
-                self.matches = list
-                    .items
-                    .iter()
-                    .enumerate()
-                    .map(|(i, item)| (i, item.to_string().to_lowercase()))
-                    .filter(|(_, item)| item.contains(&self.pattern))
-                    .collect();
-            }
-            SearchState::PushedKey => {
-                self.matches = self
-                    .matches
-                    .drain(..)
-                    .filter(|(_, text)| text.contains(&self.pattern))
-                    .collect();
-            }
+
+        if self.pattern.is_empty() {
+            self.recovery_index = list.state.selected();
         }
+
+        self.pattern = pattern.to_lowercase();
+
+        if matches!(update, SearchUpdate::Filter) && self.matches_valid {
+            self.filter_matches();
+        } else {
+            self.build_matches(&list.items);
+        }
+
         if self.any_matches() {
             match self.direction {
                 SearchDirection::Forward => self.next_match(list),
@@ -74,6 +68,21 @@ impl Search {
         } else {
             self.recover_item(list);
         }
+    }
+
+    fn build_matches<T: Display>(&mut self, items: &[T]) {
+        self.matches = items
+            .iter()
+            .enumerate()
+            .map(|(i, item)| (i, item.to_string().to_lowercase()))
+            .filter(|(_, item)| item.contains(&self.pattern))
+            .collect();
+        self.matches_valid = true;
+    }
+
+    fn filter_matches(&mut self) {
+        self.matches
+            .retain(|(_, text)| text.contains(&self.pattern));
     }
 
     fn indices(&self) -> Vec<usize> {
@@ -85,7 +94,7 @@ impl Search {
     }
 
     pub fn complete_search(&mut self, abort: bool) {
-        self.state = SearchState::NotSearching;
+        self.matches_valid = false;
         self.recovery_index = None;
         self.matches.clear();
 
@@ -157,7 +166,7 @@ impl Search {
             } else {
                 direction.clone()
             };
-            self.search(list, &pattern);
+            self.search(list, &pattern, SearchUpdate::Build);
         }
     }
 }

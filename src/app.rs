@@ -9,7 +9,7 @@ use crate::list::{ListItem, Selectable, SelectionItem, SelectionList, StatefulLi
 use crate::message::Message;
 use crate::mpv::{PlaybackPhase, PlaybackState, PlaybackUpdate};
 use crate::progress::{ProgressActions, ProgressTracker};
-use crate::search::{Search, SearchDirection, SearchState};
+use crate::search::{Search, SearchDirection, SearchUpdate};
 use crate::stream_formats::Formats;
 use crate::thumbnail::Thumbnail;
 use crate::video::{FetchedVideo, PlaybackSpec, Video, VideoListItem, VideoMetadata};
@@ -866,31 +866,36 @@ impl App {
         self.start_searching(SearchDirection::Backward);
     }
 
-    pub fn search_in_selected(&mut self) {
+    pub fn search_in_selected(&mut self, update: SearchUpdate) {
         match self.prev_input_mode {
             InputMode::Normal => match self.selected {
                 Selected::Channels => {
-                    self.search.search(&mut self.channels, self.input.text());
+                    self.search
+                        .search(&mut self.channels, self.input.text(), update);
                     self.on_change_channel();
                 }
                 Selected::Videos => {
                     if let Some(videos) = self.tabs.get_videos_mut() {
-                        self.search.search(videos, self.input.text());
+                        self.search.search(videos, self.input.text(), update);
                         self.on_change_video();
                     }
                 }
             },
-            InputMode::Import => self
+            InputMode::Import => {
+                self.search
+                    .search(&mut self.import_state, self.input.text(), update)
+            }
+            InputMode::Tag => self
                 .search
-                .search(&mut self.import_state, self.input.text()),
-            InputMode::Tag => self.search.search(&mut self.tags, self.input.text()),
+                .search(&mut self.tags, self.input.text(), update),
             InputMode::ChannelSelection => {
                 self.search
-                    .search(&mut self.channel_selection, self.input.text());
+                    .search(&mut self.channel_selection, self.input.text(), update);
             }
             InputMode::FormatSelection => self.search.search(
                 self.stream_formats.get_mut_selected_tab(),
                 self.input.text(),
+                update,
             ),
             _ => panic!(),
         }
@@ -936,15 +941,12 @@ impl App {
     }
 
     pub fn update_search_after_input(&mut self, change: InputChange) {
-        if !matches!(change, InputChange::Append) {
-            self.search.state = SearchState::PoppedKey;
-        }
+        let update = match change {
+            InputChange::Append => SearchUpdate::Filter,
+            InputChange::Insert | InputChange::Delete => SearchUpdate::Build,
+        };
 
-        self.search_in_selected();
-
-        if !matches!(change, InputChange::Delete) {
-            self.search.state = SearchState::PushedKey;
-        }
+        self.search_in_selected(update);
     }
 
     pub const fn no_search_pattern_match(&self) -> bool {
