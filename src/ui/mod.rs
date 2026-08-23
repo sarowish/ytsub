@@ -159,7 +159,9 @@ fn draw_videos(f: &mut Frame, app: &mut App, area: Rect) {
     };
     let shown_columns = filter_columns(
         columns,
-        area.width - 2 - CONFIG.highlight_symbol.width() as u16,
+        area.width
+            .saturating_sub(2)
+            .saturating_sub(CONFIG.highlight_symbol.width() as u16),
         COLUMN_SPACING,
     );
     let channel_header_present = shown_columns
