@@ -9,7 +9,7 @@ use crossterm::{execute, style::Print};
 use protocols::ImageData;
 use ratatui::{
     buffer::{Buffer, CellDiffOption},
-    layout::Rect,
+    layout::{Rect, Size},
 };
 use std::{fmt::Write, num::NonZeroU16};
 
@@ -34,7 +34,13 @@ impl Thumbnail {
         }
     }
 
-    pub fn render(&mut self, buf: &mut Buffer, area: Rect, clear: ClearNeeded) -> Result<()> {
+    pub fn render(
+        &mut self,
+        buf: &mut Buffer,
+        area: Rect,
+        image_size: Size,
+        clear: ClearNeeded,
+    ) -> Result<()> {
         let previous_area = self.area.replace(area);
 
         let mut erase = match clear {
@@ -54,7 +60,7 @@ impl Thumbnail {
             }
             ImageData::Iip(data) | ImageData::Sixel(data) => {
                 erase.push_str(data);
-                render_by_first_cell(buf, area, &erase);
+                render_by_first_cell(buf, area, image_size, &erase);
             }
             ImageData::Ueberzug(path) => ueberzug::display_image(path, area)?,
             ImageData::Chafa(path) => {
@@ -145,7 +151,7 @@ fn clear_previous_image_anchor(previous_area: Option<Rect>, area: Rect) -> Resul
     Ok(())
 }
 
-fn render_by_first_cell(buf: &mut Buffer, area: Rect, data: &str) {
+fn render_by_first_cell(buf: &mut Buffer, area: Rect, image_size: Size, data: &str) {
     buf.cell_mut(area)
         .map(|cell| cell.set_symbol(data).set_diff_option(UNIT_WIDTH));
     let mut skip_first = false;
@@ -158,6 +164,23 @@ fn render_by_first_cell(buf: &mut Buffer, area: Rect, data: &str) {
             }
             buf.cell_mut((x, y))
                 .map(|cell| cell.set_diff_option(CellDiffOption::Skip));
+        }
+    }
+
+    let image_area =
+        Rect::new(area.x, area.y, image_size.width, image_size.height).intersection(buf.area);
+
+    for y in image_area.top()..image_area.bottom() {
+        let x_start = if y < area.bottom() {
+            area.right()
+        } else {
+            image_area.left()
+        };
+
+        for x in x_start..image_area.right() {
+            buf.cell_mut((x, y))
+                .filter(|cell| cell.diff_option == CellDiffOption::None)
+                .map(|cell| cell.set_diff_option(CellDiffOption::AlwaysUpdate));
         }
     }
 }

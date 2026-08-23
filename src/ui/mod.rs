@@ -10,7 +10,7 @@ use crate::stream_formats::Formats;
 use crate::utils::length_as_hhmmss;
 use crate::{CONFIG, HELP, THEME};
 use ratatui::Frame;
-use ratatui::layout::{Alignment, Constraint, Direction, Layout, Margin, Rect};
+use ratatui::layout::{Alignment, Constraint, Direction, Layout, Margin, Rect, Size};
 use ratatui::style::{Color, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{
@@ -319,10 +319,13 @@ fn draw_video_info(f: &mut Frame, app: &mut App, area: Rect) {
     let video_info_area = if let Some(emulator) = &mut app.emulator
         && let Some(thumbnail) = &mut app.thumbnail
     {
-        let width = thumbnail.width.div_ceil(emulator.cell_width);
+        let image_size = Size::new(
+            thumbnail.width.div_ceil(emulator.cell_width),
+            thumbnail.height.div_ceil(emulator.cell_height),
+        );
 
         let chunks = Layout::default()
-            .constraints([Constraint::Length(width), Constraint::Fill(1)])
+            .constraints([Constraint::Length(image_size.width), Constraint::Fill(1)])
             .direction(Direction::Horizontal)
             .spacing(1)
             .split(inner_area);
@@ -330,7 +333,7 @@ fn draw_video_info(f: &mut Frame, app: &mut App, area: Rect) {
         let buf = f.buffer_mut();
 
         if thumbnail
-            .render(buf, chunks[0], emulator.clear_needed)
+            .render(buf, chunks[0], image_size, emulator.clear_needed)
             .is_ok()
         {
             chunks[1]
