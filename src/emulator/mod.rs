@@ -365,7 +365,7 @@ fn decode_xtgettcap_hex(s: &str) -> Option<String> {
     }
 
     let mut decoded = Vec::with_capacity(s.len() / 2);
-    let chunks = s.as_bytes().chunks_exact(2);
+    let chunks = s.as_bytes().as_chunks::<2>().0;
 
     for chunk in chunks {
         let hex = str::from_utf8(chunk).ok()?;

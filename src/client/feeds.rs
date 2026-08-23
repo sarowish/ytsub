@@ -41,7 +41,7 @@ pub async fn subscribe_to_channel(mut instance: Box<dyn Api>, input: String) -> 
         Err(e) => emit_msg!(error, format!("Failed to subscribe: {e}")),
         _ => emit_msg!(
             error,
-            format!("Failed to subscribe: no channel title present")
+            String::from("Failed to subscribe: no channel title present")
         ),
     }
 
