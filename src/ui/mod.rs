@@ -91,10 +91,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
     };
 
     if let Some(thumbnail) = &mut app.thumbnail {
-        thumbnail.covered_area = thumbnail
-            .area
-            .map(|area| area.intersection(popup_area))
-            .filter(|area| area.area() != 0);
+        thumbnail.mark_popup_area_for_redraw(f.buffer_mut(), popup_area);
     }
 }
 

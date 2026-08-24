@@ -1,6 +1,6 @@
 use ratatui::{
     backend::{Backend, ClearType, CrosstermBackend as RatatuiCrosstermBackend, WindowSize},
-    buffer::{Cell, CellWidth},
+    buffer::{Cell, CellDiffOption, CellWidth},
     layout::{Position, Size},
 };
 use std::io::{self, Write};
@@ -31,9 +31,12 @@ impl<W: Write> Backend for CrosstermBackend<W> {
         for index in 1..cells.len() {
             let (previous_x, previous_y, previous_cell) = cells[index - 1];
             let (x, y, _) = cells[index];
-            let follows_previous_cell = previous_x.checked_add(1) == Some(x) && previous_y == y;
 
-            if follows_previous_cell && previous_cell.cell_width() != 1 {
+            let follows_previous_cell = previous_x.checked_add(1) == Some(x) && previous_y == y;
+            let must_reposition_after_previous = previous_cell.cell_width() != 1
+                || matches!(previous_cell.diff_option, CellDiffOption::ForcedWidth(_));
+
+            if follows_previous_cell && must_reposition_after_previous {
                 self.inner.draw(cells[chunk_start..index].iter().copied())?;
                 chunk_start = index;
             }

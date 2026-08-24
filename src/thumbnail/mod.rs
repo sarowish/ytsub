@@ -41,7 +41,9 @@ impl Thumbnail {
         image_size: Size,
         clear: ClearNeeded,
     ) -> Result<()> {
-        let previous_area = self.area.replace(area);
+        let rendered_area =
+            Rect::new(area.x, area.y, image_size.width, image_size.height).intersection(buf.area);
+        let previous_area = self.area.replace(rendered_area);
 
         let mut erase = match clear {
             ClearNeeded::Full => area_clear_sequence(area)?,
@@ -86,6 +88,24 @@ impl Thumbnail {
         }
 
         Ok(())
+    }
+
+    pub fn mark_popup_area_for_redraw(&mut self, buf: &mut Buffer, popup_area: Rect) {
+        self.covered_area = self
+            .area
+            .map(|area| area.intersection(popup_area))
+            .filter(|area| !area.is_empty());
+
+        let Some(area) = self.covered_area else {
+            return;
+        };
+
+        for y in area.top()..area.bottom() {
+            for x in area.left()..area.right() {
+                buf.cell_mut((x, y))
+                    .map(|cell| cell.set_diff_option(CellDiffOption::AlwaysUpdate));
+            }
+        }
     }
 
     pub fn needs_rerender(
