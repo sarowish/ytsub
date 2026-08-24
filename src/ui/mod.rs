@@ -142,7 +142,10 @@ fn draw_channels(f: &mut Frame, app: &mut App, area: Rect) {
 }
 
 fn draw_videos(f: &mut Frame, app: &mut App, area: Rect) {
+    const MEMBERS_ONLY_INDICATOR: &str = " [M]";
+    const NEW_VIDEO_INDICATOR: &str = " [N]";
     const COLUMN_SPACING: u16 = 2;
+
     let columns = [
         Column::new("Channel", Constraint::Length(45), 1),
         Column::new("Title", Constraint::Min(90), 0),
@@ -154,13 +157,24 @@ fn draw_videos(f: &mut Frame, app: &mut App, area: Rect) {
         Mode::LatestVideos => &columns[0..],
         Mode::Subscriptions => &columns[1..],
     };
-    let shown_columns = filter_columns(
-        columns,
-        area.width
-            .saturating_sub(2)
-            .saturating_sub(CONFIG.highlight_symbol.width() as u16),
-        COLUMN_SPACING,
-    );
+
+    let table_width = area
+        .width
+        .saturating_sub(2)
+        .saturating_sub(CONFIG.highlight_symbol.width() as u16);
+    let shown_columns = filter_columns(columns, table_width, COLUMN_SPACING);
+    let column_areas = Layout::new(
+        Direction::Horizontal,
+        shown_columns.iter().map(|column| column.constraint),
+    )
+    .spacing(COLUMN_SPACING)
+    .split(Rect::new(0, 0, table_width, 1));
+
+    let title_column_width = shown_columns
+        .iter()
+        .zip(column_areas.iter())
+        .find_map(|(column, area)| (column.header == "Title").then_some(area.width))
+        .unwrap_or_default();
     let channel_header_present = shown_columns
         .first()
         .is_some_and(|item| item.header == "Channel");
@@ -243,18 +257,34 @@ fn draw_videos(f: &mut Frame, app: &mut App, area: Rect) {
                 columns.push(Cell::from(Span::raw(channel_name)));
             }
 
-            columns.extend([
-                Cell::from(Line::from(vec![
-                    Span::raw(video.title.clone()),
-                    Span::styled(
-                        if video.members_only { " [M]" } else { "" },
+            let mut indicators_width = 0;
+            if video.members_only {
+                indicators_width += MEMBERS_ONLY_INDICATOR.width();
+            }
+            if video.is_new {
+                indicators_width += NEW_VIDEO_INDICATOR.width();
+            }
+
+            let (title, show_indicators) =
+                utils::fit_video_title(&video.title, title_column_width.into(), indicators_width);
+
+            let mut line = vec![Span::raw(title)];
+
+            if show_indicators {
+                if video.members_only {
+                    line.push(Span::styled(
+                        MEMBERS_ONLY_INDICATOR,
                         THEME.members_only_indicator,
-                    ),
-                    Span::styled(
-                        if video.is_new { " [N]" } else { "" },
-                        THEME.new_video_indicator,
-                    ),
-                ])),
+                    ));
+                }
+
+                if video.is_new {
+                    line.push(Span::styled(NEW_VIDEO_INDICATOR, THEME.new_video_indicator));
+                }
+            }
+
+            columns.extend([
+                Cell::from(Line::from(line)),
                 Cell::from(Span::raw(
                     video
                         .length
@@ -274,7 +304,7 @@ fn draw_videos(f: &mut Frame, app: &mut App, area: Rect) {
     let videos = Table::new(videos, shown_columns.iter().map(|c| c.constraint))
         .block(block)
         .header(Row::new(shown_columns.iter().map(|c| c.header)).style(THEME.header))
-        .column_spacing(2)
+        .column_spacing(COLUMN_SPACING)
         .highlight_symbol(&*CONFIG.highlight_symbol)
         .row_highlight_style({
             let mut style = match app.selected {

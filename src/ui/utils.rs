@@ -10,6 +10,7 @@ use ratatui::{
     text::Span,
     widgets::{BorderType, ListState},
 };
+use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
 
 pub struct TitleBuilder<'a, T, S: State> {
@@ -185,6 +186,58 @@ impl<'a, T, S: State> TitleBuilder<'a, T, S> {
     }
 }
 
+pub fn fit_video_title(
+    title: &str,
+    available_width: usize,
+    indicators_width: usize,
+) -> (String, bool) {
+    const MIN_VIDEO_TITLE_WIDTH_WITH_INDICATORS: usize = 12;
+
+    let show_indicators = indicators_width > 0
+        && (title.width().saturating_add(indicators_width) <= available_width
+            || available_width.saturating_sub(indicators_width)
+                >= MIN_VIDEO_TITLE_WIDTH_WITH_INDICATORS);
+
+    let title_width = if show_indicators {
+        available_width.saturating_sub(indicators_width)
+    } else {
+        available_width
+    };
+
+    (truncate_with_ellipsis(title, title_width), show_indicators)
+}
+
+fn truncate_with_ellipsis(title: &str, available_width: usize) -> String {
+    const ELLIPSIS: &str = "…";
+
+    if title.width() <= available_width {
+        return title.to_string();
+    }
+
+    let ellipsis_width = ELLIPSIS.width();
+    if available_width < ellipsis_width {
+        return String::new();
+    }
+
+    let content_width = available_width - ellipsis_width;
+
+    let mut width: usize = 0;
+    let mut truncated = String::new();
+
+    for grapheme in title.graphemes(true) {
+        let grapheme_width = grapheme.width();
+        if width.saturating_add(grapheme_width) > content_width {
+            break;
+        }
+
+        truncated.push_str(grapheme);
+        width += grapheme_width;
+    }
+
+    truncated.push_str(ELLIPSIS);
+    truncated
+}
+
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct Column<'a> {
     pub header: &'a str,
@@ -226,9 +279,29 @@ pub fn filter_columns<'a>(
 
 #[cfg(test)]
 mod tests {
-    use super::filter_columns;
-    use crate::ui::utils::Column;
+    use super::{Column, filter_columns, fit_video_title};
     use ratatui::layout::Constraint;
+
+    #[test]
+    fn indicators_remain_when_the_full_title_fits() {
+        assert_eq!(fit_video_title("Short", 13, 8), ("Short".to_string(), true));
+    }
+
+    #[test]
+    fn title_is_truncated_to_leave_room_for_indicators() {
+        assert_eq!(
+            fit_video_title("12345678901234567890", 20, 8),
+            ("12345678901…".to_string(), true)
+        );
+    }
+
+    #[test]
+    fn indicators_are_hidden_below_the_title_width_floor() {
+        assert_eq!(
+            fit_video_title("12345678901234567890", 19, 8),
+            ("123456789012345678…".to_string(), false)
+        );
+    }
 
     #[test]
     fn filter_length_and_min_constraints() {
