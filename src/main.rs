@@ -1,5 +1,6 @@
 mod api;
 mod app;
+mod backend;
 mod channel;
 mod cli;
 mod client;
@@ -35,6 +36,7 @@ use crate::emulator::Emulator;
 use crate::mpv::PlaybackPhase;
 use anyhow::Result;
 use app::App;
+use backend::CrosstermBackend;
 use channel::RefreshState;
 use clap::ArgMatches;
 use client::ClientRequest;
@@ -48,9 +50,7 @@ use crossterm::terminal::{
 use futures_util::StreamExt;
 use help::Help;
 use input::InputMode;
-use ratatui::DefaultTerminal;
 use ratatui::Terminal;
-use ratatui::backend::CrosstermBackend;
 use std::io;
 use std::panic;
 use std::path::PathBuf;
@@ -72,6 +72,8 @@ static CONFIG: LazyLock<Config> = LazyLock::new(|| match Config::new() {
 static KEY_BINDINGS: LazyLock<&KeyBindings> = LazyLock::new(|| &CONFIG.key_bindings);
 static THEME: LazyLock<&Theme> = LazyLock::new(|| &CONFIG.theme);
 static HELP: LazyLock<Help> = LazyLock::new(Help::new);
+
+type AppTerminal = Terminal<CrosstermBackend<io::Stdout>>;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -179,7 +181,7 @@ fn downgrade_removed_data(from: u8, to: u8) -> Vec<&'static str> {
     removed
 }
 
-fn render(app: &mut App, terminal: &mut DefaultTerminal) -> Result<()> {
+fn render(app: &mut App, terminal: &mut AppTerminal) -> Result<()> {
     let prev_covered_area = app.thumbnail.as_ref().and_then(|t| t.covered_area);
 
     terminal.draw(|f| draw(f, app))?;
@@ -217,7 +219,7 @@ async fn sleep_if_timeout(timeout: &mut Option<Duration>) -> bool {
 }
 
 async fn run_tui(
-    terminal: &mut DefaultTerminal,
+    terminal: &mut AppTerminal,
     rx: UnboundedReceiver<IoEvent>,
     mut app: App,
 ) -> Result<()> {
