@@ -42,6 +42,7 @@ It is advisable to add only the parts you want to change instead of checking in 
 | `failed_symbol`                   | Symbol shown when refreshing a channel fails.                                                                | `"✗ "`                                      |
 | `unicode_progress_bar`            | Use Unicode block characters to display playback progress bar.                                               | `true`                                      |
 | `datetime_format`                 | Format used for scheduled stream and premiere dates. Uses [chrono/strftime format specifiers][strftime].     | `"%Y-%m-%d %H:%M"`                          |
+| `hide_progress_percentage`        | Hide playback percentage indicators.                                                                         | `false`                                     |
 | `hide_watched`                    | Hide watched videos by default.                                                                              | `false`                                     |
 | `hide_members_only`               | Hide members-only videos by default.                                                                         | `false`                                     |
 | `show_thumbnails`                 | Show thumbnails in the video info area.                                                                      | `true`                                      |
@@ -116,8 +117,9 @@ values are patched onto the selected style.
 | `watched`                | Base style applied to watched videos.                                                 |
 | `selected_watched`       | Patch applied when a watched video is selected in the inactive pane.                  |
 | `focused_watched`        | Patch applied when a watched video is selected in the active pane.                    |
-| `new_video_indicator`    | The `[N]` indicator shown for new videos and channels with new content.               |
-| `members_only_indicator` | The `[M]` indicator shown for members-only videos.                                    |
+| `progress_percentage`    | The playback percentage indicator beside video titles.                                |
+| `new_video_indicator`    | The `[N]` indicator beside new video titles and channels or tabs with new content.    |
+| `members_only_indicator` | The `[M]` indicator beside members-only video titles.                                 |
 | `selected_block`         | Border of the active pane.                                                            |
 | `video_info`             | Field names in the `Video Info` panel.                                                |
 | `progress_bar`           | Filled portion of the playback progress bar.                                          |
@@ -137,6 +139,7 @@ focused = { fg = "Magenta", modifiers = "bold" }
 watched = { fg = "DarkGray" }
 selected_watched = {}
 focused_watched = {}
+progress_percentage = { fg = "Yellow", modifiers = "italic" }
 new_video_indicator = { fg = "Red", modifiers = "italic" }
 members_only_indicator = { fg = "Green", modifiers = "italic" }
 selected_block = { fg = "Magenta" }

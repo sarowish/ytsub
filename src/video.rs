@@ -58,6 +58,13 @@ impl VideoListItem {
                 })
         })
     }
+
+    pub fn progress_percentage(&self) -> Option<u8> {
+        let position = self.resume_position()?;
+        let length = u64::from(self.length?);
+
+        Some(((position * 100) / length).min(100) as u8)
+    }
 }
 
 impl Deref for VideoListItem {

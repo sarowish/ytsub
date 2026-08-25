@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add commands for copying the playing video link with a timestamp.
 - Automatically back up existing databases before applying schema migrations.
 - Add a command to downgrade the database schema for compatibility with older ytsub versions.
+- Show playback percentage indicators beside video titles.
 
 ### Changed
 - Mark videos as watched when playback reaches EOF or ends past a configurable threshold.

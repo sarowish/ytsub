@@ -18,6 +18,7 @@ refreshing_symbol = "■ "
 failed_symbol = "✗ "
 unicode_progress_bar = true
 datetime_format = "%Y-%m-%d %H:%M"
+hide_progress_percentage = false
 hide_watched = false
 hide_members_only = false
 show_thumbnails = true
@@ -47,6 +48,7 @@ focused = { fg = "Magenta", modifiers = "bold" }
 watched = { fg = "DarkGray" }
 selected_watched = {}
 focused_watched = {}
+progress_percentage = { fg = "Yellow", modifiers = "italic" }
 new_video_indicator = { fg = "Red", modifiers = "italic" }
 members_only_indicator = { fg = "Green", modifiers = "italic" }
 selected_block = { fg = "Magenta" }

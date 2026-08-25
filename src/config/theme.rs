@@ -131,6 +131,7 @@ pub struct UserTheme {
     watched: Option<UserStyle>,
     selected_watched: Option<UserStyle>,
     focused_watched: Option<UserStyle>,
+    progress_percentage: Option<UserStyle>,
     new_video_indicator: Option<UserStyle>,
     members_only_indicator: Option<UserStyle>,
     selected_block: Option<UserStyle>,
@@ -153,6 +154,7 @@ pub struct Theme {
     pub watched: Style,
     pub selected_watched: Style,
     pub focused_watched: Style,
+    pub progress_percentage: Style,
     pub new_video_indicator: Style,
     pub members_only_indicator: Style,
     pub selected_block: Style,
@@ -182,6 +184,9 @@ impl Default for Theme {
             watched: Style::default().fg(Color::DarkGray),
             selected_watched: Style::default(),
             focused_watched: Style::default(),
+            progress_percentage: Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::ITALIC),
             new_video_indicator: Style::default()
                 .fg(Color::Red)
                 .add_modifier(Modifier::ITALIC),
@@ -222,6 +227,7 @@ impl TryFrom<UserTheme> for Theme {
         set_theme_field!(watched);
         set_theme_field!(selected_watched);
         set_theme_field!(focused_watched);
+        set_theme_field!(progress_percentage);
         set_theme_field!(new_video_indicator);
         set_theme_field!(members_only_indicator);
         set_theme_field!(selected_block);

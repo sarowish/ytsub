@@ -257,7 +257,15 @@ fn draw_videos(f: &mut Frame, app: &mut App, area: Rect) {
                 columns.push(Cell::from(Span::raw(channel_name)));
             }
 
+            let progress_indicator = video
+                .progress_percentage()
+                .filter(|_| !CONFIG.hide_progress_percentage)
+                .map(|percentage| format!(" [{percentage}%]"));
+
             let mut indicators_width = 0;
+            if let Some(indicator) = &progress_indicator {
+                indicators_width += indicator.width();
+            }
             if video.members_only {
                 indicators_width += MEMBERS_ONLY_INDICATOR.width();
             }
@@ -271,6 +279,10 @@ fn draw_videos(f: &mut Frame, app: &mut App, area: Rect) {
             let mut line = vec![Span::raw(title)];
 
             if show_indicators {
+                if let Some(indicator) = progress_indicator {
+                    line.push(Span::styled(indicator, THEME.progress_percentage))
+                }
+
                 if video.members_only {
                     line.push(Span::styled(
                         MEMBERS_ONLY_INDICATOR,

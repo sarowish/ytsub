@@ -61,6 +61,7 @@ pub struct Config {
     #[serde(alias = "video_player")]
     pub mpv_path: PathBuf,
     pub vlc_path: PathBuf,
+    pub hide_progress_percentage: bool,
     pub hide_watched: bool,
     pub hide_members_only: bool,
     pub show_thumbnails: bool,
@@ -158,6 +159,7 @@ impl Default for Config {
             mpv_video_ipc: true,
             mpv_path: PathBuf::from("mpv"),
             vlc_path: PathBuf::from("vlc"),
+            hide_progress_percentage: false,
             hide_watched: false,
             hide_members_only: false,
             show_thumbnails: true,
