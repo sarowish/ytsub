@@ -105,12 +105,26 @@ fn draw_subscriptions(f: &mut Frame, app: &mut App, area: Rect) {
 }
 
 fn draw_channels(f: &mut Frame, app: &mut App, area: Rect) {
+    let selected_channel = app.channels.state.selected();
+    let highlight_style = match app.selected {
+        Selected::Channels => THEME.focused,
+        Selected::Videos => THEME.selected,
+    };
+
     let channels = app
         .channels
         .items
         .iter()
-        .map(Line::from)
-        .map(ListItem::new)
+        .enumerate()
+        .map(|(index, channel)| {
+            let mut item = ListItem::new(Line::from(channel));
+
+            if selected_channel == Some(index) {
+                item = item.style(highlight_style);
+            }
+
+            item
+        })
         .collect::<Vec<ListItem>>();
 
     let selected_tags = app.tags.get_selected_items();
@@ -130,11 +144,7 @@ fn draw_channels(f: &mut Frame, app: &mut App, area: Rect) {
                     Selected::Videos => Style::default(),
                 }),
         )
-        .highlight_symbol(CONFIG.highlight_symbol.as_str())
-        .highlight_style(match app.selected {
-            Selected::Channels => THEME.focused,
-            Selected::Videos => THEME.selected,
-        });
+        .highlight_symbol(CONFIG.highlight_symbol.as_str());
 
     app.channels.visible_lines = area.height.saturating_sub(2);
 
@@ -246,11 +256,29 @@ fn draw_videos(f: &mut Frame, app: &mut App, area: Rect) {
         return;
     };
 
+    let selected_row = tab.videos.state.selected();
+    let mut highlight_style = match app.selected {
+        Selected::Channels => THEME.selected,
+        Selected::Videos => THEME.focused,
+    };
+    if let Some(video) = tab.videos.get_selected()
+        && video.watched
+    {
+        let overriding_style = match app.selected {
+            Selected::Channels => THEME.selected_watched,
+            Selected::Videos => THEME.focused_watched,
+        };
+        highlight_style = highlight_style.patch(overriding_style);
+        highlight_style.add_modifier = overriding_style.add_modifier;
+        highlight_style.sub_modifier = overriding_style.sub_modifier;
+    }
+
     let videos = tab
         .videos
         .items
         .iter()
-        .map(|video| {
+        .enumerate()
+        .map(|(index, video)| {
             let mut columns = Vec::new();
 
             if channel_header_present && let Some(channel_name) = &video.channel_name {
@@ -305,11 +333,17 @@ fn draw_videos(f: &mut Frame, app: &mut App, area: Rect) {
                 Cell::from(Span::raw(&video.published_text)),
             ]);
 
-            Row::new(columns).style(if video.watched {
+            let mut row_style = if video.watched {
                 THEME.watched
             } else {
                 Style::default()
-            })
+            };
+
+            if selected_row == Some(index) {
+                row_style = row_style.patch(highlight_style);
+            }
+
+            Row::new(columns).style(row_style)
         })
         .collect::<Vec<Row>>();
 
@@ -317,25 +351,7 @@ fn draw_videos(f: &mut Frame, app: &mut App, area: Rect) {
         .block(block)
         .header(Row::new(shown_columns.iter().map(|c| c.header)).style(THEME.header))
         .column_spacing(COLUMN_SPACING)
-        .highlight_symbol(&*CONFIG.highlight_symbol)
-        .row_highlight_style({
-            let mut style = match app.selected {
-                Selected::Channels => THEME.selected,
-                Selected::Videos => THEME.focused,
-            };
-            if let Some(video) = tab.videos.get_selected()
-                && video.watched
-            {
-                let overriding_style = match app.selected {
-                    Selected::Channels => THEME.selected_watched,
-                    Selected::Videos => THEME.focused_watched,
-                };
-                style = style.patch(overriding_style);
-                style.add_modifier = overriding_style.add_modifier;
-                style.sub_modifier = overriding_style.sub_modifier;
-            }
-            style
-        });
+        .highlight_symbol(&*CONFIG.highlight_symbol);
 
     tab.videos.visible_lines = video_area.height.saturating_sub(2);
 
