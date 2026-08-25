@@ -400,7 +400,7 @@ impl App {
             self.progress_tracker.mark_saved(position);
         }
 
-        if actions.mark_watched {
+        if CONFIG.auto_mark_watched && actions.mark_watched {
             self.set_watched(video_id, true);
         }
     }

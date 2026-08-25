@@ -24,6 +24,7 @@ hide_members_only = false
 show_thumbnails = true
 video_info_position = "top"
 always_show_video_info = true
+auto_mark_watched = true
 watched_threshold = 90
 resume_playback = true
 video_player_for_stream_formats = "mpv"

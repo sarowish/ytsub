@@ -346,7 +346,11 @@ fn handle_event(event: ClientRequest, app: &mut App) {
             app.input_mode = InputMode::FormatSelection;
             app.stream_formats = *formats;
         }
-        ClientRequest::SetWatched(video_id, is_watched) => app.set_watched(&video_id, is_watched),
+        ClientRequest::SetWatched(video_id, is_watched) => {
+            if CONFIG.auto_mark_watched {
+                app.set_watched(&video_id, is_watched)
+            }
+        }
         ClientRequest::SetMessage(msg, message_type, duration) => {
             app.message.set_message(&msg);
             app.message.message_type = message_type;
