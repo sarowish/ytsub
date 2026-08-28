@@ -5,27 +5,46 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [0.11.0] - 2026-08-28
 ### Added
 - Add mpv audio and video playback controls to the TUI.
+[`3602a9e`](https://github.com/sarowish/ytsub/commit/3602a9e)
+[`3c661ef`](https://github.com/sarowish/ytsub/commit/3c661ef)
 - Make channel refresh symbols and Unicode progress bar configurable.
+[`6666b25`](https://github.com/sarowish/ytsub/commit/6666b25)
 - Add separate proxy configuration for requests and mpv/yt-dlp playback.
+[`7f6c40e`](https://github.com/sarowish/ytsub/commit/7f6c40e)
 - Save playback progress and resume from the last position.
+[`01e7b4b`](https://github.com/sarowish/ytsub/commit/01e7b4b)
 - Add commands for copying the playing video link with a timestamp.
+[`52dac82`](https://github.com/sarowish/ytsub/commit/52dac82)
 - Automatically back up existing databases before applying schema migrations.
+[`3bbe749`](https://github.com/sarowish/ytsub/commit/3bbe749)
 - Add a command to downgrade the database schema for compatibility with older ytsub versions.
+[`38c3d23`](https://github.com/sarowish/ytsub/commit/38c3d23)
 - Show playback percentage indicators beside video titles.
+[`646b0ca`](https://github.com/sarowish/ytsub/commit/646b0ca)
 - Add an option to disable automatic watched marking.
+[`68d5989`](https://github.com/sarowish/ytsub/commit/68d5989)
 
 ### Changed
 - Mark videos as watched when playback reaches EOF or ends past a configurable threshold.
+[`1de619d`](https://github.com/sarowish/ytsub/commit/1de619d)
 
 ### Fixed
 - Don't show delayed thumbnails from previously selected videos.
+[`181a5c0`](https://github.com/sarowish/ytsub/commit/181a5c0)
 - Allow the `-` key to be used in key bindings.
+[`c9caab1`](https://github.com/sarowish/ytsub/commit/c9caab1)
 - Use the visionOS player client when fetching Local API stream formats.
+[`148d048`](https://github.com/sarowish/ytsub/commit/148d048)
 - Keep the cursor visible when input text exceeds the available width.
+[`e5724c7`](https://github.com/sarowish/ytsub/commit/e5724c7)
 - Keep new and members-only indicators visible when video titles exceed their table column.
+[`757d887`](https://github.com/sarowish/ytsub/commit/757d887)
 - Preserve themed indicator colors in highlighted channel and video rows.
+[`014f7e4`](https://github.com/sarowish/ytsub/commit/014f7e4)
 
 ## [0.10.0] - 2026-05-27
 ### Added
