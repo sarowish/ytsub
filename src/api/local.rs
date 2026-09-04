@@ -720,6 +720,14 @@ impl Api for Local {
             let reason = response["playabilityStatus"]["reason"]
                 .as_str()
                 .unwrap_or_default();
+            let reason = match reason {
+                "Sign in to confirm you’re not a bot" => {
+                    "YouTube is temporarily requiring sign-in for video requests from your network. Try again later, or use a proxy or VPN."
+                }
+
+                reason => reason,
+            };
+
             anyhow::bail!("Stream formats are not available: {reason}")
         };
 

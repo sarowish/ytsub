@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Pin `h2` to 0.4.18 to prevent failures during large Local API refreshes.
+- Show a dedicated error for YouTube's temporary "Sign in to confirm you're not a bot" response.
 
 ## [0.11.0] - 2026-08-28
 ### Added
