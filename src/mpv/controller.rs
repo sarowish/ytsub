@@ -116,6 +116,7 @@ struct PlayerController {
     state: PlaybackState,
     requested_entry_id: Option<i64>,
     event_entry_id: Option<i64>,
+    ytdlp_error: Option<String>,
     command_rx: mpsc::Receiver<PlayerCommand>,
     update_tx: mpsc::Sender<PlaybackUpdate>,
 }
@@ -130,6 +131,7 @@ impl PlayerController {
             state: PlaybackState::idle(),
             requested_entry_id: None,
             event_entry_id: None,
+            ytdlp_error: None,
             command_rx: commands,
             update_tx,
         }
@@ -370,6 +372,7 @@ impl PlayerController {
         match notification {
             MpvNotification::Event(event) => match event.get("event").and_then(Value::as_str) {
                 Some("start-file") => {
+                    self.ytdlp_error = None;
                     self.event_entry_id = event.get("playlist_entry_id").and_then(Value::as_i64);
 
                     return Ok(());
@@ -421,7 +424,21 @@ impl PlayerController {
 
                     cause = PlaybackUpdateCause::Seeked;
                 }
+                Some("log-message") if self.notification_is_for_current() => {
+                    if self.ytdlp_error.is_none()
+                        && event.get("prefix").and_then(Value::as_str) == Some("ytdl_hook")
+                        && event.get("level").and_then(Value::as_str) == Some("error")
+                    {
+                        self.ytdlp_error = event
+                            .get("text")
+                            .and_then(Value::as_str)
+                            .map(|error| format!("[ytdl_hook] {error}"));
+                    }
+
+                    return Ok(());
+                }
                 Some("file-loaded") if self.notification_is_for_current() => {
+                    self.ytdlp_error = None;
                     self.state.phase = PlaybackPhase::Playing;
                     cause = PlaybackUpdateCause::Loaded;
                 }
@@ -451,12 +468,15 @@ impl PlayerController {
                     self.state.phase = PlaybackPhase::Idle;
 
                     if matches!(reason, PlaybackEndReason::Error) {
-                        let error = event
-                            .get("file_error")
-                            .and_then(Value::as_str)
-                            .unwrap_or("mpv failed to play media");
+                        let error = self
+                            .ytdlp_error
+                            .take()
+                            .as_deref()
+                            .or_else(|| event.get("file_error").and_then(Value::as_str))
+                            .unwrap_or("mpv failed to play media")
+                            .to_owned();
 
-                        self.state.phase = PlaybackPhase::Error(error.to_owned());
+                        self.state.phase = PlaybackPhase::Error(error);
                     }
 
                     self.publish_state(PlaybackUpdateCause::Ended(reason)).await;

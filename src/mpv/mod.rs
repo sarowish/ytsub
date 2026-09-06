@@ -196,6 +196,11 @@ impl MpvSession {
             }
         };
 
+        if uses_ytdlp {
+            ipc.call(serde_json::json!(["request_log_messages", "error"]))
+                .await?;
+        }
+
         ipc.observe_property("pause").await?;
         ipc.observe_property("duration").await?;
         ipc.observe_property("volume").await?;
