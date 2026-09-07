@@ -328,6 +328,24 @@ fn handle_event(event: ClientRequest, app: &mut App) {
             }
         }
         ClientRequest::UpdateChannel(feed) => app.add_tabs(feed),
+        ClientRequest::RefreshFinished {
+            start,
+            count,
+            total,
+        } => {
+            let elapsed = start.elapsed().as_secs_f64();
+
+            match (count, total) {
+                (0, 1) => app.set_error_message("Failed to refresh channel"),
+                (0, _) => app.set_error_message("Failed to refresh channels"),
+                (1, 1) => app.set_message_with_default_duration(&format!(
+                    "Refreshed channel in {elapsed:.2}s"
+                )),
+                (count, total) => app.set_message_with_default_duration(&format!(
+                    "Refreshed {count} out of {total} channels in {elapsed:.2}s"
+                )),
+            }
+        }
         ClientRequest::UpdateTitle(video_id, title) => {
             if database::update_title(&app.conn, &video_id, &title).is_ok() {
                 app.load_videos(true);

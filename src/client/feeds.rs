@@ -139,23 +139,18 @@ pub async fn refresh_channels(instance: Box<dyn Api>, channel_ids: Vec<String>) 
             Ok(feed) => {
                 TX.send(ClientRequest::SetRefreshState(id, RefreshState::Completed))?;
                 TX.send(ClientRequest::UpdateChannel(feed))?;
-                emit_msg!(perm, format!("Refreshing channels: {count}/{total}"));
                 count += 1;
+                emit_msg!(perm, format!("Refreshing channels: {count}/{total}"));
             }
             Err(_) => TX.send(ClientRequest::SetRefreshState(id, RefreshState::Failed))?,
         }
     }
 
-    let elapsed = start.elapsed().as_secs_f64();
-
-    match (count, total) {
-        (0, 1) => emit_msg!(error, "Failed to refresh channel"),
-        (0, _) => emit_msg!(error, "Failed to refresh channels"),
-        (1, 1) => emit_msg!(format!("Refreshed channel in {elapsed:.2}s")),
-        (count, total) => emit_msg!(format!(
-            "Refreshed {count} out of {total} channels in {elapsed:.2}s"
-        )),
-    }
+    TX.send(ClientRequest::RefreshFinished {
+        start,
+        count,
+        total,
+    })?;
 
     Ok(())
 }

@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Pin `h2` to 0.4.18 to prevent failures during large Local API refreshes.
 - Show a dedicated error for YouTube's temporary "Sign in to confirm you're not a bot" response.
 - Show the underlying yt-dlp error when mpv uses yt-dlp.
+- Wait until all channel updates are applied before reporting refresh duration.
 
 ## [0.11.0] - 2026-08-28
 ### Added

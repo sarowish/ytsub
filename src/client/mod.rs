@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, time::Instant};
 
 use crate::{
     CONFIG,
@@ -86,6 +86,11 @@ pub enum ClientRequest {
     CheckChannel(String, Sender<bool>),
     FinalizeImport(bool),
     UpdateChannel(ChannelFeed),
+    RefreshFinished {
+        start: Instant,
+        count: usize,
+        total: usize,
+    },
     UpdateTitle(String, String),
     SetThumbnail(String, Option<Thumbnail>),
     EnterFormatSelection(Box<Formats>),

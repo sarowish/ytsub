@@ -1130,7 +1130,7 @@ impl App {
         self.message.set_message(message);
     }
 
-    pub fn _set_message_with_default_duration(&mut self, message: &str) {
+    pub fn set_message_with_default_duration(&mut self, message: &str) {
         const DEFAULT_DURATION: u64 = 5;
         self.set_message(message);
         self.clear_message_after_duration(DEFAULT_DURATION);
