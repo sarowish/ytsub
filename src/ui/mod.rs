@@ -3,9 +3,10 @@ use crate::channel::{HideVideos, tabs_to_be_loaded};
 use crate::config::VideoInfoPosition;
 use crate::help::HelpWindowState;
 use crate::input::InputMode;
-use crate::list::{Scrollable, StatefulList};
+use crate::list::{Scrollable, SearchableList};
 use crate::message::MessageType;
 use crate::mpv::PlaybackPhase;
+use crate::search::Searchable;
 use crate::stream_formats::Formats;
 use crate::utils::length_as_hhmmss;
 use crate::{CONFIG, HELP, THEME};
@@ -17,7 +18,6 @@ use ratatui::widgets::{
     Block, Borders, Cell, Clear, Gauge, List, ListItem, ListState, Paragraph, Row, Table, Tabs,
     Wrap,
 };
-use std::fmt::Display;
 use unicode_width::UnicodeWidthStr;
 use utils::{Column, TitleBuilder, filter_columns};
 
@@ -105,15 +105,23 @@ fn draw_subscriptions(f: &mut Frame, app: &mut App, area: Rect) {
 }
 
 fn draw_channels(f: &mut Frame, app: &mut App, area: Rect) {
-    let selected_channel = app.channels.state.selected();
+    let selected_channel = app.channels.list().state.selected();
     let highlight_style = match app.selected {
         Selected::Channels => THEME.focused,
         Selected::Videos => THEME.selected,
     };
 
-    let channels = app
-        .channels
-        .items
+    let selected_tags = app.tags.get_selected_items();
+
+    let title = TitleBuilder::new(area.width.into())
+        .title("Channels".to_string())
+        .list(app.channels.list())
+        .tags(selected_tags)
+        .build_title();
+
+    let (items, state) = app.channels.render_parts(area.height.saturating_sub(2));
+
+    let channels = items
         .iter()
         .enumerate()
         .map(|(index, channel)| {
@@ -127,13 +135,6 @@ fn draw_channels(f: &mut Frame, app: &mut App, area: Rect) {
         })
         .collect::<Vec<ListItem>>();
 
-    let selected_tags = app.tags.get_selected_items();
-    let title = TitleBuilder::new(area.width.into())
-        .title("Channels".to_string())
-        .list(&app.channels)
-        .tags(selected_tags)
-        .build_title();
-
     let channels = List::new(channels)
         .block(
             Block::default()
@@ -146,9 +147,7 @@ fn draw_channels(f: &mut Frame, app: &mut App, area: Rect) {
         )
         .highlight_symbol(CONFIG.highlight_symbol.as_str());
 
-    app.channels.visible_lines = area.height.saturating_sub(2);
-
-    f.render_stateful_widget(channels, area, &mut app.channels.state);
+    f.render_stateful_widget(channels, area, state);
 }
 
 fn draw_videos(f: &mut Frame, app: &mut App, area: Rect) {
@@ -240,7 +239,7 @@ fn draw_videos(f: &mut Frame, app: &mut App, area: Rect) {
     }
 
     if let Some(tab) = app.tabs.get_selected() {
-        title = title.list(&tab.videos);
+        title = title.list(tab.videos.list());
 
         if tabs_to_be_loaded().count() > 1 {
             title = title.tabs(&app.tabs);
@@ -256,12 +255,14 @@ fn draw_videos(f: &mut Frame, app: &mut App, area: Rect) {
         return;
     };
 
-    let selected_row = tab.videos.state.selected();
+    let (items, state) = tab.videos.render_parts(video_area.height.saturating_sub(2));
+
+    let selected_row = state.selected();
     let mut highlight_style = match app.selected {
         Selected::Channels => THEME.selected,
         Selected::Videos => THEME.focused,
     };
-    if let Some(video) = tab.videos.get_selected()
+    if let Some(video) = state.selected().and_then(|idx| items.get(idx))
         && video.watched
     {
         let overriding_style = match app.selected {
@@ -273,9 +274,7 @@ fn draw_videos(f: &mut Frame, app: &mut App, area: Rect) {
         highlight_style.sub_modifier = overriding_style.sub_modifier;
     }
 
-    let videos = tab
-        .videos
-        .items
+    let videos = items
         .iter()
         .enumerate()
         .map(|(index, video)| {
@@ -353,9 +352,7 @@ fn draw_videos(f: &mut Frame, app: &mut App, area: Rect) {
         .column_spacing(COLUMN_SPACING)
         .highlight_symbol(&*CONFIG.highlight_symbol);
 
-    tab.videos.visible_lines = video_area.height.saturating_sub(2);
-
-    f.render_stateful_widget(videos, video_area, &mut tab.videos.state);
+    f.render_stateful_widget(videos, video_area, state);
 
     if let Some(area) = video_info_area {
         draw_video_info(f, app, area);
@@ -633,7 +630,7 @@ fn draw_format_selection(f: &mut Frame, stream_formats: &mut Formats) -> Rect {
         )),
         Line::from(Span::styled(
             "Caption",
-            if stream_formats.captions.items.is_empty() {
+            if stream_formats.captions.items().is_empty() {
                 THEME.watched
             } else {
                 Style::default()
@@ -656,27 +653,27 @@ fn draw_format_selection(f: &mut Frame, stream_formats: &mut Formats) -> Rect {
     )
 }
 
-fn draw_list_with_help<T: Display>(
+fn draw_list_with_help<T: Searchable>(
     f: &mut Frame,
     title: String,
-    list: &mut StatefulList<T, ListState>,
+    list: &mut SearchableList<T, ListState>,
     help_entries: &[(String, &str)],
 ) -> Rect {
     draw_list_with_help_tabs(f, title, None, list, help_entries)
 }
 
-fn draw_list_with_help_tabs<T: Display>(
+fn draw_list_with_help_tabs<T: Searchable>(
     f: &mut Frame,
     title: String,
     tabs: Option<Tabs>,
-    list: &mut StatefulList<T, ListState>,
+    list: &mut SearchableList<T, ListState>,
     help_entries: &[(String, &str)],
 ) -> Rect {
     const VER_MARGIN: u16 = 6;
     const RIGHT_PADDING: u16 = 4;
 
     let item_texts: Vec<Span> = list
-        .items
+        .items()
         .iter()
         .map(ToString::to_string)
         .map(Span::raw)
@@ -721,7 +718,7 @@ fn draw_list_with_help_tabs<T: Display>(
 
     let title = TitleBuilder::new(window.width.into())
         .title(title)
-        .list(list)
+        .list(list.list())
         .build_title();
 
     f.render_widget(Block::default().borders(Borders::ALL).title(title), window);
@@ -763,9 +760,9 @@ fn draw_list_with_help_tabs<T: Display>(
         .highlight_symbol(CONFIG.highlight_symbol.as_str())
         .highlight_style(THEME.focused);
 
-    list.visible_lines = entry_area.height;
+    let (_, state) = list.render_parts(entry_area.height);
 
-    f.render_stateful_widget(w, entry_area, &mut list.state);
+    f.render_stateful_widget(w, entry_area, state);
     f.render_widget(help_widget, help_area);
 
     window

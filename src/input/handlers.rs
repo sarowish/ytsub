@@ -299,7 +299,7 @@ fn handle_key_editing_mode(key: KeyEvent, app: &mut App) {
         KeyCode::Esc => abort(app),
         _ => {
             if let Some(change) = app.input.update(key)
-                && matches!(app.input_mode, InputMode::Search)
+                && app.is_searching()
             {
                 app.update_search_after_input(change);
             }
@@ -320,7 +320,7 @@ fn complete(app: &mut App) {
 fn abort(app: &mut App) {
     match app.input_mode {
         InputMode::Subscribe | InputMode::TagCreation | InputMode::TagRenaming => {
-            app.input_mode = app.prev_input_mode.clone();
+            app.input_mode = app.prev_input_mode;
             app.input.clear();
         }
         InputMode::Search => app.abort_search(),

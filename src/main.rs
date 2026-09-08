@@ -308,23 +308,29 @@ fn handle_event(event: ClientRequest, app: &mut App) {
         ClientRequest::SetRefreshState(id, state) => app.set_channel_refresh_state(&id, state),
         ClientRequest::SetImportState(id, state) => {
             let idx = app.import_state.find_by_id(&id).unwrap();
-            app.import_state.items[idx].sub_state = state;
 
-            if matches!(state, RefreshState::Completed) {
-                app.import_state.items.remove(idx);
-            }
+            app.import_state.update_items(|items| {
+                items[idx].sub_state = state;
+
+                if matches!(state, RefreshState::Completed) {
+                    items.remove(idx);
+                }
+            });
         }
         ClientRequest::AddChannel(feed) => app.add_channel(feed),
         ClientRequest::CheckChannel(id, tx) => {
-            tx.send(app.channels.get_mut_by_id(&id).is_some()).unwrap();
+            tx.send(app.channels.find_by_id(&id).is_some()).unwrap();
         }
         ClientRequest::FinalizeImport(imported_all) => {
             if imported_all {
+                if app.is_searching() {
+                    app.abort_search();
+                }
+
                 app.input_mode = InputMode::Normal;
             } else {
-                for channel in &mut app.import_state.items {
-                    channel.sub_state = RefreshState::Completed;
-                }
+                app.import_state
+                    .update_each(|item| item.sub_state = RefreshState::Completed);
             }
         }
         ClientRequest::UpdateChannel(feed) => app.add_tabs(feed),
@@ -347,8 +353,9 @@ fn handle_event(event: ClientRequest, app: &mut App) {
             }
         }
         ClientRequest::UpdateTitle(video_id, title) => {
-            if database::update_title(&app.conn, &video_id, &title).is_ok() {
-                app.load_videos(true);
+            if database::update_title(&app.conn, &video_id, &title).is_ok() && app.load_videos(true)
+            {
+                app.on_change_video();
             }
         }
         ClientRequest::SetThumbnail(video_id, data) => {
@@ -361,6 +368,10 @@ fn handle_event(event: ClientRequest, app: &mut App) {
             }
         }
         ClientRequest::EnterFormatSelection(formats) => {
+            if app.is_searching() {
+                app.abort_search();
+            }
+
             app.input_mode = InputMode::FormatSelection;
             app.stream_formats = *formats;
         }

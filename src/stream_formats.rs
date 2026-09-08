@@ -7,6 +7,14 @@ use crate::{
 };
 use std::fmt::Display;
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum FormatList {
+    Video,
+    Audio,
+    Combined,
+    Caption,
+}
+
 #[derive(Default)]
 pub struct Formats {
     pub spec: PlaybackSpec,
@@ -40,7 +48,7 @@ impl Formats {
     fn set_preferred(&mut self) {
         let mut video_idx = None;
 
-        for (idx, format) in self.video_formats.items.iter().enumerate() {
+        for (idx, format) in self.video_formats.items().iter().enumerate() {
             if let Some(preferred_codec) = &CONFIG.preferred_video_codec {
                 if CONFIG.video_quality == format.get_quality() {
                     video_idx = Some(idx);
@@ -59,17 +67,12 @@ impl Formats {
             }
         }
 
-        if let Some(item) = self
-            .video_formats
-            .items
-            .get_mut(video_idx.unwrap_or_default())
-        {
-            item.selected = true;
-        }
+        self.video_formats
+            .update_item_at(video_idx.unwrap_or_default(), |item| item.selected = true);
 
         let mut audio_idx = None;
 
-        for (idx, format) in self.audio_formats.items.iter().enumerate() {
+        for (idx, format) in self.audio_formats.items().iter().enumerate() {
             if matches!(&format.item, Format::Audio { language,.. } if language.as_ref().is_some_and(|(_, is_default)| *is_default))
             {
                 audio_idx = Some(idx);
@@ -92,30 +95,17 @@ impl Formats {
             }
         }
 
-        if let Some(item) = self
-            .audio_formats
-            .items
-            .get_mut(audio_idx.unwrap_or_default())
-        {
-            item.selected = true;
-        }
+        self.audio_formats
+            .update_item_at(audio_idx.unwrap_or_default(), |item| item.selected = true);
 
-        if let Some(item) = self.formats.items.first_mut() {
-            item.selected = true;
-        }
+        self.formats.update_item_at(0, |item| item.selected = true);
 
         for language in &CONFIG.subtitle_languages {
-            if let Some(caption) = self
-                .captions
-                .items
-                .iter_mut()
-                .find(|caption| caption.item.id() == language)
-            {
-                caption.selected = true;
-            }
+            self.captions
+                .update_item(language, |item| item.selected = true);
         }
 
-        for caption in &mut self.captions.items {
+        self.captions.update_each(|caption|
             if CONFIG
                 .subtitle_languages
                 .iter()
@@ -123,7 +113,7 @@ impl Formats {
             {
                 caption.selected = true;
             }
-        }
+        );
     }
 
     pub const fn switch_format_type(&mut self) {
@@ -131,21 +121,43 @@ impl Formats {
         self.selected_tab = 0;
     }
 
-    pub fn get_mut_selected_tab(&mut self) -> &mut SelectionList<Format> {
+    pub const fn selected_list(&self) -> FormatList {
         match self.selected_tab {
-            0 if self.use_adaptive_streams => &mut self.video_formats,
-            0 => &mut self.formats,
-            1 => &mut self.audio_formats,
-            2 => &mut self.captions,
-            _ => panic!(),
+            0 if self.use_adaptive_streams => FormatList::Video,
+            0 => FormatList::Combined,
+            1 => FormatList::Audio,
+            2 => FormatList::Caption,
+            _ => unreachable!(),
         }
+    }
+
+    pub fn list(&self, target: FormatList) -> &SelectionList<Format> {
+        match target {
+            FormatList::Video => &self.video_formats,
+            FormatList::Audio => &self.audio_formats,
+            FormatList::Combined => &self.formats,
+            FormatList::Caption => &self.captions,
+        }
+    }
+
+    pub fn list_mut(&mut self, target: FormatList) -> &mut SelectionList<Format> {
+        match target {
+            FormatList::Video => &mut self.video_formats,
+            FormatList::Audio => &mut self.audio_formats,
+            FormatList::Combined => &mut self.formats,
+            FormatList::Caption => &mut self.captions,
+        }
+    }
+
+    pub fn get_mut_selected_tab(&mut self) -> &mut SelectionList<Format> {
+        self.list_mut(self.selected_list())
     }
 
     pub fn next_tab(&mut self) {
         for _ in 0..3 {
             self.selected_tab = (self.selected_tab + 1) % 3;
 
-            if (self.selected_tab != 2 || !self.get_mut_selected_tab().items.is_empty())
+            if (self.selected_tab != 2 || !self.get_mut_selected_tab().items().is_empty())
                 && (self.use_adaptive_streams || self.selected_tab != 1)
             {
                 break;
@@ -161,7 +173,7 @@ impl Formats {
                 self.selected_tab - 1
             };
 
-            if (self.selected_tab != 2 || !self.get_mut_selected_tab().items.is_empty())
+            if (self.selected_tab != 2 || !self.get_mut_selected_tab().items().is_empty())
                 && (self.use_adaptive_streams || self.selected_tab != 1)
             {
                 break;

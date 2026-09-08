@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Wait until all channel updates are applied before reporting refresh duration.
 - Fix captions when YouTube omits the `fmt` parameter by setting `fmt=vtt` explicitly instead of relying on string replacement.
 - Keep collecting captions after an error instead of stopping at the first failure.
+- Keep active searches and cancellation recovery consistent when lists change during refreshes.
 
 ## [0.11.0] - 2026-08-28
 ### Added

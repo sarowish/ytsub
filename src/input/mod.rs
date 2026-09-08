@@ -270,7 +270,7 @@ impl Input {
     }
 }
 
-#[derive(Clone)]
+#[derive(Copy, Clone)]
 pub enum InputMode {
     Normal,
     Subscribe,
