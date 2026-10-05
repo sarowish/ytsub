@@ -794,7 +794,7 @@ impl Api for Local {
         }))
         .await
         .into_iter()
-        .map_while(Result::ok)
+        .filter_map(Result::ok)
         .map(|path| path.to_string_lossy().to_string())
         .collect()
     }
