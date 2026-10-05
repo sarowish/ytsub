@@ -18,6 +18,7 @@ use serde_json::Value;
 use std::collections::HashSet;
 use std::sync::{LazyLock, OnceLock};
 use std::{io::Write, path::PathBuf};
+use url::Url;
 
 const API_BACKEND: ApiBackend = ApiBackend::Local;
 
@@ -563,21 +564,34 @@ impl Local {
             std::fs::create_dir_all(&dir_path)?;
         }
 
-        let path = dir_path.join(format!("{video_id}_{language_code}.srt"));
+        let path = dir_path.join(format!("{video_id}_{language_code}.vtt"));
 
         if matches!(path.try_exists(), Ok(true)) {
             return Ok(path);
         }
 
-        let response = self
-            .client
-            .get(url.replace("fmt=srv3", "fmt=vtt"))
-            .send()
-            .await?
-            .error_for_status()?;
+        let mut url = Url::parse(url)?;
+
+        let params: Vec<_> = url
+            .query_pairs()
+            .into_owned()
+            .filter(|(key, _)| key != "fmt")
+            .collect();
+
+        url.query_pairs_mut()
+            .clear()
+            .extend_pairs(params)
+            .append_pair("fmt", "vtt");
+
+        let response = self.client.get(url).send().await?.error_for_status()?;
+
+        let caption = response.text().await?;
+        let valid_header = caption.starts_with("WEBVTT");
+
+        anyhow::ensure!(valid_header, "Caption response missing the WebVTT header");
 
         let mut file = std::fs::File::create(&path)?;
-        file.write_all(response.text().await?.as_bytes())?;
+        file.write_all(caption.as_bytes())?;
 
         Ok(path)
     }

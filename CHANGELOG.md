@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Show a dedicated error for YouTube's temporary "Sign in to confirm you're not a bot" response.
 - Show the underlying yt-dlp error when mpv uses yt-dlp.
 - Wait until all channel updates are applied before reporting refresh duration.
+- Fix captions when YouTube omits the `fmt` parameter by setting `fmt=vtt` explicitly instead of relying on string replacement.
 
 ## [0.11.0] - 2026-08-28
 ### Added
