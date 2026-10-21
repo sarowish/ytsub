@@ -287,7 +287,7 @@ impl Api for Instance {
     async fn get_caption_paths(&self, formats: &Formats) -> Vec<String> {
         formats
             .captions
-            .get_selected_items()
+            .get_checked_items()
             .iter()
             .map(|caption| format!("{}{}", self.domain, caption.get_url()))
             .collect()

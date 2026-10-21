@@ -6,7 +6,7 @@ use crate::help::HelpWindowState;
 use crate::import::{self, ImportItem};
 use crate::input::{Input, InputChange, InputMode};
 use crate::list::{
-    ListItem, SearchableList, Selectable, SelectionItem, SelectionList, StatefulList,
+    ListItem, SearchableList, Selectable, SelectionItem, SelectionList, SelectionMode, StatefulList,
 };
 use crate::message::Message;
 use crate::mpv::{PlaybackPhase, PlaybackState, PlaybackUpdate};
@@ -115,7 +115,11 @@ impl App {
             app.refresh_channels();
         }
 
-        app.tags = SelectionList::new(database::get_tags(&app.conn)?);
+        app.tags = SelectionList::new(
+            database::get_tags(&app.conn)?,
+            SelectionMode::Multiple,
+            false,
+        );
 
         Ok(app)
     }
@@ -330,7 +334,7 @@ impl App {
     pub fn load_channels(&mut self) {
         let selected_tags: Vec<&str> = self
             .tags
-            .get_selected_items()
+            .get_checked_items()
             .iter()
             .map(|tag| tag.as_str())
             .collect();
@@ -630,7 +634,7 @@ impl App {
     fn get_latest_videos(&self) -> Result<Vec<(Vec<VideoListItem>, ChannelTab)>> {
         let selected_tags: Vec<&str> = self
             .tags
-            .get_selected_items()
+            .get_checked_items()
             .iter()
             .map(|tag| tag.as_str())
             .collect();
@@ -1098,8 +1102,8 @@ impl App {
             return Ok(());
         }
 
-        self.import_state = SelectionList::new(import_state);
-        self.import_state.select_all();
+        self.import_state = SelectionList::new(import_state, SelectionMode::Multiple, false);
+        self.import_state.check_all();
 
         self.input_mode = InputMode::Import;
 
@@ -1108,7 +1112,7 @@ impl App {
 
     pub fn confirm_import(&mut self) {
         self.import_state
-            .update_items(|items| items.retain(|entry| entry.selected));
+            .update_items(|items| items.retain(|entry| entry.checked));
 
         if self.import_state.items().is_empty() {
             self.input_mode = InputMode::Normal;
@@ -1263,13 +1267,16 @@ impl App {
         if let Some(selected_tag) = &self.tags.get_selected() {
             self.input_mode = InputMode::ChannelSelection;
 
-            let mut all_channels =
-                SelectionList::new(database::get_channels(&self.conn, &[]).unwrap());
+            let mut all_channels = SelectionList::new(
+                database::get_channels(&self.conn, &[]).unwrap(),
+                SelectionMode::Multiple,
+                false,
+            );
 
             let selected_channels = database::get_channels(&self.conn, &[selected_tag]).unwrap();
 
             for channel in selected_channels {
-                all_channels.update_item(&channel.channel_id, |channel| channel.selected = true);
+                all_channels.update_item(&channel.channel_id, |channel| channel.checked = true);
             }
 
             self.channel_selection = all_channels;
@@ -1279,7 +1286,7 @@ impl App {
     pub fn update_tag(&mut self) {
         let selected_channels: Vec<String> = self
             .channel_selection
-            .get_selected_items()
+            .get_checked_items()
             .into_iter()
             .map(|channel| channel.channel_id.clone())
             .collect();
@@ -1333,12 +1340,12 @@ impl App {
                 return;
             }
 
-            let mut was_toggled = false;
+            let mut was_checked = false;
 
             self.tags
-                .update_items(|items| was_toggled = items.remove(idx).selected);
+                .update_items(|items| was_checked = items.remove(idx).checked);
 
-            if was_toggled {
+            if was_checked {
                 self.reload_channels();
             }
         }
@@ -1375,7 +1382,7 @@ enum SearchTarget {
     Formats(FormatList),
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, PartialEq)]
 #[serde(rename_all(deserialize = "lowercase"))]
 pub enum VideoPlayer {
     Mpv,

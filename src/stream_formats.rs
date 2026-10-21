@@ -1,5 +1,7 @@
 use crate::CONFIG;
 use crate::api::Chapters;
+use crate::app::VideoPlayer;
+use crate::list::SelectionMode;
 use crate::video::PlaybackSpec;
 use crate::{
     api::{Format, VideoInfo},
@@ -31,10 +33,26 @@ impl Formats {
     pub fn new(spec: PlaybackSpec, video_info: VideoInfo) -> Self {
         let mut formats = Self {
             spec,
-            video_formats: SelectionList::new(video_info.video_formats),
-            audio_formats: SelectionList::new(video_info.audio_formats),
-            formats: SelectionList::new(video_info.format_streams),
-            captions: SelectionList::new(video_info.captions),
+            video_formats: SelectionList::new(
+                video_info.video_formats,
+                SelectionMode::Single,
+                true,
+            ),
+            audio_formats: SelectionList::new(
+                video_info.audio_formats,
+                SelectionMode::Single,
+                true,
+            ),
+            formats: SelectionList::new(video_info.format_streams, SelectionMode::Single, true),
+            captions: SelectionList::new(
+                video_info.captions,
+                if CONFIG.video_player_for_stream_formats == VideoPlayer::Mpv {
+                    SelectionMode::Multiple
+                } else {
+                    SelectionMode::Single
+                },
+                false,
+            ),
             chapters: video_info.chapters,
             selected_tab: 0,
             use_adaptive_streams: CONFIG.prefer_dash_formats,
@@ -68,7 +86,7 @@ impl Formats {
         }
 
         self.video_formats
-            .update_item_at(video_idx.unwrap_or_default(), |item| item.selected = true);
+            .set_checked_at(video_idx.unwrap_or_default(), true);
 
         let mut audio_idx = None;
 
@@ -96,24 +114,30 @@ impl Formats {
         }
 
         self.audio_formats
-            .update_item_at(audio_idx.unwrap_or_default(), |item| item.selected = true);
+            .set_checked_at(audio_idx.unwrap_or_default(), true);
 
-        self.formats.update_item_at(0, |item| item.selected = true);
+        let caption_indices: Vec<_> = self
+            .captions
+            .items()
+            .iter()
+            .enumerate()
+            .filter_map(|(index, caption)| {
+                let id = caption.item.id();
 
-        for language in &CONFIG.subtitle_languages {
-            self.captions
-                .update_item(language, |item| item.selected = true);
-        }
+                CONFIG
+                    .subtitle_languages
+                    .iter()
+                    .any(|language| {
+                        id == language.as_str()
+                            || id
+                                .split_once('-')
+                                .is_some_and(|(base, _)| base == language.as_str())
+                    })
+                    .then_some(index)
+            })
+            .collect();
 
-        self.captions.update_each(|caption|
-            if CONFIG
-                .subtitle_languages
-                .iter()
-                .any(|language| *language == caption.item.id() || matches!(caption.item.id().split_once('-'), Some((lang, _)) if lang == *language))
-            {
-                caption.selected = true;
-            }
-        );
+        self.captions.check_indices(&caption_indices);
     }
 
     pub const fn switch_format_type(&mut self) {
@@ -184,18 +208,18 @@ impl Formats {
     pub fn get_selected_video_url(&self) -> Option<(&str, Option<&str>)> {
         Some(if self.use_adaptive_streams {
             (
-                self.video_formats.get_selected_item()?.get_url(),
-                Some(self.audio_formats.get_selected_item()?.get_url()),
+                self.video_formats.get_checked_item()?.get_url(),
+                Some(self.audio_formats.get_checked_item()?.get_url()),
             )
         } else {
-            (self.formats.get_selected_item()?.get_url(), None)
+            (self.formats.get_checked_item()?.get_url(), None)
         })
     }
 
     pub fn get_selected_audio_url(&self) -> Option<&str> {
         self.audio_formats
-            .get_selected_item()
-            .or_else(|| self.formats.get_selected_item())
+            .get_checked_item()
+            .or_else(|| self.formats.get_checked_item())
             .map(Format::get_url)
     }
 }

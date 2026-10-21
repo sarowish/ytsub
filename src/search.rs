@@ -219,7 +219,7 @@ impl SearchSession {
 #[cfg(test)]
 mod tests {
     use super::{SearchDirection, SearchList, SearchUpdate};
-    use crate::list::{ListItem, SearchableList, Selectable, SelectionList};
+    use crate::list::{ListItem, SearchableList, Selectable, SelectionList, SelectionMode};
     use ratatui::widgets::ListState;
     use std::fmt::{self, Display};
 
@@ -631,11 +631,12 @@ mod tests {
 
     #[test]
     fn toggling_a_checkbox_updates_searchable_text_and_recovers_when_no_match_remains() {
-        let mut list = SelectionList::new(vec![
-            Item::new("current", "Current"),
-            Item::new("alpha", "Alpha"),
-        ]);
-        list.update_item("alpha", |item| item.selected = true);
+        let mut list = SelectionList::new(
+            vec![Item::new("current", "Current"), Item::new("alpha", "Alpha")],
+            SelectionMode::Single,
+            false,
+        );
+        list.update_item("alpha", |item| item.checked = true);
         list.begin_search(SearchDirection::Forward);
         list.set_search_pattern("[*]", SearchUpdate::Build);
         assert_eq!(list.get_selected().map(ListItem::id), Some("alpha"));
@@ -644,25 +645,26 @@ mod tests {
 
         assert!(!list.has_matches());
         assert_eq!(list.get_selected().map(ListItem::id), Some("current"));
-        assert!(list.get_selected_items().is_empty());
+        assert!(list.get_checked_items().is_empty());
     }
 
     #[test]
     fn bulk_checkbox_edits_refresh_the_cache_for_further_typing() {
-        let mut list = SelectionList::new(vec![
-            Item::new("alpha", "Alpha"),
-            Item::new("current", "Current"),
-        ]);
+        let mut list = SelectionList::new(
+            vec![Item::new("alpha", "Alpha"), Item::new("current", "Current")],
+            SelectionMode::Multiple,
+            false,
+        );
         list.select_with_index(1);
         list.begin_search(SearchDirection::Forward);
         list.set_search_pattern("[*]", SearchUpdate::Build);
         assert!(!list.has_matches());
 
-        list.select_all();
+        list.check_all();
         list.set_search_pattern("[*] al", SearchUpdate::Filter);
         assert_eq!(list.get_selected().map(ListItem::id), Some("alpha"));
 
-        list.deselect_all();
+        list.uncheck_all();
         assert!(!list.has_matches());
         assert_eq!(list.get_selected().map(ListItem::id), Some("current"));
     }

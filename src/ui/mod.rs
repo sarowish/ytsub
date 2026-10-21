@@ -111,7 +111,7 @@ fn draw_channels(f: &mut Frame, app: &mut App, area: Rect) {
         Selected::Videos => THEME.selected,
     };
 
-    let selected_tags = app.tags.get_selected_items();
+    let selected_tags = app.tags.get_checked_items();
 
     let title = TitleBuilder::new(area.width.into())
         .title("Channels".to_string())
@@ -232,7 +232,7 @@ fn draw_videos(f: &mut Frame, app: &mut App, area: Rect) {
         .hide_flag(app.hide_videos.contains(HideVideos::WATCHED));
 
     if app.mode == Mode::LatestVideos {
-        let selected_tags = app.tags.get_selected_items();
+        let selected_tags = app.tags.get_checked_items();
         title = title.title("Latest Videos".into()).tags(selected_tags);
     } else if let Some(channel) = app.get_current_channel() {
         title = title.title(channel.channel_name.clone());

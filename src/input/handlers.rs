@@ -1,8 +1,8 @@
 use super::InputMode;
 use crate::{
-    CONFIG, KEY_BINDINGS,
+    KEY_BINDINGS,
     api::ApiBackend,
-    app::{App, VideoPlayer},
+    app::App,
     commands::{
         ChannelSelectionCommand, Command, FormatSelectionCommand, HelpCommand, ImportCommand,
         TagCommand,
@@ -141,8 +141,8 @@ fn handle_key_import_mode(key: KeyEvent, app: &mut App) -> bool {
     if let Some(command) = KEY_BINDINGS.import.get(&key) {
         match command {
             ImportCommand::ToggleSelection => app.import_state.toggle_selected(),
-            ImportCommand::SelectAll => app.import_state.select_all(),
-            ImportCommand::DeselectAll => app.import_state.deselect_all(),
+            ImportCommand::SelectAll => app.import_state.check_all(),
+            ImportCommand::DeselectAll => app.import_state.uncheck_all(),
             ImportCommand::Import => app.confirm_import(),
         }
     } else if let Some(command) = KEY_BINDINGS.get(&key) {
@@ -177,11 +177,11 @@ fn handle_key_tag_mode(key: KeyEvent, app: &mut App) -> bool {
                 updated = true;
             }
             TagCommand::SelectAll => {
-                app.tags.select_all();
+                app.tags.check_all();
                 updated = true;
             }
             TagCommand::DeselectAll => {
-                app.tags.deselect_all();
+                app.tags.uncheck_all();
                 updated = true;
             }
             TagCommand::SelectChannels => app.enter_channel_selection(),
@@ -225,8 +225,8 @@ fn handle_key_channel_selection_mode(key: KeyEvent, app: &mut App) -> bool {
             ChannelSelectionCommand::Confirm => app.update_tag(),
             ChannelSelectionCommand::Abort => app.input_mode = InputMode::Tag,
             ChannelSelectionCommand::ToggleSelection => app.channel_selection.toggle_selected(),
-            ChannelSelectionCommand::SelectAll => app.channel_selection.select_all(),
-            ChannelSelectionCommand::DeselectAll => app.channel_selection.deselect_all(),
+            ChannelSelectionCommand::SelectAll => app.channel_selection.check_all(),
+            ChannelSelectionCommand::DeselectAll => app.channel_selection.uncheck_all(),
         }
     } else if let Some(command) = KEY_BINDINGS.get(&key) {
         match command {
@@ -256,16 +256,7 @@ fn handle_key_format_selection_mode(key: KeyEvent, app: &mut App) -> bool {
             FormatSelectionCommand::PlayVideo => app.confirm_selected_streams(),
             FormatSelectionCommand::Abort => app.input_mode = InputMode::Normal,
             FormatSelectionCommand::Select => {
-                let tab_index = app.stream_formats.selected_tab;
-                let formats = app.stream_formats.get_mut_selected_tab();
-
-                if tab_index == 2
-                    && matches!(CONFIG.video_player_for_stream_formats, VideoPlayer::Mpv)
-                {
-                    formats.toggle_selected();
-                } else {
-                    formats.select();
-                }
+                app.stream_formats.get_mut_selected_tab().toggle_selected()
             }
             FormatSelectionCommand::PreviousTab => app.stream_formats.previous_tab(),
             FormatSelectionCommand::NextTab => app.stream_formats.next_tab(),

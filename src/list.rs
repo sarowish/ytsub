@@ -572,20 +572,16 @@ impl<T, S: State> Selectable for SearchableList<T, S> {
 }
 
 pub struct SelectionItem<T> {
-    pub selected: bool,
+    pub checked: bool,
     pub item: T,
 }
 
 impl<T> SelectionItem<T> {
     pub const fn new(item: T) -> Self {
         Self {
-            selected: false,
+            checked: false,
             item,
         }
-    }
-
-    pub const fn toggle(&mut self) {
-        self.selected = !self.selected;
     }
 }
 
@@ -594,7 +590,7 @@ impl<T: Display> Display for SelectionItem<T> {
         write!(
             f,
             "[{}] {}",
-            if self.selected { "*" } else { " " },
+            if self.checked { "*" } else { " " },
             self.item
         )
     }
@@ -620,8 +616,16 @@ impl<T> DerefMut for SelectionItem<T> {
     }
 }
 
+#[derive(PartialEq)]
+pub enum SelectionMode {
+    Single,
+    Multiple,
+}
+
 pub struct SelectionList<T: ListItem> {
     inner: SearchableList<SelectionItem<T>, ListState>,
+    mode: SelectionMode,
+    selection_required: bool,
 }
 
 impl<T: ListItem> SelectionList<T> {
@@ -635,59 +639,101 @@ impl<T: ListItem> SelectionList<T> {
 }
 
 impl<T: Searchable> SelectionList<T> {
-    pub fn new(items: Vec<T>) -> Self {
+    pub fn new(items: Vec<T>, mode: SelectionMode, selection_required: bool) -> Self {
         let items = items.into_iter().map(SelectionItem::new).collect();
 
-        Self {
+        let mut list = Self {
             inner: SearchableList::with_items(items),
+            mode,
+            selection_required,
+        };
+
+        if selection_required {
+            list.set_checked_at(0, true);
+        }
+
+        list
+    }
+
+    pub fn set_checked_at(&mut self, index: usize, checked: bool) {
+        let Some(target) = self.items().get(index) else {
+            return;
+        };
+
+        let clear_other_checks = checked && self.mode == SelectionMode::Single;
+
+        if target.checked == checked && !clear_other_checks {
+            return;
+        }
+
+        if !checked
+            && self.selection_required
+            && self
+                .items()
+                .iter()
+                .enumerate()
+                .all(|(other_index, item)| other_index == index || !item.checked)
+        {
+            return;
+        }
+
+        if clear_other_checks {
+            let mut item_index = 0;
+            self.inner.update_each(|item| {
+                item.checked = item_index == index;
+                item_index += 1;
+            });
+        } else {
+            self.inner
+                .update_item_at(index, |item| item.checked = checked);
         }
     }
 
     pub fn toggle_selected(&mut self) {
         if let Some(index) = self.selected() {
-            self.update_item_at(index, |item| item.toggle());
+            let checked = self.items()[index].checked;
+            self.set_checked_at(index, !checked);
         }
     }
 
-    pub fn select(&mut self) {
-        let highlighted_index = self.selected();
-        let checked_index = self.items().iter().position(|item| item.selected);
-
-        let mut index = 0;
-
-        self.update_each(|item| {
-            if Some(index) == checked_index {
-                item.selected = false;
+    pub fn check_indices(&mut self, indices: &[usize]) {
+        for &index in indices {
+            if index >= self.len() {
+                continue;
             }
 
-            if Some(index) == highlighted_index {
-                item.toggle();
+            self.set_checked_at(index, true);
+
+            if self.mode == SelectionMode::Single {
+                break;
             }
-
-            index += 1;
-        });
+        }
     }
 
-    pub fn select_all(&mut self) {
-        self.update_each(|item| item.selected = true);
+    pub fn check_all(&mut self) {
+        if self.mode == SelectionMode::Multiple {
+            self.update_each(|item| item.checked = true);
+        }
     }
 
-    pub fn deselect_all(&mut self) {
-        self.update_each(|item| item.selected = false);
+    pub fn uncheck_all(&mut self) {
+        if !self.selection_required {
+            self.update_each(|item| item.checked = false);
+        }
     }
 
-    pub fn get_selected_items(&self) -> Vec<&T> {
+    pub fn get_checked_items(&self) -> Vec<&T> {
         self.items()
             .iter()
-            .filter(|item| item.selected)
+            .filter(|item| item.checked)
             .map(|item| &item.item)
             .collect()
     }
 
-    pub fn get_selected_item(&self) -> Option<&T> {
+    pub fn get_checked_item(&self) -> Option<&T> {
         self.items()
             .iter()
-            .find(|item| item.selected)
+            .find(|item| item.checked)
             .map(|v| &v.item)
     }
 }
@@ -740,6 +786,165 @@ impl<T: Searchable> Default for SelectionList<T> {
     fn default() -> Self {
         Self {
             inner: SearchableList::with_items(Vec::default()),
+            mode: SelectionMode::Multiple,
+            selection_required: false,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{ListItem, Selectable, SelectionList, SelectionMode};
+
+    fn list(mode: SelectionMode, selection_required: bool) -> SelectionList<String> {
+        SelectionList::new(
+            ["alpha", "beta", "gamma"].map(str::to_owned).to_vec(),
+            mode,
+            selection_required,
+        )
+    }
+
+    fn checked_items(list: &SelectionList<String>) -> Vec<&str> {
+        list.get_checked_items()
+            .into_iter()
+            .map(String::as_str)
+            .collect()
+    }
+
+    #[test]
+    fn initialization_checks_the_first_item_only_when_required() {
+        for (mode, required) in [
+            (SelectionMode::Single, false),
+            (SelectionMode::Single, true),
+            (SelectionMode::Multiple, false),
+            (SelectionMode::Multiple, true),
+        ] {
+            let list = list(mode, required);
+            let expected = if required { vec!["alpha"] } else { vec![] };
+
+            assert_eq!(checked_items(&list), expected);
+            assert_eq!(
+                list.get_checked_item().map(String::as_str),
+                expected.first().copied()
+            );
+        }
+    }
+
+    #[test]
+    fn checking_an_item_in_single_mode_replaces_the_previous_check() {
+        let mut list = list(SelectionMode::Single, false);
+        list.set_checked_at(0, true);
+
+        list.set_checked_at(2, true);
+
+        assert_eq!(checked_items(&list), vec!["gamma"]);
+        assert_eq!(list.get_checked_item().map(String::as_str), Some("gamma"));
+    }
+
+    #[test]
+    fn multiple_mode_allows_independent_checks() {
+        let mut list = list(SelectionMode::Multiple, false);
+        list.set_checked_at(0, true);
+        list.set_checked_at(2, true);
+        assert_eq!(checked_items(&list), vec!["alpha", "gamma"]);
+
+        list.set_checked_at(0, false);
+        assert_eq!(checked_items(&list), vec!["gamma"]);
+
+        list.set_checked_at(2, false);
+        assert!(checked_items(&list).is_empty());
+    }
+
+    #[test]
+    fn required_single_selection_can_be_replaced_but_not_unchecked() {
+        let mut list = list(SelectionMode::Single, true);
+
+        list.set_checked_at(0, false);
+        assert_eq!(checked_items(&list), vec!["alpha"]);
+
+        list.toggle_selected();
+        assert_eq!(checked_items(&list), vec!["alpha"]);
+
+        list.set_checked_at(2, true);
+        assert_eq!(checked_items(&list), vec!["gamma"]);
+
+        list.set_checked_at(2, false);
+        assert_eq!(checked_items(&list), vec!["gamma"]);
+    }
+
+    #[test]
+    fn required_multiple_selection_only_prevents_removing_the_last_check() {
+        let mut list = list(SelectionMode::Multiple, true);
+        list.set_checked_at(1, true);
+
+        list.set_checked_at(0, false);
+        assert_eq!(checked_items(&list), vec!["beta"]);
+
+        list.set_checked_at(1, false);
+        assert_eq!(checked_items(&list), vec!["beta"]);
+    }
+
+    #[test]
+    fn toggling_the_highlighted_item_respects_the_selection_mode() {
+        for (mode, after_check, after_uncheck) in [
+            (SelectionMode::Single, vec!["beta"], vec![]),
+            (
+                SelectionMode::Multiple,
+                vec!["alpha", "beta"],
+                vec!["alpha"],
+            ),
+        ] {
+            let mut list = list(mode, false);
+            list.set_checked_at(0, true);
+            list.select_with_index(1);
+            assert_eq!(list.get_selected().map(ListItem::id), Some("beta"));
+            assert_eq!(checked_items(&list), vec!["alpha"]);
+
+            list.toggle_selected();
+            assert_eq!(checked_items(&list), after_check);
+
+            list.toggle_selected();
+            assert_eq!(checked_items(&list), after_uncheck);
+            assert_eq!(list.get_selected().map(ListItem::id), Some("beta"));
+        }
+    }
+
+    #[test]
+    fn checking_indices_in_single_mode_uses_the_first_valid_index() {
+        let mut list = list(SelectionMode::Single, false);
+        list.set_checked_at(0, true);
+
+        list.check_indices(&[3, 2, 1]);
+
+        assert_eq!(checked_items(&list), vec!["gamma"]);
+    }
+
+    #[test]
+    fn bulk_checks_respect_the_mode_and_selection_requirement() {
+        for (mode, required, after_check, after_uncheck) in [
+            (SelectionMode::Single, false, vec!["beta"], vec![]),
+            (SelectionMode::Single, true, vec!["beta"], vec!["beta"]),
+            (
+                SelectionMode::Multiple,
+                false,
+                vec!["alpha", "beta", "gamma"],
+                vec![],
+            ),
+            (
+                SelectionMode::Multiple,
+                true,
+                vec!["alpha", "beta", "gamma"],
+                vec!["alpha", "beta", "gamma"],
+            ),
+        ] {
+            let mut list = list(mode, required);
+            list.set_checked_at(1, true);
+
+            list.check_all();
+            assert_eq!(checked_items(&list), after_check);
+
+            list.uncheck_all();
+            assert_eq!(checked_items(&list), after_uncheck);
         }
     }
 }

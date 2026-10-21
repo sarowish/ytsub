@@ -782,7 +782,7 @@ impl Api for Local {
     }
 
     async fn get_caption_paths(&self, formats: &Formats) -> Vec<String> {
-        let captions = formats.captions.get_selected_items();
+        let captions = formats.captions.get_checked_items();
 
         join_all(captions.iter().map(|captions| async {
             self.get_caption(
