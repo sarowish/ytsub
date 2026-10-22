@@ -8,6 +8,7 @@ use crate::message::MessageType;
 use crate::mpv::PlaybackPhase;
 use crate::search::Searchable;
 use crate::stream_formats::Formats;
+use crate::thumbnail::ThumbnailState;
 use crate::utils::length_as_hhmmss;
 use crate::{CONFIG, HELP, THEME};
 use ratatui::Frame;
@@ -83,14 +84,14 @@ pub fn draw(f: &mut Frame, app: &mut App) {
         ),
         InputMode::FormatSelection => draw_format_selection(f, &mut app.stream_formats),
         _ => {
-            if let Some(thumbnail) = &mut app.thumbnail {
+            if let ThumbnailState::Loaded(thumbnail) = &mut app.thumbnail {
                 thumbnail.covered_area.take();
             }
             return;
         }
     };
 
-    if let Some(thumbnail) = &mut app.thumbnail {
+    if let ThumbnailState::Loaded(thumbnail) = &mut app.thumbnail {
         thumbnail.mark_popup_area_for_redraw(f.buffer_mut(), popup_area);
     }
 }
@@ -193,12 +194,14 @@ fn draw_videos(f: &mut Frame, app: &mut App, area: Rect) {
         || shown_columns.len() < columns.len())
         && app.get_current_video().is_some()
     {
-        let height = if let Some(emulator) = &app.emulator
-            && let Some(thumbnail) = &app.thumbnail
-        {
-            thumbnail.height.div_ceil(emulator.cell_height)
-        } else {
-            4
+        let height = match (&app.emulator, &app.thumbnail) {
+            (Some(emulator), ThumbnailState::Reserved(size)) => {
+                size.height.div_ceil(emulator.cell_height)
+            }
+            (Some(emulator), ThumbnailState::Loaded(thumbnail)) => {
+                thumbnail.height.div_ceil(emulator.cell_height)
+            }
+            _ => 4,
         };
 
         match CONFIG.video_info_position {
@@ -368,32 +371,35 @@ fn draw_video_info(f: &mut Frame, app: &mut App, area: Rect) {
 
     let current_video = app.tabs.get_selected_video().unwrap();
 
-    let video_info_area = if let Some(emulator) = &mut app.emulator
-        && let Some(thumbnail) = &mut app.thumbnail
-    {
-        let image_size = Size::new(
-            thumbnail.width.div_ceil(emulator.cell_width),
-            thumbnail.height.div_ceil(emulator.cell_height),
-        );
-
-        let chunks = Layout::default()
-            .constraints([Constraint::Length(image_size.width), Constraint::Fill(1)])
+    let split_info = |width| {
+        Layout::default()
+            .constraints([Constraint::Length(width), Constraint::Fill(1)])
             .direction(Direction::Horizontal)
             .spacing(1)
-            .split(inner_area);
+            .split(inner_area)
+    };
 
-        let buf = f.buffer_mut();
-
-        if thumbnail
-            .render(buf, chunks[0], image_size, emulator.clear_needed)
-            .is_ok()
-        {
-            chunks[1]
-        } else {
-            inner_area
+    let video_info_area = match (&app.emulator, &mut app.thumbnail) {
+        (Some(emulator), ThumbnailState::Reserved(size)) => {
+            split_info(size.width.div_ceil(emulator.cell_width))[1]
         }
-    } else {
-        inner_area
+        (Some(emulator), ThumbnailState::Loaded(thumbnail)) => {
+            let image_size = Size::new(
+                thumbnail.width.div_ceil(emulator.cell_width),
+                thumbnail.height.div_ceil(emulator.cell_height),
+            );
+            let chunks = split_info(image_size.width);
+
+            if thumbnail
+                .render(f.buffer_mut(), chunks[0], image_size, emulator.clear_needed)
+                .is_ok()
+            {
+                chunks[1]
+            } else {
+                inner_area
+            }
+        }
+        _ => inner_area,
     };
 
     let length = current_video

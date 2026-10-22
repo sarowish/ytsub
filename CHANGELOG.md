@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Keep collecting captions after an error instead of stopping at the first failure.
 - Keep active searches and cancellation recovery consistent when lists change during refreshes.
 - Enforce subtitle selection rules when initializing stream formats, preventing multiple subtitles from being selected for VLC.
+- Replace stale thumbnails with a blank area if the selected thumbnail hasn't loaded after a short delay.
 
 ## [0.11.0] - 2026-08-28
 ### Added

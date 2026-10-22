@@ -15,6 +15,23 @@ use std::{fmt::Write, num::NonZeroU16};
 
 const UNIT_WIDTH: CellDiffOption = CellDiffOption::ForcedWidth(NonZeroU16::new(1).unwrap());
 
+#[derive(Default)]
+pub enum ThumbnailState {
+    Reserved(Size),
+    Loaded(Thumbnail),
+    #[default]
+    Unavailable,
+}
+
+impl ThumbnailState {
+    pub fn clear_image(&mut self) {
+        if let Self::Loaded(thumbnail) = self {
+            let size = Size::new(thumbnail.width, thumbnail.height);
+            *self = Self::Reserved(size);
+        }
+    }
+}
+
 pub struct Thumbnail {
     pub data: ImageData,
     pub width: u16,

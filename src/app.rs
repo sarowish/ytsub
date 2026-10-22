@@ -13,7 +13,7 @@ use crate::mpv::{PlaybackPhase, PlaybackState, PlaybackUpdate};
 use crate::progress::{ProgressActions, ProgressTracker};
 use crate::search::{LastSearch, SearchDirection, SearchList, SearchUpdate};
 use crate::stream_formats::{FormatList, Formats};
-use crate::thumbnail::Thumbnail;
+use crate::thumbnail::ThumbnailState;
 use crate::video::{FetchedVideo, PlaybackSpec, Video, VideoListItem, VideoMetadata};
 use crate::{CLAP_ARGS, CONFIG, IoEvent, database, utils};
 use anyhow::{Context, Result};
@@ -24,7 +24,9 @@ use std::collections::{HashMap, HashSet};
 use std::mem;
 use std::ops::{Deref, DerefMut};
 use std::path::Path;
+use std::time::Duration;
 use tokio::sync::mpsc::UnboundedSender;
+use tokio::time::Instant;
 
 pub struct App {
     pub emulator: Option<Emulator>,
@@ -34,7 +36,8 @@ pub struct App {
     pub selected: Selected,
     pub mode: Mode,
     pub conn: Connection,
-    pub thumbnail: Option<Thumbnail>,
+    pub thumbnail: ThumbnailState,
+    pub thumbnail_clear_deadline: Option<Instant>,
     pub message: Message,
     pub playback_state: PlaybackState,
     progress_tracker: ProgressTracker,
@@ -69,7 +72,8 @@ impl App {
             selected: Selected::default(),
             mode: Mode::default(),
             conn: database::open_db(&CONFIG.database)?,
-            thumbnail: None,
+            thumbnail: ThumbnailState::Unavailable,
+            thumbnail_clear_deadline: None,
             message: Message::new(),
             playback_state: PlaybackState::default(),
             progress_tracker: ProgressTracker::default(),
@@ -777,10 +781,17 @@ impl App {
         if let Some(emulator) = &self.emulator
             && let Some(video) = self.get_current_video()
         {
-            self.dispatch(IoEvent::GetThumbnail(
-                emulator.graphics_protocol,
-                video.video_id.clone(),
-            ));
+            let request = IoEvent::GetThumbnail(emulator.graphics_protocol, video.video_id.clone());
+
+            if matches!(&self.thumbnail, ThumbnailState::Loaded(_)) {
+                self.thumbnail_clear_deadline
+                    .get_or_insert_with(|| Instant::now() + Duration::from_millis(300));
+            }
+
+            self.dispatch(request);
+        } else {
+            self.thumbnail_clear_deadline = None;
+            self.thumbnail = ThumbnailState::Unavailable;
         }
     }
 

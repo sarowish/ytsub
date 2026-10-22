@@ -34,6 +34,7 @@ use crate::config::keys::KeyBindings;
 use crate::config::theme::Theme;
 use crate::emulator::Emulator;
 use crate::mpv::PlaybackPhase;
+use crate::thumbnail::ThumbnailState;
 use anyhow::Result;
 use app::App;
 use backend::CrosstermBackend;
@@ -182,12 +183,16 @@ fn downgrade_removed_data(from: u8, to: u8) -> Vec<&'static str> {
 }
 
 fn render(app: &mut App, terminal: &mut AppTerminal) -> Result<()> {
-    let prev_covered_area = app.thumbnail.as_ref().and_then(|t| t.covered_area);
+    let prev_covered_area = if let ThumbnailState::Loaded(thumbnail) = &app.thumbnail {
+        thumbnail.covered_area
+    } else {
+        None
+    };
 
     terminal.draw(|f| draw(f, app))?;
 
     if let Some(e) = &app.emulator
-        && let Some(t) = &app.thumbnail
+        && let ThumbnailState::Loaded(t) = &app.thumbnail
         && t.needs_rerender(prev_covered_area, e.graphics_protocol)
     {
         terminal.swap_buffers();
@@ -218,6 +223,15 @@ async fn sleep_if_timeout(timeout: &mut Option<Duration>) -> bool {
     true
 }
 
+async fn wait_for_deadline(deadline: Option<tokio::time::Instant>) -> bool {
+    let Some(deadline) = deadline else {
+        return false;
+    };
+
+    tokio::time::sleep_until(deadline).await;
+    true
+}
+
 async fn run_tui(
     terminal: &mut AppTerminal,
     rx: UnboundedReceiver<IoEvent>,
@@ -245,6 +259,14 @@ async fn run_tui(
     loop {
         tokio::select! {
             true = sleep_if_timeout(&mut timeout) => {
+                render(&mut app, terminal)?;
+                last_render = Instant::now();
+            }
+            true = wait_for_deadline(app.thumbnail_clear_deadline) => {
+                app.thumbnail_clear_deadline = None;
+                app.thumbnail.clear_image();
+
+                timeout = None;
                 render(&mut app, terminal)?;
                 last_render = Instant::now();
             }
@@ -364,7 +386,13 @@ fn handle_event(event: ClientRequest, app: &mut App) {
                 .is_some_and(|video| video.video_id == video_id);
 
             if is_current_video {
-                app.thumbnail = data;
+                app.thumbnail_clear_deadline = None;
+
+                app.thumbnail = if let Some(data) = data {
+                    ThumbnailState::Loaded(data)
+                } else {
+                    ThumbnailState::Unavailable
+                };
             }
         }
         ClientRequest::EnterFormatSelection(formats) => {
