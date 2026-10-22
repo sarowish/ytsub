@@ -6,16 +6,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.1] - 2026-10-22
 ### Fixed
 - Pin `h2` to 0.4.18 to prevent failures during large Local API refreshes.
+[`2a318a4`](https://github.com/sarowish/ytsub/commit/2a318a4)
 - Show a dedicated error for YouTube's temporary "Sign in to confirm you're not a bot" response.
+[`59b3cf8`](https://github.com/sarowish/ytsub/commit/59b3cf8)
 - Show the underlying yt-dlp error when mpv uses yt-dlp.
+[`f70c89c`](https://github.com/sarowish/ytsub/commit/f70c89c)
 - Wait until all channel updates are applied before reporting refresh duration.
+[`5446e49`](https://github.com/sarowish/ytsub/commit/5446e49)
 - Fix captions when YouTube omits the `fmt` parameter by setting `fmt=vtt` explicitly instead of relying on string replacement.
+[`d3c2209`](https://github.com/sarowish/ytsub/commit/d3c2209)
 - Keep collecting captions after an error instead of stopping at the first failure.
+[`b431e99`](https://github.com/sarowish/ytsub/commit/b431e99)
 - Keep active searches and cancellation recovery consistent when lists change during refreshes.
+[`751b582`](https://github.com/sarowish/ytsub/commit/751b582)
 - Enforce subtitle selection rules when initializing stream formats, preventing multiple subtitles from being selected for VLC.
+[`f0b301a`](https://github.com/sarowish/ytsub/commit/f0b301a)
 - Replace stale thumbnails with a blank area if the selected thumbnail hasn't loaded after a short delay.
+[`53b9181`](https://github.com/sarowish/ytsub/commit/53b9181)
 
 ## [0.11.0] - 2026-08-28
 ### Added
