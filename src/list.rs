@@ -141,20 +141,38 @@ pub trait Selectable: Scrollable {
         self.set_selected_index(None);
     }
 
-    fn next(&mut self) {
-        let i = self
-            .selected()
-            .map_or(0, |i| if i >= self.len() - 1 { 0 } else { i + 1 });
+    fn next(&mut self, wrap: bool) {
+        let Some(mut index) = self.selected() else {
+            return self.select_with_index(0);
+        };
 
-        self.select_with_index(i);
+        let Some(last) = self.len().checked_sub(1) else {
+            return;
+        };
+
+        index = match (index >= last, wrap) {
+            (false, _) => index + 1,
+            (true, true) => 0,
+            (true, false) => return,
+        };
+
+        self.select_with_index(index);
     }
 
-    fn previous(&mut self) {
-        let i = self
-            .selected()
-            .map_or(0, |i| if i == 0 { self.len() - 1 } else { i - 1 });
+    fn previous(&mut self, wrap: bool) {
+        let Some(mut index) = self.selected() else {
+            return self.select_with_index(0);
+        };
 
-        self.select_with_index(i);
+        let length = self.len();
+
+        index = match (index == 0, wrap) {
+            (true, true) if length != 0 => length - 1,
+            (false, _) => index - 1,
+            _ => return,
+        };
+
+        self.select_with_index(index);
     }
 
     fn select_first(&mut self) {
@@ -809,6 +827,31 @@ mod tests {
             .into_iter()
             .map(String::as_str)
             .collect()
+    }
+
+    #[test]
+    fn next_wraps_or_stops_at_the_last_item() {
+        for (wrap, expected_indices) in [(true, [1, 2, 0, 1]), (false, [1, 2, 2, 2])] {
+            let mut list = list(SelectionMode::Multiple, false);
+
+            for expected in expected_indices {
+                list.next(wrap);
+                assert_eq!(list.selected(), Some(expected), "wrap={wrap}");
+            }
+        }
+    }
+
+    #[test]
+    fn previous_wraps_or_stops_at_the_first_item() {
+        for (wrap, expected_indices) in [(true, [1, 0, 2, 1]), (false, [1, 0, 0, 0])] {
+            let mut list = list(SelectionMode::Multiple, false);
+            list.select_last();
+
+            for expected in expected_indices {
+                list.previous(wrap);
+                assert_eq!(list.selected(), Some(expected), "wrap={wrap}");
+            }
+        }
     }
 
     #[test]

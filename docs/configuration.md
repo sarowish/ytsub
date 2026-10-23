@@ -40,6 +40,7 @@ It is advisable to add only the parts you want to change instead of checking in 
 | `to_be_refreshed_symbol`          | Symbol shown for a channel waiting to be refreshed.                                                          | `"□ "`                                      |
 | `refreshing_symbol`               | Symbol shown while a channel is being refreshed.                                                             | `"■ "`                                      |
 | `failed_symbol`                   | Symbol shown when refreshing a channel fails.                                                                | `"✗ "`                                      |
+| `wrap_list_navigation`            | Wrap between the first and last list items when using `on_down` or `on_up`.                                  | `true`                                      |
 | `unicode_progress_bar`            | Use Unicode block characters to display playback progress bar.                                               | `true`                                      |
 | `datetime_format`                 | Format used for scheduled stream and premiere dates. Uses [chrono/strftime format specifiers][strftime].     | `"%Y-%m-%d %H:%M"`                          |
 | `hide_progress_percentage`        | Hide playback percentage indicators.                                                                         | `false`                                     |

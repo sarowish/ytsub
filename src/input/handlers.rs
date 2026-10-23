@@ -1,6 +1,6 @@
 use super::InputMode;
 use crate::{
-    KEY_BINDINGS,
+    CONFIG, KEY_BINDINGS,
     api::ApiBackend,
     app::App,
     commands::{
@@ -8,8 +8,7 @@ use crate::{
         TagCommand,
     },
     help::HelpWindowState,
-    list::Scrollable as _,
-    list::Selectable as _,
+    list::{Scrollable as _, Selectable as _},
 };
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind};
 
@@ -39,8 +38,8 @@ fn handle_key_normal_mode(key: KeyEvent, app: &mut App) -> bool {
         match command {
             Command::SetModeSubs => app.set_mode_subs(),
             Command::SetModeLatestVideos => app.set_mode_latest_videos(),
-            Command::OnDown => app.apply_to_focused_list(|l| l.next()),
-            Command::OnUp => app.apply_to_focused_list(|l| l.previous()),
+            Command::OnDown => app.apply_to_focused_list(|l| l.next(CONFIG.wrap_list_navigation)),
+            Command::OnUp => app.apply_to_focused_list(|l| l.previous(CONFIG.wrap_list_navigation)),
             Command::OnLeft => app.on_left(),
             Command::OnRight => app.on_right(),
             Command::SelectFirst => app.select_first(),
@@ -50,11 +49,11 @@ fn handle_key_normal_mode(key: KeyEvent, app: &mut App) -> bool {
             Command::HalfPageUp => app.apply_to_focused_list(|l| l.half_page_up()),
             Command::HalfPageDown => app.apply_to_focused_list(|l| l.half_page_down()),
             Command::NextTab => {
-                app.tabs.next();
+                app.tabs.next(true);
                 app.on_change_video();
             }
             Command::PreviousTab => {
-                app.tabs.previous();
+                app.tabs.previous(true);
                 app.on_change_video();
             }
             Command::JumpToChannel => app.jump_to_channel(),
@@ -147,8 +146,8 @@ fn handle_key_import_mode(key: KeyEvent, app: &mut App) -> bool {
         }
     } else if let Some(command) = KEY_BINDINGS.get(&key) {
         match command {
-            Command::OnDown => app.import_state.next(),
-            Command::OnUp => app.import_state.previous(),
+            Command::OnDown => app.import_state.next(CONFIG.wrap_list_navigation),
+            Command::OnUp => app.import_state.previous(CONFIG.wrap_list_navigation),
             Command::SelectFirst => app.import_state.select_first(),
             Command::SelectLast => app.import_state.select_last(),
             Command::PageUp => app.import_state.page_up(),
@@ -198,8 +197,8 @@ fn handle_key_tag_mode(key: KeyEvent, app: &mut App) -> bool {
         }
     } else if let Some(command) = KEY_BINDINGS.get(&key) {
         match command {
-            Command::OnDown => app.tags.next(),
-            Command::OnUp => app.tags.previous(),
+            Command::OnDown => app.tags.next(CONFIG.wrap_list_navigation),
+            Command::OnUp => app.tags.previous(CONFIG.wrap_list_navigation),
             Command::SelectFirst => app.tags.select_first(),
             Command::SelectLast => app.tags.select_last(),
             Command::PageUp => app.tags.page_up(),
@@ -230,8 +229,8 @@ fn handle_key_channel_selection_mode(key: KeyEvent, app: &mut App) -> bool {
         }
     } else if let Some(command) = KEY_BINDINGS.get(&key) {
         match command {
-            Command::OnDown => app.channel_selection.next(),
-            Command::OnUp => app.channel_selection.previous(),
+            Command::OnDown => app.channel_selection.next(CONFIG.wrap_list_navigation),
+            Command::OnUp => app.channel_selection.previous(CONFIG.wrap_list_navigation),
             Command::SelectFirst => app.channel_selection.select_first(),
             Command::SelectLast => app.channel_selection.select_last(),
             Command::PageUp => app.channel_selection.page_up(),
@@ -264,8 +263,14 @@ fn handle_key_format_selection_mode(key: KeyEvent, app: &mut App) -> bool {
         }
     } else if let Some(command) = KEY_BINDINGS.get(&key) {
         match command {
-            Command::OnDown => app.stream_formats.get_mut_selected_tab().next(),
-            Command::OnUp => app.stream_formats.get_mut_selected_tab().previous(),
+            Command::OnDown => app
+                .stream_formats
+                .get_mut_selected_tab()
+                .next(CONFIG.wrap_list_navigation),
+            Command::OnUp => app
+                .stream_formats
+                .get_mut_selected_tab()
+                .previous(CONFIG.wrap_list_navigation),
             Command::SelectFirst => app.stream_formats.get_mut_selected_tab().select_first(),
             Command::SelectLast => app.stream_formats.get_mut_selected_tab().select_last(),
             Command::PageUp => app.stream_formats.get_mut_selected_tab().page_up(),

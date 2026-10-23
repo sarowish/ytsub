@@ -53,6 +53,7 @@ pub struct Config {
     pub to_be_refreshed_symbol: String,
     pub refreshing_symbol: String,
     pub failed_symbol: String,
+    pub wrap_list_navigation: bool,
     pub unicode_progress_bar: bool,
     #[serde(deserialize_with = "deserialize_date_format")]
     pub datetime_format: String,
@@ -154,6 +155,7 @@ impl Default for Config {
             to_be_refreshed_symbol: String::from("□ "),
             refreshing_symbol: String::from("■ "),
             failed_symbol: String::from("✗ "),
+            wrap_list_navigation: true,
             unicode_progress_bar: true,
             datetime_format: String::from("%Y-%m-%d %H:%M"),
             video_player_for_stream_formats: VideoPlayer::Mpv,

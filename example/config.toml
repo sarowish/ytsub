@@ -16,6 +16,7 @@ highlight_symbol = ""
 to_be_refreshed_symbol = "□ "
 refreshing_symbol = "■ "
 failed_symbol = "✗ "
+wrap_list_navigation = true
 unicode_progress_bar = true
 datetime_format = "%Y-%m-%d %H:%M"
 hide_progress_percentage = false
