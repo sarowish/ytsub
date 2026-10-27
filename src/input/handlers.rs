@@ -91,6 +91,7 @@ fn handle_key_normal_mode(key: KeyEvent, app: &mut App) -> bool {
             Command::ReleaseVideo => app.release_video(),
             Command::SelectFormats => app.enter_format_selection(),
             Command::ToggleWatched => app.toggle_watched(),
+            Command::ClearProgress => app.clear_progress(),
             Command::ToggleHelp => app.toggle_help(),
             Command::ToggleTag => app.toggle_tag_selection(),
             Command::Quit => return true,

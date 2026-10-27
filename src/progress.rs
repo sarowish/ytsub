@@ -88,6 +88,12 @@ impl ProgressTracker {
         self.last_saved_at = Some(saved_at);
     }
 
+    pub fn clear(&mut self, video_id: &str) {
+        if self.video_id.as_deref() == Some(video_id) {
+            *self = Self::default();
+        }
+    }
+
     fn switch_video(&mut self, video_id: &str) -> Option<ProgressSave> {
         if self.video_id.as_deref() == Some(video_id) {
             return None;

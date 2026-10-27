@@ -4,7 +4,7 @@ use ratatui::layout::Rect;
 use std::ops::{Deref, DerefMut};
 use unicode_width::UnicodeWidthStr;
 
-const DESCRIPTIONS_LEN: usize = 52;
+const DESCRIPTIONS_LEN: usize = 53;
 const DESCRIPTIONS: [&str; DESCRIPTIONS_LEN] = [
     "Switch to subscriptions mode",
     "Switch to latest videos mode",
@@ -55,6 +55,7 @@ const DESCRIPTIONS: [&str; DESCRIPTIONS_LEN] = [
     "Release control of the current video",
     "Toggle format selection window",
     "Mark/unmark video as watched",
+    "Clear saved video progress",
     "Toggle help window",
     "Toggle tag selection window",
     "Quit application",

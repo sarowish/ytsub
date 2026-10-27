@@ -115,6 +115,7 @@ help = { fg = "Green" }
 "" = "release_video"
 "f" = "select_formats"
 "m" = "toggle_watched"
+"M" = "clear_progress"
 "ctrl-h" = "toggle_help"
 "T" = "toggle_tag"
 "q" = "quit"

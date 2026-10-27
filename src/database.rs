@@ -779,6 +779,15 @@ pub fn set_position(conn: &Connection, video_id: &str, position: u64) -> Result<
     Ok(())
 }
 
+pub fn clear_position(conn: &Connection, video_id: &str) -> Result<()> {
+    conn.execute(
+        "UPDATE video_state SET position = NULL WHERE video_id = ?1",
+        params![video_id],
+    )?;
+
+    Ok(())
+}
+
 pub fn create_tag(conn: &Connection, tag_name: &str) -> Result<()> {
     conn.execute(
         "INSERT INTO tags (tag_name)

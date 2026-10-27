@@ -401,15 +401,6 @@ impl App {
         self.tabs.get_selected_video()
     }
 
-    pub fn set_watched(&mut self, video_id: &str, is_watched: bool) {
-        self.tabs
-            .update_video(video_id, |video| video.watched = is_watched);
-
-        if let Err(e) = database::set_watched(&self.conn, video_id, is_watched) {
-            self.set_error_message(&e.to_string());
-        }
-    }
-
     pub fn handle_playback_update(&mut self, update: PlaybackUpdate) {
         let PlaybackUpdate { state, cause } = update;
 
@@ -473,6 +464,15 @@ impl App {
         }
     }
 
+    pub fn set_watched(&mut self, video_id: &str, is_watched: bool) {
+        self.tabs
+            .update_video(video_id, |video| video.watched = is_watched);
+
+        if let Err(e) = database::set_watched(&self.conn, video_id, is_watched) {
+            self.set_error_message(&e.to_string());
+        }
+    }
+
     pub fn toggle_watched(&mut self) {
         let Some((video_id, watched)) = self
             .get_current_video()
@@ -482,6 +482,21 @@ impl App {
         };
 
         self.set_watched(&video_id, !watched);
+    }
+
+    pub fn clear_progress(&mut self) {
+        let Some(video_id) = self.get_current_video().map(|video| video.id().to_owned()) else {
+            return;
+        };
+
+        if let Err(error) = database::clear_position(&self.conn, &video_id) {
+            self.set_error_message(&error.to_string());
+            return;
+        }
+
+        self.progress_tracker.clear(&video_id);
+        self.tabs
+            .update_video(&video_id, |video| video.position = None);
     }
 
     pub fn toggle_hide(&mut self) {

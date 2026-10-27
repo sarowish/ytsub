@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 ### Added
 - Add `wrap_list_navigation` to control whether navigation wraps between the first and last list items.
-
+- Add `clear_progress` command, bound to `M` by default, to clear the selected video's saved playback progress.
 
 ## [0.11.1] - 2026-10-22
 ### Fixed

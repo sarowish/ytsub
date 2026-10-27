@@ -141,6 +141,7 @@ impl Default for KeyBindings {
         insert_binding!(general, "x", Command::StopPlayback);
         insert_binding!(general, "f", Command::SelectFormats);
         insert_binding!(general, "m", Command::ToggleWatched);
+        insert_binding!(general, "M", Command::ClearProgress);
         insert_binding!(general, "ctrl-h", Command::ToggleHelp);
         insert_binding!(general, "T", Command::ToggleTag);
         insert_binding!(general, "q", Command::Quit);

@@ -257,6 +257,7 @@ Window-specific bindings are shown as inline help in popup windows.
 | `release_video`               | Release control of the current video                                | —             |
 | `select_formats`              | Toggle format selection window                                      | `f`           |
 | `toggle_watched`              | Mark/unmark video as watched                                        | `m`           |
+| `clear_progress`              | Clear saved video progress                                          | `M`           |
 | `toggle_help`                 | Toggle help window                                                  | `ctrl-h`      |
 | `toggle_tag`                  | Toggle tag selection window                                         | `T`           |
 | `quit`                        | Quit application                                                    | `q`, `ctrl-c` |

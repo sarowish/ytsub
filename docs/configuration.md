@@ -231,6 +231,7 @@ Valid key codes are:
 | `release_video`               | Release control of the current video                                |
 | `select_formats`              | Toggle format selection window                                      |
 | `toggle_watched`              | Mark/unmark video as watched                                        |
+| `clear_progress`              | Clear saved video progress                                          |
 | `toggle_help`                 | Toggle help window                                                  |
 | `toggle_tag`                  | Toggle tag selection window                                         |
 | `quit`                        | Quit application                                                    |
